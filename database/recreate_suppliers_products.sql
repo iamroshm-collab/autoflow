@@ -1,0 +1,36 @@
+DROP TABLE IF EXISTS "Products";
+DROP TABLE IF EXISTS "Suppliers";
+
+CREATE TABLE "Suppliers" (
+  "SupplierID" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  "SupplierName" TEXT NOT NULL,
+  "Address" TEXT,
+  "MobileNo" TEXT NOT NULL,
+  "StateID" TEXT,
+  "GSTIN" TEXT,
+  "PAN" TEXT,
+  "CreatedOn" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX "Suppliers_MobileNo_idx" ON "Suppliers"("MobileNo");
+
+CREATE TABLE "Products" (
+  "ProductID" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  "SupplierID" INTEGER NOT NULL,
+  "ProductName" TEXT NOT NULL,
+  "Unit" TEXT,
+  "ProductDescription" TEXT,
+  "HSNCode" TEXT,
+  "MRP" REAL NOT NULL DEFAULT 0,
+  "CGSTRate" REAL NOT NULL DEFAULT 0,
+  "PurchasePrice" REAL NOT NULL DEFAULT 0,
+  "SalePrice" REAL NOT NULL DEFAULT 0,
+  "SGSTRate" REAL NOT NULL DEFAULT 0,
+  "IGSTRate" REAL NOT NULL DEFAULT 0,
+  "CreatedOn" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "Products_SupplierID_fkey"
+    FOREIGN KEY ("SupplierID") REFERENCES "Suppliers" ("SupplierID")
+    ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE INDEX "Products_SupplierID_idx" ON "Products"("SupplierID");

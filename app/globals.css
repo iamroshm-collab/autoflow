@@ -1,0 +1,331 @@
+/* stylelint-disable */
+/* stylelint-disable at-rule-no-unknown */
+/* stylelint-disable-next-line at-rule-no-unknown */
+@tailwind base;
+/* stylelint-disable-next-line at-rule-no-unknown */
+@tailwind components;
+/* stylelint-disable-next-line at-rule-no-unknown */
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    @apply text-wrap;
+  }
+
+  /* Dropdown container - ensures always opens downward */
+  .dropdown-container {
+    @apply absolute top-full w-full z-50 mt-1.5;
+  }
+
+  /* Dropdown scroll container - handles scrolling with hidden scrollbar */
+  .dropdown-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-appearance: none;
+    appearance: none;
+    max-height: 15rem; /* 240px - max-h-60 */
+    scroll-behavior: smooth;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    background-color: white;
+    border: 1px solid rgb(226 232 240); /* slate-200 */
+    border-radius: 0.375rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+
+  .dropdown-scroll::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+  }
+
+  /* Hide scroll indicators and chevrons */
+  .dropdown-scroll::-webkit-scrollbar-track {
+    display: none !important;
+    background: transparent !important;
+  }
+
+  .dropdown-scroll::-webkit-scrollbar-thumb {
+    display: none !important;
+    background: transparent !important;
+  }
+
+  .dropdown-scroll::-webkit-scrollbar-button {
+    display: none !important;
+  }
+
+  /* Firefox scrollbar */
+  .dropdown-scroll {
+    scrollbar-color: transparent transparent;
+  }
+
+  /* Hide Popover arrow completely */
+  [data-radix-popover-content] svg {
+    display: none !important;
+  }
+
+  /* Dropdown item styling - consistent across all dropdowns */
+  .dropdown-item {
+    width: 100%;
+    display: block;
+    text-align: left;
+    padding: 0.4rem 0.75rem;
+    min-height: 2.5rem;
+    font-size: 0.875rem;
+    color: rgb(51 65 85); /* slate-700 */
+    border: none;
+    background-color: white;
+    transition-property: background-color, color;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+    cursor: pointer;
+    line-height: 1.2;
+  }
+
+  /* Fixed compact row height for dense dropdowns (e.g., Shop Settings state list) */
+  .dropdown-item.compact {
+    min-height: 1.5rem;
+    padding: 0 0.75rem;
+    line-height: 1;
+  }
+
+  .dropdown-item:first-child {
+    border-top-left-radius: 0.375rem;
+    border-top-right-radius: 0.375rem;
+  }
+
+  .dropdown-item:last-child {
+    border-bottom-left-radius: 0.375rem;
+    border-bottom-right-radius: 0.375rem;
+  }
+
+  .dropdown-item:hover {
+    background-color: rgb(239 246 255); /* blue-50 */
+    color: rgb(30 41 59); /* slate-800 */
+  }
+
+  .dropdown-item.selected {
+    background-color: rgb(219 234 254); /* blue-100 */
+    color: rgb(30 41 59); /* slate-800 */
+    font-weight: 500;
+  }
+
+  .dropdown-item.selected:hover {
+    background-color: rgb(219 234 254); /* blue-100 */
+  }
+
+  .dropdown-item:focus-visible {
+    outline: 2px solid rgb(59 130 246); /* blue-500 */
+    outline-offset: -2px;
+  }
+
+  /* Dropdown empty state */
+  .dropdown-empty-state {
+    padding: 0.75rem 0.875rem;
+    text-align: center;
+    color: rgb(100 116 139); /* slate-500 */
+    font-size: 0.875rem;
+    background-color: white;
+  }
+
+  /* Popover positioning fix - ensures dropdown opens downward */
+  [data-radix-popover-content] {
+    max-width: 100vw !important;
+  }
+
+  /* Hide Popover arrow */
+  [data-radix-popover-content]::after {
+    display: none;
+  }
+
+  [data-radix-popover-content]::before {
+    display: none;
+  }
+
+  /* Modal-safe dropdown - constrains dropdown to modal bounds */
+  .dropdown-scroll-modal {
+    max-height: 12rem; /* Slightly smaller for modals */
+  }
+
+  .sticky-form-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    background: hsl(var(--background) / 0.96);
+    backdrop-filter: blur(4px);
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.8rem;
+    padding: 1rem 1.5rem;
+    margin-top: 1rem;
+  }
+
+  .global-tabs-wrap {
+    margin-bottom: 0;
+  }
+
+  .global-tabs-wrap .global-tabs-list {
+    border-bottom-color: hsl(var(--border));
+  }
+
+  .global-tabs-wrap.is-offset .global-tabs-list {
+    border-bottom-color: transparent;
+  }
+
+  .global-tabs-frame {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-top: 0;
+    border-radius: var(--radius);
+    padding: 1.5rem;
+  }
+
+  .global-tabs-frame.is-first {
+    border-top-left-radius: 0;
+  }
+
+  .global-tabs-frame.is-last {
+    border-top-right-radius: 0;
+  }
+
+  .global-tabs-panel {
+    margin-top: 0;
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    background: hsl(var(--card));
+    padding: 1.5rem;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 210 40% 96%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 0 85% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 0 85% 50%;
+    --chart-1: 217 91% 60%;
+    --chart-2: 142 71% 45%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 0 84% 60%;
+    --chart-5: 262 83% 58%;
+    --radius: 0.75rem;
+    /* Sidebar & topbar colors adjusted so blue mark logo is clearly visible */
+    --sidebar-background: 0 0% 80.8%; /* #CECECE */
+    --sidebar-foreground: 0 0% 100%; /* white */
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 100%; /* white */
+    --sidebar-accent-foreground: 217 14% 26%; /* dark grey */
+    --sidebar-border: 210 40% 90%;
+    --sidebar-ring: 0 85% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Optional lined labels (use variant="lined" on Label to enable) */
+  .label-lined {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    position: relative;
+  }
+
+  .label-lined::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #dbe6f4;
+    border-radius: 1px;
+  }
+
+  .label-plain::after {
+    display: none;
+  }
+
+  /* Normalize form control heights to 2.5rem (h-10) by default */
+  input,
+  select,
+  textarea,
+  button {
+    min-height: 2.5rem;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .invoice-print-root {
+    display: block !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+}
+
+/* Hide native date picker icon for attendance date input only */
+input#attendanceDate {
+  appearance: textfield;
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+}
+
+input#attendanceDate::-webkit-calendar-picker-indicator {
+  display: none;
+  -webkit-appearance: none;
+}
+
+input#attendanceDate::-webkit-clear-button,
+input#attendanceDate::-webkit-inner-spin-button {
+  display: none;
+}
+
+/* Hide the default date-format hint (eg. "dd") in WebKit when empty */
+input#attendanceDate::-webkit-datetime-edit,
+input#attendanceDate::-webkit-datetime-edit-year-field,
+input#attendanceDate::-webkit-datetime-edit-month-field,
+input#attendanceDate::-webkit-datetime-edit-day-field {
+  color: transparent;
+}
+
+/* When the input has a value (we add .has-value), show the rendered date text */
+input#attendanceDate.has-value::-webkit-datetime-edit,
+input#attendanceDate.has-value::-webkit-datetime-edit-year-field,
+input#attendanceDate.has-value::-webkit-datetime-edit-month-field,
+input#attendanceDate.has-value::-webkit-datetime-edit-day-field {
+  color: inherit;
+}
+
+/* Ensure no extra outer border shows; input has its own border now */
+input#attendanceDate {
+  box-sizing: border-box;
+}

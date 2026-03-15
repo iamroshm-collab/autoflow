@@ -1,0 +1,1 @@
+UPDATE "Vehicle" SET "lastCustomerId" = "customerId" WHERE "lastCustomerId" IS NULL;

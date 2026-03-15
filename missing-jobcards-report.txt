@@ -1,0 +1,87 @@
+Missing jobcard report
+Generated: 2026-02-24T14:05:36.474Z
+
+Top missing jobcard legacy IDs (top 10 by occurrences in migration log):
+ID,Count
+4402,22
+4305,21
+4304,20
+4249,18
+4267,17
+4172,16
+4380,16
+4180,15
+4275,14
+4176,13
+
+Samples (up to 3 skipped ServiceDetails rows per ID):
+
+---
+Jobcard legacyId: 4402
+ServiceDetailsID,ServiceID,Description,IGSTRate,IGSTAmount,HSNCode,QNTY,SparePart,Unit,DiscountRate,DiscountAmount,SalePrice,Amount,TaxableAmount,TotalAmount
+"20162","4402","Spare Parts","0.00","0.00","0","0.00","","","0.00","0.00","","0.00","0.00","32555.00"
+"20163","4402","Lower Arm Lathe","0.00","0.00","0","0.00","","","0.00","0.00","","0.00","0.00","300.00"
+"20164","4402","Rear Bush Kit","0.00","0.00","0","0.00","","","0.00","0.00","","0.00","0.00","4842.00"
+
+---
+Jobcard legacyId: 4305
+ServiceDetailsID,ServiceID,Description,IGSTRate,IGSTAmount,HSNCode,QNTY,SparePart,Unit,DiscountRate,DiscountAmount,SalePrice,Amount,TaxableAmount,TotalAmount
+"19765","4305","Injector Bolt Lathe","0.00","0.00","0","","","","0.00","0.00","","0.00","0.00","1000.00"
+"19806","4305","Engine Oil 5w30","0.00","0.00","0","3.50","","Ltr","0.00","0.00","","0.00","0.00","2135.00"
+"19807","4305","Oil Filter","0.00","0.00","0","1.00","","Nos","0.00","0.00","","0.00","0.00","201.00"
+
+---
+Jobcard legacyId: 4304
+ServiceDetailsID,ServiceID,Description,IGSTRate,IGSTAmount,HSNCode,QNTY,SparePart,Unit,DiscountRate,DiscountAmount,SalePrice,Amount,TaxableAmount,TotalAmount
+"19691","4304","Diesel For Wash","0.00","0.00","0","","","","0.00","0.00","","0.00","0.00","300.00"
+"19692","4304","Spare Parts","0.00","0.00","0","","","","0.00","0.00","","0.00","0.00","3205.00"
+"19693","4304","Valve Cover Packing","0.00","0.00","0","1.00","","Piece","0.00","0.00","","0.00","0.00","1940.00"
+
+---
+Jobcard legacyId: 4249
+ServiceDetailsID,ServiceID,Description,IGSTRate,IGSTAmount,HSNCode,QNTY,SparePart,Unit,DiscountRate,DiscountAmount,SalePrice,Amount,TaxableAmount,TotalAmount
+"19422","4249","Clutch Set Assy","0.00","0.00","0","1.00","","Nos","0.00","0.00","","0.00","0.00","5292.00"
+"19424","4249","Spare Parts","0.00","0.00","0","","","","0.00","0.00","","0.00","0.00","9646.00"
+"19425","4249","Rotter Polish","0.00","0.00","0","","","","0.00","0.00","","0.00","0.00","700.00"
+
+---
+Jobcard legacyId: 4267
+ServiceDetailsID,ServiceID,Description,IGSTRate,IGSTAmount,HSNCode,QNTY,SparePart,Unit,DiscountRate,DiscountAmount,SalePrice,Amount,TaxableAmount,TotalAmount
+"19468","4267","Clutch Set Assy","0.00","0.00","0","1.00","","Nos","0.00","0.00","","0.00","0.00","3757.00"
+"19469","4267","Clutch Release Bearing","0.00","0.00","0","1.00","","Nos","0.00","0.00","","0.00","0.00","3660.00"
+"19470","4267","Rack Bush","0.00","0.00","0","1.00","","Nos","0.00","0.00","","0.00","0.00","325.00"
+
+---
+Jobcard legacyId: 4172
+ServiceDetailsID,ServiceID,Description,IGSTRate,IGSTAmount,HSNCode,QNTY,SparePart,Unit,DiscountRate,DiscountAmount,SalePrice,Amount,TaxableAmount,TotalAmount
+"19079","4172","Starter Solenoid Switch","0.00","0.00","0","","","","0.00","0.00","","0.00","0.00","1980.00"
+"20032","4172","Evaporator","0.00","0.00","0","1.00","","Nos","0.00","0.00","","0.00","0.00","2950.00"
+"20033","4172","A/c Gas & Oil","0.00","0.00","0","","","","0.00","0.00","","0.00","0.00","1500.00"
+
+---
+Jobcard legacyId: 4380
+ServiceDetailsID,ServiceID,Description,IGSTRate,IGSTAmount,HSNCode,QNTY,SparePart,Unit,DiscountRate,DiscountAmount,SalePrice,Amount,TaxableAmount,TotalAmount
+"20055","4380","Clutch Set Assy (sachs)","0.00","0.00","0","1.00","","Nos","0.00","0.00","","0.00","0.00","6065.00"
+"20056","4380","Clutch Release Bearing (sachs)","0.00","0.00","0","1.00","","Nos","0.00","0.00","","0.00","0.00","1231.00"
+"20059","4380","Engine Oil {15w40}","0.00","0.00","0","7.00","","Ltr","0.00","0.00","","0.00","0.00","3360.00"
+
+---
+Jobcard legacyId: 4180
+ServiceDetailsID,ServiceID,Description,IGSTRate,IGSTAmount,HSNCode,QNTY,SparePart,Unit,DiscountRate,DiscountAmount,SalePrice,Amount,TaxableAmount,TotalAmount
+"19249","4180","Spare Parts","0.00","0.00","0","","","","0.00","0.00","","0.00","0.00","12647.00"
+"19312","4180","Bolt & Washer","0.00","0.00","0","","","","0.00","0.00","","0.00","0.00","160.00"
+"19348","4180","Gear Box Bracket Lathe","0.00","0.00","0","","","","0.00","0.00","","0.00","0.00","1300.00"
+
+---
+Jobcard legacyId: 4275
+ServiceDetailsID,ServiceID,Description,IGSTRate,IGSTAmount,HSNCode,QNTY,SparePart,Unit,DiscountRate,DiscountAmount,SalePrice,Amount,TaxableAmount,TotalAmount
+"19557","4275","Spare Parts","0.00","0.00","0","","","","0.00","0.00","","0.00","0.00","1252.00"
+"19573","4275","Lower Arm Ball Joint","0.00","0.00","0","2.00","","Nos","0.00","0.00","","0.00","0.00","1480.00"
+"19647","4275","Front Lower Arm Bush Kit","0.00","0.00","0","1.00","","Set","0.00","0.00","","0.00","0.00","1420.00"
+
+---
+Jobcard legacyId: 4176
+ServiceDetailsID,ServiceID,Description,IGSTRate,IGSTAmount,HSNCode,QNTY,SparePart,Unit,DiscountRate,DiscountAmount,SalePrice,Amount,TaxableAmount,TotalAmount
+"19325","4176","Axle Service","0.00","0.00","0","","","","0.00","0.00","","0.00","0.00","4700.00"
+"19363","4176","Injector Seating Washer","0.00","0.00","0","4.00","","Nos","0.00","0.00","","0.00","0.00","100.00"
+"19364","4176","Brake Fluid","0.00","0.00","0","250.00","","Ml","0.00","0.00","","0.00","0.00","135.00"

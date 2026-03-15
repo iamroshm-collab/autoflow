@@ -1,0 +1,718 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id              String    @id @default(cuid())
+  legacyId        Int?      @unique
+  mobileNo        String    @unique
+  name            String
+  email           String?
+  address         String?
+  city            String?
+  state           String?
+  stateId         String?
+  gstin           String?
+  pan             String?
+  pincode         String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  jobCards        JobCard[]
+  lastCustomerFor Vehicle[] @relation("Vehicle_lastCustomer")
+
+  @@index([mobileNo])
+  @@index([name])
+}
+
+model Vehicle {
+  id                    String                 @id @default(cuid())
+  legacyId              Int?                   @unique
+  registrationNumber    String                 @unique
+  make                  String
+  model                 String
+  year                  Int?
+  color                 String?
+  lastCustomerId        String?
+  lastCustomer          Customer?              @relation("Vehicle_lastCustomer", fields: [lastCustomerId], references: [id], onDelete: SetNull)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  jobCards              JobCard[]
+  sales                 Sale[]
+  financialTransactions FinancialTransaction[]
+
+  @@index([registrationNumber])
+}
+
+model VehicleMakeModel {
+  id        String   @id @default(cuid())
+  make      String
+  model     String
+  category  String   @default("Car") // Car, SUV, Truck, Pickup, Commercial, Bike
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([make, model])
+  @@index([make])
+  @@index([category])
+}
+
+model JobCard {
+  id                    String                 @id @default(cuid())
+  legacyId              Int?                   @unique
+  jobCardNumber         String                 @unique
+  shopCode              String                 @default("AL")
+  serviceDate           DateTime
+  fileNo                String?
+  deliveryDate          DateTime?
+  kmDriven              Int?
+  nextServiceKM         Int?
+  nextServiceDate       DateTime?
+  total                 Float                  @default(0)
+  paidAmount            Float                  @default(0)
+  advancePayment        Float                  @default(0)
+  discount              Float                  @default(0)
+  paidDate              DateTime?
+  vehicleStatus         String?
+  jobcardStatus         String                 @default("Under Service")
+  maintenanceType       String?
+  jobcardPaymentStatus  String                 @default("Pending")
+  electrical            Boolean                @default(false)
+  ac                    Boolean                @default(false)
+  mechanical            Boolean                @default(false)
+  others                Boolean                @default(false)
+  taxable               Boolean                @default(false)
+  externalShop          Boolean                @default(false)
+  externalShopRemarks   String?
+  balance               Float                  @default(0)
+  customerId            String
+  vehicleId             String
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  employeeEarnings      EmployeeEarning[]
+  financialTransactions FinancialTransaction[]
+  vehicle               Vehicle                @relation(fields: [vehicleId], references: [id])
+  customer              Customer               @relation(fields: [customerId], references: [id])
+  serviceDescriptions   ServiceDescription[]
+  sparePartsBills       SparePartsBill[]
+  technicianAllocations TechnicianAllocation[]
+
+  @@index([jobCardNumber])
+  @@index([customerId])
+  @@index([vehicleId])
+}
+
+model ServiceDescription {
+  id             String   @id @default(cuid())
+  legacyId       Int?     @unique
+  sl             Int
+  jobCardId      String
+  description    String
+  igstRate       Float    @default(0)
+  igstAmount     Float    @default(0)
+  cgstRate       Float    @default(0)
+  cgstAmount     Float    @default(0)
+  sgstRate       Float    @default(0)
+  sgstAmount     Float    @default(0)
+  hsnCode        String?
+  qnty           Int      @default(1)
+  sparePart      String?
+  unit           String?
+  discountRate   Float    @default(0)
+  discountAmount Float    @default(0)
+  salePrice      Float    @default(0)
+  amount         Float    @default(0)
+  taxableAmount  Float    @default(0)
+  totalAmount    Float    @default(0)
+  stateId        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  jobCard        JobCard  @relation(fields: [jobCardId], references: [id], onDelete: Cascade)
+
+  @@index([jobCardId])
+  @@index([sl, jobCardId])
+}
+
+model SparePartsBill {
+  id                 String    @id @default(cuid())
+  legacyId           Int?      @unique
+  sl                 Int
+  jobCardId          String
+  shopName           String
+  address            String?
+  vehicleMake        String
+  vehicleModel       String
+  registrationNumber String
+  billDate           DateTime
+  billNumber         String
+  amount             Float     @default(0)
+  paid               Float     @default(0)
+  paidDate           DateTime?
+  billReturned       Boolean   @default(false)
+  returnAmount       Float     @default(0)
+  returnedDate       DateTime?
+  itemDescription    String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  jobCard            JobCard   @relation(fields: [jobCardId], references: [id], onDelete: Cascade)
+
+  @@index([jobCardId])
+  @@index([sl, jobCardId])
+  @@index([billNumber])
+}
+
+model EmployeeEarning {
+  id                 String   @id @default(cuid())
+  legacyId           Int?     @unique
+  sl                 Int
+  jobCardId          String
+  transactionDate    DateTime
+  vehicleModel       String
+  vehicleMake        String
+  registrationNumber String
+  employee           String
+  employeeID         String
+  workType           String?
+  amount             Float    @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  jobCard            JobCard  @relation(fields: [jobCardId], references: [id], onDelete: Cascade)
+
+  @@index([jobCardId])
+  @@index([sl, jobCardId])
+  @@index([employeeID])
+}
+
+model FinancialTransaction {
+  id                Int       @id @default(autoincrement()) @map("ID")
+  transactionType   String    @map("Transaction_Type")
+  transactionDate   DateTime  @default(now()) @map("Transaction_Date")
+  description       String    @map("Description")
+  vehicleId         String?   @map("Vehicle")
+  jobCardId         String?
+  employeeId        Int?      @map("Employee")
+  paymentType       String    @map("Payment_Type")
+  transactionAmount Float     @map("Transaction_Amount")
+  recordTime        DateTime  @default(now()) @map("RecordTime")
+  customerName      String?   @map("Customer_Name")
+  mobileNumber      String?   @map("Mobile_Number")
+  vehicleMake       String?   @map("Vehicle_Make")
+  vehicle           Vehicle?  @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  jobCard           JobCard?  @relation(fields: [jobCardId], references: [id], onDelete: SetNull)
+  employee          Employee? @relation(fields: [employeeId], references: [employeeId], onDelete: SetNull)
+
+  @@index([transactionDate])
+  @@index([transactionType])
+  @@index([employeeId])
+  @@index([vehicleId])
+  @@index([jobCardId])
+  @@map("FinancialTransactions")
+}
+
+model Employee {
+  employeeId            Int                    @id @default(autoincrement())
+  empName               String
+  idNumber              String
+  mobile                String
+  address               String?
+  designation           String?
+  salaryPerday          Float                  @default(0)
+  startDate             DateTime?
+  endDate               DateTime?
+  attendance            String?
+  attendanceDate        DateTime?
+  facePhotoUrl          String?
+  facePhotoUpdatedAt    DateTime?
+  isAttendanceEligible  Boolean                @default(true)
+  isTechnician          Boolean                @default(false)
+  isArchived            Boolean                @default(false)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  attendancePayrolls    AttendancePayroll[]
+  financialTransactions FinancialTransaction[]
+  adjustments           Adjustment[]
+  monthlyPayrolls       MonthlyPayroll[]
+  technicianAllocations TechnicianAllocation[]
+  deviceTokens          DeviceToken[]
+
+  @@index([empName])
+  @@index([mobile])
+  @@index([isTechnician])
+  @@index([isArchived])
+}
+
+model AttendancePayroll {
+  attendanceId             Int      @id @default(autoincrement())
+  employeeId               Int
+  attendanceDate           DateTime
+  attendance               String
+  checkInAt                DateTime?
+  checkOutAt               DateTime?
+  workedMinutes            Int?
+  attendanceMethod         String?  @default("manual")
+  verificationProvider     String?
+  verificationStatus       String?  @default("not_configured")
+  checkInVideoUrl          String?
+  checkOutVideoUrl         String?
+  checkInVerificationScore Float?
+  checkOutVerificationScore Float?
+  checkInLatitude          Float?
+  checkInLongitude         Float?
+  checkOutLatitude         Float?
+  checkOutLongitude        Float?
+  checkInDistanceMeters    Float?
+  checkOutDistanceMeters   Float?
+  salaryAdvance            Float    @default(0)
+  incentive                Float    @default(0)
+  allowance                Float    @default(0)
+  paymentType              String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  employee                 Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Restrict)
+
+  @@unique([employeeId, attendanceDate])
+  @@index([employeeId, attendanceDate])
+  @@index([attendanceDate])
+}
+
+model Note {
+  id         String   @id @default(cuid())
+  noteType   String
+  noteNumber String
+  noteDate   DateTime
+  party      String
+  reference  String?
+  amount     Float
+  taxRate    Float
+  reason     String?
+  gstin      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([noteNumber, noteType])
+  @@index([noteType])
+  @@index([noteDate])
+}
+
+model Adjustment {
+  adjustmentId   Int      @id @default(autoincrement())
+  employeeId     Int
+  adjustmentType String
+  amount         Float    @default(0)
+  adjustmentDate DateTime
+  remarks        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  employee       Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Restrict)
+
+  @@index([employeeId])
+  @@index([adjustmentDate])
+  @@index([adjustmentType])
+}
+
+model MonthlyPayroll {
+  payrollId      Int      @id @default(autoincrement())
+  employeeId     Int
+  month          Int
+  year           Int
+  basicSalary    Float    @default(0)
+  totalPresent   Int      @default(0)
+  totalHalfDay   Int      @default(0)
+  totalLeave     Int      @default(0)
+  totalAbsent    Int      @default(0)
+  totalAllowance Float    @default(0)
+  totalIncentive Float    @default(0)
+  totalAdvance   Float    @default(0)
+  netSalary      Float    @default(0)
+  generatedAt    DateTime @default(now())
+  generatedBy    String?
+  employee       Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Restrict)
+
+  @@unique([employeeId, month, year])
+  @@index([month, year])
+  @@index([employeeId])
+}
+
+model State {
+  stateId        String           @id @default(cuid()) @map("StateID")
+  stateName      String           @map("StateName")
+  stateCode      String?          @map("StateCode")
+  sparePartShops SparePartShop[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@map("States")
+}
+
+model Category {
+  categoryId   String    @id @default(cuid()) @map("CategoryID")
+  categoryName String    @map("CategoryName")
+  description  String?   @map("Description")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  products     Product[]
+
+  @@map("Categories")
+}
+
+model Supplier {
+  supplierId   Int        @id @default(autoincrement()) @map("SupplierID")
+  supplierName String     @map("SupplierName")
+  address      String?    @map("Address")
+  mobileNo     String     @map("MobileNo")
+  stateCode    String?    @map("StateCode")
+  stateName    String?    @map("StateName")
+  gstin        String?    @map("GSTIN")
+  pan          String?    @map("PAN")
+  isRegistered Boolean    @default(false) @map("IsRegistered")
+  createdOn    DateTime   @default(now()) @map("CreatedOn")
+  products     Product[]
+  purchases    Purchase[]
+
+  @@index([mobileNo])
+  @@map("Suppliers")
+}
+
+model Product {
+  productId          Int                @id @default(autoincrement()) @map("ProductID")
+  supplierId         Int                @map("SupplierID")
+  categoryId         String?            @map("CategoryID")
+  productName        String             @map("ProductName")
+  unit               String?            @map("Unit")
+  productDescription String?            @map("ProductDescription")
+  hsnCode            String?            @map("HSNCode")
+  mrp                Float              @default(0) @map("MRP")
+  cgstRate           Float              @default(0) @map("CGSTRate")
+  purchasePrice      Float              @default(0) @map("PurchasePrice")
+  salePrice          Float              @default(0) @map("SalePrice")
+  sgstRate           Float              @default(0) @map("SGSTRate")
+  igstRate           Float              @default(0) @map("IGSTRate")
+  gstPercent         Float              @default(0) @map("GSTPercent")
+  isTaxable          Boolean            @default(true) @map("IsTaxable")
+  isInclusive        Boolean            @default(false) @map("IsInclusive")
+  balanceStock       Float              @default(0) @map("BalanceStock")
+  createdOn          DateTime           @default(now()) @map("CreatedOn")
+  purchaseDetails    PurchaseDetail[]
+  saleDetails        SaleDetail[]
+  creditNoteDetails  CreditNoteDetail[]
+  supplier           Supplier           @relation(fields: [supplierId], references: [supplierId], onDelete: Cascade)
+  category           Category?          @relation(fields: [categoryId], references: [categoryId], onDelete: SetNull)
+
+  @@index([supplierId])
+  @@index([categoryId])
+  @@map("Products")
+}
+
+model Purchase {
+  purchaseId             Int              @id @default(autoincrement()) @map("PurchaseID")
+  purchaseDate           DateTime         @map("PurchaseDate")
+  supplierId             Int              @map("SupplierID")
+  branchId               Int?             @map("BranchID")
+  supplier               String           @map("Supplier")
+  address                String?          @map("Address")
+  mobileNo               String?          @map("MobileNo")
+  gstin                  String?          @map("GSTIN")
+  supplierGstin          String?          @map("SupplierGSTIN")
+  pan                    String?          @map("PAN")
+  stateId                String?          @map("StateID")
+  placeOfSupplyStateCode String?          @map("PlaceOfSupplyStateCode")
+  refDocument            String?          @map("RefDocument")
+  billNumber             String?          @map("billNumber")
+  taxable                Boolean          @default(true) @map("Taxable")
+  invoiceType            String?          @map("InvoiceType")
+  totalTaxableAmount     Float            @default(0) @map("TotalTaxableAmount")
+  totalCgst              Float            @default(0) @map("TotalCGST")
+  totalSgst              Float            @default(0) @map("TotalSGST")
+  totalIgst              Float            @default(0) @map("TotalIGST")
+  grandTotal             Float            @default(0) @map("GrandTotal")
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+  supplierMaster         Supplier         @relation(fields: [supplierId], references: [supplierId], onDelete: Restrict)
+  branch                 Branch?          @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  purchaseDetails        PurchaseDetail[]
+
+  @@unique([supplierId, billNumber])
+  @@index([supplierId])
+  @@index([branchId])
+  @@index([purchaseDate])
+  @@index([billNumber])
+  @@map("Purchase")
+}
+
+model PurchaseDetail {
+  purchaseDetailsId  Int          @id @default(autoincrement()) @map("PurchaseDetailsID")
+  purchaseId         Int          @map("PurchaseID")
+  productId          Int          @map("ProductID")
+  product            String       @map("Product")
+  productDescription String?      @map("ProductDescription")
+  hsn                String?      @map("HSN")
+  gstPercent         Float        @default(0) @map("GSTPercent")
+  taxableValue       Float        @default(0) @map("TaxableValue")
+  qnty               Float        @default(0) @map("Qnty")
+  unit               String?      @map("Unit")
+  purchasePrice      Float        @default(0) @map("PurchasePrice")
+  mrp                Float        @default(0) @map("MRP")
+  salePrice          Float        @default(0) @map("SalePrice")
+  sgstRate           Float        @default(0) @map("SGSTRate")
+  cgstRate           Float        @default(0) @map("CGSTRate")
+  amount             Float        @default(0) @map("Amount")
+  sgstAmount         Float        @default(0) @map("SGSTAmount")
+  cgstAmount         Float        @default(0) @map("CGSTAmount")
+  igstAmount         Float        @default(0) @map("IGSTAmount")
+  totalAmount        Float        @default(0) @map("TotalAmount")
+  balanceStock       Float        @default(0) @map("BalanceStock")
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  purchase           Purchase     @relation(fields: [purchaseId], references: [purchaseId], onDelete: Cascade)
+  productMaster      Product      @relation(fields: [productId], references: [productId], onDelete: Restrict)
+  saleDetails        SaleDetail[]
+
+  @@index([purchaseId])
+  @@index([productId])
+  @@map("PurchaseDetails")
+}
+
+model Sale {
+  saleId                 Int                @id @default(autoincrement()) @map("SaleID")
+  branchId               Int?               @map("BranchID")
+  vehicleId              String?            @map("VehicleID")
+  categoryId             String?            @map("CategoryID")
+  billNumber             String             @map("billNumber")
+  prefix                 String?            @map("Prefix")
+  billDate               DateTime           @map("BillDate")
+  customer               String             @map("Customer")
+  address                String?            @map("Address")
+  mobileNo               String?            @map("MobileNo")
+  vehicleReg             String?            @map("VehicleReg")
+  billType               String?            @map("BillType")
+  saleType               String?            @map("SaleType")
+  despatchTime           DateTime?          @map("DespatchTime")
+  gstin                  String?            @map("GSTIN")
+  customerGstin          String?            @map("CustomerGSTIN")
+  stateCode              String?            @map("StateCode")
+  placeOfSupplyStateCode String?            @map("PlaceOfSupplyStateCode")
+  taxable                Boolean            @default(true) @map("Taxable")
+  invoiceType            String?            @map("InvoiceType")
+  totalTaxableAmount     Float              @default(0) @map("TotalTaxableAmount")
+  totalCgst              Float              @default(0) @map("TotalCGST")
+  totalSgst              Float              @default(0) @map("TotalSGST")
+  totalIgst              Float              @default(0) @map("TotalIGST")
+  grandTotal             Float              @default(0) @map("GrandTotal")
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  vehicle                Vehicle?           @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  branch                 Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  saleDetails            SaleDetail[]
+  creditNotes            CreditNoteHeader[]
+
+  @@unique([billNumber])
+  @@index([branchId])
+  @@index([vehicleId])
+  @@index([billDate])
+  @@map("Sale")
+}
+
+model SaleDetail {
+  saleDetailsId      Int                @id @default(autoincrement()) @map("SaleDetailsID")
+  saleId             Int                @map("SaleID")
+  productId          Int                @map("ProductID")
+  product            String             @map("Product")
+  productDescription String?            @map("ProductDescription")
+  purchasePrice      Float              @default(0) @map("PurchasePrice")
+  purchaseDetailsId  Int?               @map("PurchaseDetailsID")
+  hsn                String?            @map("HSN")
+  gstPercent         Float              @default(0) @map("GSTPercent")
+  taxableValue       Float              @default(0) @map("TaxableValue")
+  salePrice          Float              @default(0) @map("SalePrice")
+  unit               String?            @map("Unit")
+  qnty               Float              @default(0) @map("Qnty")
+  returnQnty         Float              @default(0) @map("ReturnQnty")
+  returnDate         DateTime?          @map("ReturnDate")
+  discount           Float              @default(0) @map("Discount")
+  sgstRate           Float              @default(0) @map("SGSTRate")
+  cgstRate           Float              @default(0) @map("CGSTRate")
+  amount             Float              @default(0) @map("Amount")
+  discountAmount     Float              @default(0) @map("DiscountAmount")
+  accessAmount       Float              @default(0) @map("AccessAmount")
+  sgstAmount         Float              @default(0) @map("SGSTAmount")
+  cgstAmount         Float              @default(0) @map("CGSTAmount")
+  igstRate           Float              @default(0) @map("IGSTRate")
+  igstAmount         Float              @default(0) @map("IGSTAmount")
+  totalAmount        Float              @default(0) @map("TotalAmount")
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  sale               Sale               @relation(fields: [saleId], references: [saleId], onDelete: Cascade)
+  productMaster      Product            @relation(fields: [productId], references: [productId], onDelete: Restrict)
+  purchaseDetail     PurchaseDetail?    @relation(fields: [purchaseDetailsId], references: [purchaseDetailsId], onDelete: SetNull)
+  creditNoteDetails  CreditNoteDetail[]
+
+  @@index([saleId])
+  @@index([productId])
+  @@index([purchaseDetailsId])
+  @@map("SaleDetails")
+}
+
+model Branch {
+  id          Int                @id @default(autoincrement()) @map("BranchID")
+  branchName  String             @map("BranchName")
+  stateCode   String             @map("StateCode")
+  gstin       String             @map("GSTIN")
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  purchases   Purchase[]
+  sales       Sale[]
+  itcLedgers  ItcLedger[]
+  creditNotes CreditNoteHeader[]
+
+  @@index([stateCode])
+  @@index([gstin])
+  @@map("Branches")
+}
+
+model ItcLedger {
+  id           Int      @id @default(autoincrement()) @map("ID")
+  branchId     Int      @map("BranchID")
+  sourceType   String   @map("SourceType")
+  sourceId     Int      @map("SourceID")
+  igstCredit   Float    @default(0) @map("IGSTCredit")
+  cgstCredit   Float    @default(0) @map("CGSTCredit")
+  sgstCredit   Float    @default(0) @map("SGSTCredit")
+  utilizedIgst Float    @default(0) @map("UtilizedIGST")
+  utilizedCgst Float    @default(0) @map("UtilizedCGST")
+  utilizedSgst Float    @default(0) @map("UtilizedSGST")
+  balanceIgst  Float    @default(0) @map("BalanceIGST")
+  balanceCgst  Float    @default(0) @map("BalanceCGST")
+  balanceSgst  Float    @default(0) @map("BalanceSGST")
+  createdAt    DateTime @default(now()) @map("CreatedAt")
+  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([branchId])
+  @@index([sourceType, sourceId])
+  @@map("ITC_Ledger")
+}
+
+model CreditNoteHeader {
+  id                 Int                @id @default(autoincrement()) @map("CreditNoteID")
+  salesId            Int                @map("SaleID")
+  branchId           Int                @map("BranchID")
+  creditNoteNumber   String             @unique @map("CreditNoteNumber")
+  creditNoteDate     DateTime           @default(now()) @map("CreditNoteDate")
+  reason             String?            @map("Reason")
+  totalTaxableAmount Float              @default(0) @map("TotalTaxableAmount")
+  totalCgst          Float              @default(0) @map("TotalCGST")
+  totalSgst          Float              @default(0) @map("TotalSGST")
+  totalIgst          Float              @default(0) @map("TotalIGST")
+  grandTotal         Float              @default(0) @map("GrandTotal")
+  sale               Sale               @relation(fields: [salesId], references: [saleId], onDelete: Cascade)
+  branch             Branch             @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  details            CreditNoteDetail[]
+
+  @@index([salesId])
+  @@index([branchId])
+  @@map("CreditNoteHeader")
+}
+
+model CreditNoteDetail {
+  id             Int              @id @default(autoincrement()) @map("CreditNoteDetailID")
+  creditNoteId   Int              @map("CreditNoteID")
+  salesDetailsId Int?             @map("SaleDetailsID")
+  productId      Int?             @map("ProductID")
+  hsnCode        String?          @map("HSNCode")
+  gstPercent     Float            @default(0) @map("GSTPercent")
+  taxableValue   Float            @default(0) @map("TaxableValue")
+  cgstAmount     Float            @default(0) @map("CGSTAmount")
+  sgstAmount     Float            @default(0) @map("SGSTAmount")
+  igstAmount     Float            @default(0) @map("IGSTAmount")
+  quantity       Float            @default(0) @map("Quantity")
+  creditNote     CreditNoteHeader @relation(fields: [creditNoteId], references: [id], onDelete: Cascade)
+  saleDetail     SaleDetail?      @relation(fields: [salesDetailsId], references: [saleDetailsId], onDelete: SetNull)
+  product        Product?         @relation(fields: [productId], references: [productId], onDelete: SetNull)
+
+  @@index([creditNoteId])
+  @@index([salesDetailsId])
+  @@index([productId])
+  @@map("CreditNoteDetails")
+}
+
+model ShopSettings {
+  id                     String   @id @default(cuid())
+  shopName               String
+  address                String?
+  city                   String?
+  state                  String?
+  pincode                String?
+  phone1                 String?
+  phone2                 String?
+  upiId                  String?
+  email                  String?
+  gstin                  String?
+  pan                    String?
+  stateId                String?
+  website                String?
+  logo                   String?
+  garageLatitude         Float?
+  garageLongitude        Float?
+  attendanceRadiusMeters Int      @default(20)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@map("ShopSettings")
+}
+
+model SparePartShop {
+  id        String    @id @default(cuid())
+  shopName  String
+  shopSub   String?
+  address   String?
+  mobile    String?
+  pan       String?
+  gstin     String?
+  stateId   String?
+  state     State?    @relation(fields: [stateId], references: [stateId], onDelete: SetNull)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("SparePartShop")
+}
+
+model TechnicianAllocation {
+  id             String      @id @default(cuid())
+  jobId          String
+  employeeId     Int
+  taskAssigned   String      @default("")
+  assignedAt     DateTime    @default(now())
+  acceptedAt     DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  jobDuration    Int?        // Duration in minutes
+  earningAmount  Float       @default(0)
+  status         String      @default("assigned") // assigned, accepted, in_progress, completed
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  jobCard        JobCard     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  employee       Employee    @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([employeeId])
+  @@index([status])
+  @@index([assignedAt])
+  @@map("TechnicianAllocations")
+}
+
+model DeviceToken {
+  id             String      @id @default(cuid())
+  employeeId     Int
+  token          String      @unique
+  deviceType     String?     @default("web")
+  createdAt      DateTime    @default(now())
+  employee       Employee    @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("DeviceTokens")
+}
+

@@ -1,0 +1,166 @@
+import { NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+
+// GET - Fetch adjustments with optional employee filter
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const employeeId = searchParams.get("employeeId")
+    const month = searchParams.get("month")
+    const year = searchParams.get("year")
+    const search = searchParams.get("search")
+
+    const where: any = {}
+
+    if (employeeId) {
+      where.employeeId = parseInt(employeeId)
+    }
+
+    if (month && year) {
+      const startDate = new Date(parseInt(year), parseInt(month) - 1, 1)
+      const endDate = new Date(parseInt(year), parseInt(month), 0)
+      where.adjustmentDate = {
+        gte: startDate,
+        lte: endDate,
+      }
+    }
+
+    const adjustments = await prisma.adjustment.findMany({
+      where,
+      include: {
+        employee: {
+          select: {
+            empName: true,
+            idNumber: true,
+            designation: true,
+          },
+        },
+      },
+      orderBy: {
+        adjustmentDate: "desc",
+      },
+    })
+
+    // Client-side filtering if search is provided
+    let filteredAdjustments = adjustments
+    if (search) {
+      const searchLower = search.toLowerCase()
+      filteredAdjustments = adjustments.filter((adj) =>
+        adj.employee.empName.toLowerCase().includes(searchLower)
+      )
+    }
+
+    return NextResponse.json(filteredAdjustments)
+  } catch (error) {
+    console.error("Error fetching adjustments:", error)
+    return NextResponse.json({ error: "Failed to fetch adjustments" }, { status: 500 })
+  }
+}
+
+// POST - Create a new adjustment
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { employeeId, adjustmentType, amount, adjustmentDate, remarks } = body
+
+    if (!employeeId || !adjustmentType || !amount || !adjustmentDate) {
+      return NextResponse.json(
+        { error: "employeeId, adjustmentType, amount, and adjustmentDate are required" },
+        { status: 400 }
+      )
+    }
+
+    // Validate adjustment type
+    const validTypes = ["Allowance", "Advance", "Incentive", "Deduction"]
+    if (!validTypes.includes(adjustmentType)) {
+      return NextResponse.json(
+        { error: "adjustmentType must be Allowance, Advance, Incentive, or Deduction" },
+        { status: 400 }
+      )
+    }
+
+    const adjustment = await prisma.adjustment.create({
+      data: {
+        employeeId: parseInt(employeeId),
+        adjustmentType,
+        amount: parseFloat(amount),
+        adjustmentDate: new Date(adjustmentDate),
+        remarks: remarks || null,
+      },
+      include: {
+        employee: {
+          select: {
+            empName: true,
+            idNumber: true,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json(adjustment)
+  } catch (error) {
+    console.error("Error creating adjustment:", error)
+    return NextResponse.json({ error: "Failed to create adjustment" }, { status: 500 })
+  }
+}
+
+// PUT - Update an adjustment
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { adjustmentId, adjustmentType, amount, adjustmentDate, remarks } = body
+
+    if (!adjustmentId) {
+      return NextResponse.json({ error: "adjustmentId is required" }, { status: 400 })
+    }
+
+    const updateData: any = {}
+    if (adjustmentType) updateData.adjustmentType = adjustmentType
+    if (amount) updateData.amount = parseFloat(amount)
+    if (adjustmentDate) updateData.adjustmentDate = new Date(adjustmentDate)
+    if (remarks !== undefined) updateData.remarks = remarks
+
+    const adjustment = await prisma.adjustment.update({
+      where: {
+        adjustmentId: parseInt(adjustmentId),
+      },
+      data: updateData,
+      include: {
+        employee: {
+          select: {
+            empName: true,
+            idNumber: true,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json(adjustment)
+  } catch (error) {
+    console.error("Error updating adjustment:", error)
+    return NextResponse.json({ error: "Failed to update adjustment" }, { status: 500 })
+  }
+}
+
+// DELETE - Delete an adjustment
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const adjustmentId = searchParams.get("adjustmentId")
+
+    if (!adjustmentId) {
+      return NextResponse.json({ error: "adjustmentId is required" }, { status: 400 })
+    }
+
+    await prisma.adjustment.delete({
+      where: {
+        adjustmentId: parseInt(adjustmentId),
+      },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error deleting adjustment:", error)
+    return NextResponse.json({ error: "Failed to delete adjustment" }, { status: 500 })
+  }
+}

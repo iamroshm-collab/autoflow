@@ -1,0 +1,415 @@
+[
+  {
+    "make": "Maruti Suzuki",
+    "models": [
+      "800", "Omni", "Gypsy", "Zen", "Esteem", "Versa", "Alto", "Alto 800", "Alto K10", "WagonR", "Swift", "Swift DZire", "Dzire", "Ritz", "A-Star", "Baleno", "Celerio", "Celerio X", "Ignis", "S-Cross", "Vitara Brezza", "Brezza", "Ertiga", "XL6", "Ciaz", "Kizashi", "SX4", "Grand Vitara", "Fronx", "Jimny", "Eeco"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Hyundai",
+    "models": [
+      "Santro", "i10", "Grand i10", "Grand i10 Nios", "Nios", "i10 Era", "i20", "i20 Active", "i20 N Line", "Elite i20", "Accent", "Verna", "Elantra", "Xcent", "Aura", "Creta", "Venue", "Alcazar", "Tucson", "Santa Fe", "Kona Electric", "Exter", "Sonata", "Terracan"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Tata",
+    "models": [
+      "Indica", "Indigo", "Indigo CS", "Indigo Manza", "Manza", "Vista", "Bolt", "Zest", "Tiago", "Tigor", "Tigor EV", "Altroz", "Nexon", "Nexon EV", "Punch", "Harrier", "Safari", "Hexa", "Aria", "Sumo", "Sumo Gold", "Sumo Grande", "Sumo Victa", "Sierra", "Estate", "Nano", "Magic"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Mahindra",
+    "models": [
+      "Scorpio", "Scorpio N", "Scorpio Classic", "XUV500", "XUV700", "XUV300", "XUV400", "Bolero", "Bolero Neo", "Bolero Power+", "Thar", "TUV300", "TUV300 Plus", "Marazzo", "KUV100", "KUV100 NXT", "Quanto", "Verito", "Logan", "Xylo", "Armada", "Marshal", "Commander", "Classic", "Voyager"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Honda",
+    "models": [
+      "City", "City ZX", "City i-VTEC", "Amaze", "Jazz", "WR-V", "Brio", "Mobilio", "Accord", "Civic", "CR-V", "Elevate", "BRV"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Toyota",
+    "models": [
+      "Innova", "Innova Crysta", "Innova Hycross", "Fortuner", "Fortuner Legender", "Qualis", "Etios", "Etios Liva", "Etios Cross", "Corolla", "Corolla Altis", "Camry", "Yaris", "Glanza", "Urban Cruiser", "Hyryder", "Land Cruiser", "Land Cruiser Prado", "Hilux", "Rumion"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Kia",
+    "models": [
+      "Seltos", "Sonet", "Carens", "Carnival", "EV6"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Renault",
+    "models": [
+      "Kwid", "Pulse", "Scala", "Fluence", "Duster", "Captur", "Lodgy", "Kiger", "Triber"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Nissan",
+    "models": [
+      "Micra", "Micra Active", "Sunny", "Terrano", "Kicks", "Magnite", "X-Trail", "Evalia", "GT-R"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Volkswagen",
+    "models": [
+      "Polo", "Vento", "Ameo", "Jetta", "Passat", "Tiguan", "T-Roc", "Taigun", "Virtus", "Beetle"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Skoda",
+    "models": [
+      "Rapid", "Octavia", "Superb", "Laura", "Fabia", "Yeti", "Kodiaq", "Kushaq", "Slavia", "Enyaq"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Ford",
+    "models": [
+      "Figo", "Figo Aspire", "Freestyle", "EcoSport", "Endeavour", "Fiesta", "Ikon", "Fusion", "Mondeo", "Escort", "Mustang"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Chevrolet",
+    "models": [
+      "Spark", "Beat", "Sail", "Sail Hatchback", "Sail U-VA", "Aveo", "Optra", "Cruze", "Enjoy", "Tavera", "Captiva", "Trailblazer"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Fiat",
+    "models": [
+      "Punto", "Punto Evo", "Linea", "Avventura", "Urban Cross", "Palio", "Petra", "Siena", "Grande Punto", "Abarth Punto"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "MG",
+    "models": [
+      "Hector", "Hector Plus", "Astor", "ZS EV", "Gloster", "Comet EV"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Jeep",
+    "models": [
+      "Compass", "Meridian", "Wrangler", "Grand Cherokee"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "BMW",
+    "models": [
+      "1 Series", "2 Series", "2 Series Gran Coupe", "3 Series", "3 Series GT", "4 Series", "5 Series", "5 Series GT", "6 Series", "6 Series GT", "7 Series", "8 Series", "X1", "X2", "X3", "X4", "X5", "X6", "X7", "Z4", "i4", "iX", "M2", "M3", "M4", "M5", "X5 M", "X6 M"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Mercedes-Benz",
+    "models": [
+      "A-Class", "A-Class Limousine", "B-Class", "C-Class", "CLA", "CLS", "E-Class", "E-Class All-Terrain", "S-Class", "GLA", "GLB", "GLC", "GLC Coupe", "GLE", "GLE Coupe", "GLS", "G-Class", "EQB", "EQC", "EQE", "EQS", "AMG GT", "SL", "SLK", "CL", "CLK", "GL", "M-Class", "R-Class", "ML-Class"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Audi",
+    "models": [
+      "A3", "A3 Cabriolet", "A4", "A5", "A6", "A7", "A8", "Q2", "Q3", "Q3 Sportback", "Q5", "Q7", "Q8", "e-tron", "e-tron GT", "RS5", "RS6", "RS7", "RS Q8", "S3", "S4", "S5", "TT", "R8"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Volvo",
+    "models": [
+      "S60", "S90", "V40", "V40 Cross Country", "V90", "XC40", "XC60", "XC90", "C40 Recharge"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Jaguar",
+    "models": [
+      "XE", "XF", "XJ", "F-Pace", "E-Pace", "I-Pace", "F-Type"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Land Rover",
+    "models": [
+      "Defender", "Discovery", "Discovery Sport", "Range Rover", "Range Rover Evoque", "Range Rover Velar", "Range Rover Sport", "Freelander"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Porsche",
+    "models": [
+      "718 Boxster", "718 Cayman", "911", "Panamera", "Cayenne", "Macan", "Taycan"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Lamborghini",
+    "models": [
+      "Huracan", "Aventador", "Urus"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Ferrari",
+    "models": [
+      "Portofino", "Roma", "F8 Tributo", "SF90 Stradale", "812 Superfast", "296 GTB"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Maserati",
+    "models": [
+      "Ghibli", "Quattroporte", "Levante", "GranTurismo", "GranCabrio", "MC20"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Bentley",
+    "models": [
+      "Flying Spur", "Continental GT", "Bentayga"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Rolls Royce",
+    "models": [
+      "Ghost", "Phantom", "Wraith", "Dawn", "Cullinan"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Mini",
+    "models": [
+      "Cooper", "Cooper S", "Cooper SE", "Countryman", "Clubman", "Convertible"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Lexus",
+    "models": [
+      "ES", "LS", "NX", "RX", "LX"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Citroen",
+    "models": [
+      "C3", "C3 Aircross", "C5 Aircross", "eC3"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "BYD",
+    "models": [
+      "Atto 3", "e6", "Seal"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Force",
+    "models": [
+      "Gurkha", "Trax", "One"
+    ],
+    "category": "Car"
+  },
+  {
+    "make": "Isuzu",
+    "models": [
+      "D-Max", "D-Max V-Cross", "MU-X", "MU-7"
+    ],
+    "category": "Pickup"
+  },
+  {
+    "make": "Tata",
+    "models": [
+      "407", "709", "909", "1109", "1209", "1510", "1512", "1612", "1616", "1918", "2515", "2516", "2518", "3015", "3118", "3516", "4018", "Ace", "Ace Gold", "Ace Mega", "Ace Mega XL", "Ace Zip", "Intra V10", "Intra V20", "Intra V30", "Intra V50", "Super Ace", "Yodha", "Yodha Pickup", "Xenon", "Xenon XT", "Prima", "Signa", "Ultra", "LPT", "LPS", "SFC"
+    ],
+    "category": "Truck"
+  },
+  {
+    "make": "Ashok Leyland",
+    "models": [
+      "Dost", "Dost+", "Dost Strong", "Dost CNG", "Bada Dost", "Partner", "MiTR", "Boss", "Guru", "Ecomet", "3118", "4220", "4923", "U-Truck", "Oyster", "Captain", "Convoy", "Pulla", "2518", "3118", "4120"
+    ],
+    "category": "Truck"
+  },
+  {
+    "make": "Mahindra",
+    "models": [
+      "Pickup", "Bolero Pickup", "Bolero Camper", "Jeeto", "Jeeto Plus", "Supro", "Supro Profit Truck", "Furio", "Blazo", "Blazo X"
+    ],
+    "category": "Truck"
+  },
+  {
+    "make": "Eicher",
+    "models": [
+      "Pro 1049", "Pro 1059", "Pro 1075", "Pro 1080", "Pro 1095", "Pro 2049", "Pro 2059", "Pro 2075", "Pro 2080", "Pro 2095", "Pro 3009", "Pro 3015", "Pro 5016", "Pro 6016", "Pro 6019", "Pro 6025", "Pro 6028", "Pro 6031", "Pro 8016", "Pro 8019"
+    ],
+    "category": "Truck"
+  },
+  {
+    "make": "Bharat Benz",
+    "models": [
+      "914R", "1015R", "1215R", "1415R", "1617R", "1917R", "2523R", "2528C", "2823R", "3123R", "3528C", "4228R", "4928TT", "5528T"
+    ],
+    "category": "Truck"
+  },
+  {
+    "make": "Volvo",
+    "models": [
+      "FM", "FH", "FMX", "FL", "9400"
+    ],
+    "category": "Truck"
+  },
+  {
+    "make": "Hero",
+    "models": [
+      "Splendor", "Splendor Plus", "Splendor iSmart", "HF Deluxe", "HF 100", "Passion", "Passion Pro", "Passion XPro", "Super Splendor", "Glamour", "Achiever", "Ignitor", "Thriller", "CBZ", "Karizma", "Karizma ZMR", "Karizma XMR", "Xtreme", "Xtreme 160R", "Xtreme 200S", "Xtreme 200R", "Xpulse 200", "Xpulse 200T", "Maestro", "Maestro Edge", "Pleasure", "Duet", "Destini", "Vida"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "Honda",
+    "models": [
+      "Activa", "Activa 6G", "Activa 125", "Dio", "Grazia", "Shine", "Shine 100", "SP 125", "Livo", "Dream", "Dream Neo", "Dream Yuga", "CB Shine", "CB Unicorn", "CB Unicorn 160", "CB Hornet", "CB350", "CB350RS", "CB300R", "CB650R", "CBR150R", "CBR250R", "CBR650R", "CBR1000RR", "Africa Twin", "Gold Wing", "X-Blade"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "Bajaj",
+    "models": [
+      "Platina", "Platina 100", "Platina 110", "CT 100", "CT 110", "Discover", "Discover 100", "Discover 110", "Discover 125", "Discover 150", "Pulsar", "Pulsar 125", "Pulsar 150", "Pulsar 180", "Pulsar 200", "Pulsar NS125", "Pulsar NS160", "Pulsar NS200", "Pulsar RS200", "Pulsar 220F", "Pulsar 250", "Pulsar N250", "Pulsar F250", "Dominar 250", "Dominar 400", "Avenger", "Avenger 160", "Avenger 220", "Chetak"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "TVS",
+    "models": [
+      "Sport", "Star City", "Star City Plus", "Radeon", "Victor", "Apache", "Apache RTR 160", "Apache RTR 180", "Apache RTR 200", "Apache RR310", "Apache RR160", "Ntorq", "Jupiter", "Jupiter 125", "Scooty Pep", "Scooty Zest", "XL 100", "Sport 110", "Raider 125", "Ronin", "iQube"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "Royal Enfield",
+    "models": [
+      "Classic 350", "Classic 500", "Bullet 350", "Bullet 500", "Electra", "Thunderbird 350", "Thunderbird 500", "Thunderbird X", "Meteor 350", "Hunter 350", "Himalayan", "Scram 411", "Interceptor 650", "Continental GT 650", "Super Meteor 650", "Shotgun 650"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "Yamaha",
+    "models": [
+      "Ray", "Ray ZR", "Fascino", "Fascino 125", "Aerox 155", "Cygnus", "FZ", "FZ-S", "FZ-X", "FZ 25", "FZS 25", "FZ-S FI", "Saluto", "YZF R15", "R15 V3", "R15 V4", "R15M", "MT-15", "MT-03", "R3", "R7", "R1", "R1M", "Tenere 700"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "Suzuki",
+    "models": [
+      "Access 125", "Burgman Street", "Avenis", "Gixxer", "Gixxer SF", "Gixxer 250", "Gixxer SF 250", "Intruder", "V-Strom", "Hayabusa", "GSX-R1000", "GSX-S750"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "KTM",
+    "models": [
+      "125 Duke", "200 Duke", "250 Duke", "390 Duke", "RC 125", "RC 200", "RC 390", "250 Adventure", "390 Adventure"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "Kawasaki",
+    "models": [
+      "Ninja 300", "Ninja 400", "Ninja 650", "Ninja ZX-6R", "Ninja ZX-10R", "Ninja H2", "Ninja H2R", "Z650", "Z900", "Versys 650", "Vulcan S"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "Harley-Davidson",
+    "models": [
+      "Street 750", "Street Rod", "Iron 883", "Forty-Eight", "Sportster S", "Nightster", "Street Bob", "Fat Bob", "Low Rider", "Softail Standard", "Heritage Classic", "Fat Boy", "Road King", "Street Glide", "Road Glide", "CVO Limited", "Pan America 1250"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "Triumph",
+    "models": [
+      "Street Triple", "Speed Triple", "Tiger 900", "Tiger 1200", "Bonneville T100", "Bonneville T120", "Bonneville Bobber", "Scrambler 900", "Scrambler 1200", "Rocket 3", "Trident 660"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "Ducati",
+    "models": [
+      "Monster", "Monster Plus", "Supersport", "Panigale V2", "Panigale V4", "Streetfighter V2", "Streetfighter V4", "Multistrada V2", "Multistrada V4", "Diavel", "XDiavel", "Scrambler Icon", "Scrambler Desert Sled"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "Benelli",
+    "models": [
+      "Imperiale 400", "Leoncino 500", "TRK 502", "TRK 502X", "502C"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "Jawa",
+    "models": [
+      "Classic", "Forty Two", "Perak", "42 Bobber"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "Yezdi",
+    "models": [
+      "Roadster", "Scrambler", "Adventure"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "Ola Electric",
+    "models": [
+      "S1", "S1 Pro", "S1 Air", "S1 X"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "Ather",
+    "models": [
+      "450X", "450 Plus", "450S", "Rizta"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "Aprilia",
+    "models": [
+      "SR160", "SR125", "SXR160", "Storm 125", "RS 457", "Tuono 457"
+    ],
+    "category": "Bike"
+  },
+  {
+    "make": "Vespa",
+    "models": [
+      "VXL", "ZX", "Elegante", "Notte", "SXL"
+    ],
+    "category": "Bike"
+  }
+]

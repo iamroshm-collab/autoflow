@@ -1,0 +1,39 @@
+"EmployeeID","EmpName","IDNumber","Mobile","Address","Designation","SalaryPerday","StartDate","EndDate","Attendance","AttendanceDate"
+1,"Adarsh","941244822726","9995032849","Kampivelil
+Adinadu North
+Karunagappally","Mechanic",800.00,1-10-2021 00:00:00,,"A",30-10-2025 00:00:00
+2,"Midhun","259980962165","9745034417","Valalil
+Alappad Alumkadavu P.o
+Karunagappally","Mechanic",1200.00,1-1-2019 00:00:00,,"P",30-10-2025 00:00:00
+3,"Nishad","236799048429","9895372779","Kattoor House
+Kadathoor K S Puram P.o
+Karunagappally","Electrical",550.00,12-7-2022 00:00:00,,"P",30-10-2025 00:00:00
+4,"Rahul","863876155760","8086346699","Ayanivilayil
+Kallelibhagom P.o
+Karunagappally","Manager",461.60,1-11-2022 00:00:00,,"P",30-10-2025 00:00:00
+5,"Sarath","230571650416","7593020854","Kuttipurathu Veedu
+Kallelibhagom P.o
+Karungappally","A/c & Electrical",1200.00,20-1-2020 00:00:00,,"P",30-10-2025 00:00:00
+6,"Kannan","730199779274","9539876442","Mangalasserithara
+Pada North
+Karunagappally","Director",0.00,18-2-2022 00:00:00,,"P",30-10-2025 00:00:00
+7,"Autoline",,,,,0.00,,,"P",30-10-2025 00:00:00
+8,"Rijo","277560552531","9074006919","Karunagappally","Mechanic",900.00,10-11-2023 00:00:00,,"P",30-10-2025 00:00:00
+9,"Abin","716636821800","7994752516","Kesevapurathu Vadakathil
+Kollaka P.o Karunagappally","Mechanic",500.00,10-4-2024 00:00:00,,"P",30-10-2025 00:00:00
+10,"Athmaj","977882826775","8089889094","Adwaitham
+Kadathoor P.o Karunagappally","Mechanic",500.00,1-10-2023 00:00:00,,"A",30-10-2025 00:00:00
+11,"Gokul","768293503664","8848598184","Vayalil Vadakkathil
+Ks Puram P.o
+Karunagappally","Mechanic",400.00,1-10-2023 00:00:00,,"P",30-10-2025 00:00:00
+12,"Midun raj","290983784344","8075907622","Akash Bhavanam
+Kulasekarapuram P.o
+Kadathoor","Electrical",400.00,2-4-2024 00:00:00,,"P",30-10-2025 00:00:00
+13,"Vishnu","238741392086","8129800543","Mulakkeezhal
+Pad South Karunagappally","Mechanic",300.00,1-11-2024 00:00:00,,"P",30-10-2025 00:00:00
+14,"Akhil","264492966578","9567371769","Anil Bhavanam
+Kallelibhagom P.o Karunagappally","Mechanic",300.00,1-12-2024 00:00:00,,"P",30-10-2025 00:00:00
+15,"Mukesh","387778522749","8891852306","Mukesh Bhavanam
+Vettamooku Panmana","Mechanic",200.00,14-6-2025 00:00:00,,"P",30-10-2025 00:00:00
+16,"Salih","685537466965","8943542093","Alapurathu Padeettathil
+Kadathoor P.o Karunagappally","Electrical",166.66,10-6-2025 00:00:00,,"A",30-10-2025 00:00:00

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="100%" height="100%" viewBox="0 0 175 32" version="1.1" xmlns="http://www.w3.org/2000/svg" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+  <g transform="matrix(1,0,0,1,-10.8599,-14.4044)">
+    <g transform="matrix(5.95967,-2.60829,4.34456,9.92685,-223.264,-143.958)">
+      <path d="M25.24,25.727L25.24,25.125L23.99,24.796L25.115,24.487L25.24,24.52L25.24,23.444L24.911,23.626L24.595,23.048L25.369,22.619L26.162,22.827L26.162,25.969L25.24,25.727Z" style="fill:rgb(21,72,133);"/>
+    </g>
+    <g transform="matrix(4.85244,-4.33297,-7.11396,-7.96684,69.0495,332.092)">
+      <path d="M22.809,23.728L25.24,23.896L25.24,25.396L26.162,24.894L26.162,23.394L23.732,23.226L22.809,23.728Z" style="fill:rgb(59,130,246);"/>
+    </g>
+  </g>
+</svg>

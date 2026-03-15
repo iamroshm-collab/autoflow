@@ -499,7 +499,6 @@ export function SparePartsPurchaseLedger({
             <p className="mt-2 text-2xl font-bold text-red-600">{toCurrency(balance)}</p>
           </Card>
         </div>
-      </div>
 
       {activeTab === "all" && (
         <div className="mt-4 space-y-6">
@@ -736,6 +735,7 @@ export function SparePartsPurchaseLedger({
           </div>
         </div>
       )}
+      </div>
 
       <Dialog
         open={isReturnModalOpen}

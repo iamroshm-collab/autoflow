@@ -32,7 +32,7 @@ export const JobCardStatusChart = memo(function JobCardStatusChart({ data }: Job
   const total = chartData.reduce((sum, d) => sum + d.value, 0)
 
   return (
-    <div className="flex flex-col p-5 bg-card text-card-foreground rounded-xl shadow-sm border border-border/50">
+    <div className="flex h-full flex-col p-5 bg-card text-card-foreground rounded-xl shadow-sm border border-border/50">
       <h3 className="text-lg font-heading font-semibold text-card-foreground mb-4">
         Job Card Status
       </h3>

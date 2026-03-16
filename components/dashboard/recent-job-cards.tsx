@@ -1,16 +1,8 @@
 "use client"
 
-import { memo, useEffect, useMemo, useState } from "react"
+import { memo, useEffect, useState } from "react"
 
-import { ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 
 type RecentJob = {
   jobCardNumber: string
@@ -41,7 +33,6 @@ export const RecentJobCards = memo(function RecentJobCards({ jobs }: RecentJobCa
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [allUnderServiceJobs, setAllUnderServiceJobs] = useState<RecentJob[]>([])
-  const [isModalOpen, setIsModalOpen] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -80,8 +71,6 @@ export const RecentJobCards = memo(function RecentJobCards({ jobs }: RecentJobCa
     }
   }, [jobs])
 
-  const recentRows = useMemo(() => allUnderServiceJobs.slice(0, 10), [allUnderServiceJobs])
-
   const formatCurrency = (value?: number | null) => {
     const amount = Number(value || 0)
     return `Rs ${amount.toFixed(2)}`
@@ -91,7 +80,7 @@ export const RecentJobCards = memo(function RecentJobCards({ jobs }: RecentJobCa
     if (loading) {
       return (
         <tr>
-          <td colSpan={9} className="py-6 px-2 text-center text-sm text-muted-foreground">
+          <td colSpan={8} className="py-6 px-2 text-center text-sm text-muted-foreground">
             Loading...
           </td>
         </tr>
@@ -101,7 +90,7 @@ export const RecentJobCards = memo(function RecentJobCards({ jobs }: RecentJobCa
     if (error) {
       return (
         <tr>
-          <td colSpan={9} className="py-6 px-2 text-center text-sm text-red-600">
+          <td colSpan={8} className="py-6 px-2 text-center text-sm text-red-600">
             Error: {error}
           </td>
         </tr>
@@ -111,7 +100,7 @@ export const RecentJobCards = memo(function RecentJobCards({ jobs }: RecentJobCa
     if (rows.length === 0) {
       return (
         <tr>
-          <td colSpan={9} className="py-6 px-2 text-center text-sm text-muted-foreground">
+          <td colSpan={8} className="py-6 px-2 text-center text-sm text-muted-foreground">
             No under-service job cards found.
           </td>
         </tr>
@@ -126,15 +115,14 @@ export const RecentJobCards = memo(function RecentJobCards({ jobs }: RecentJobCa
           key={job.jobCardNumber}
           className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors"
         >
-          <td className="py-3 px-2 font-medium text-card-foreground">{job.jobCardNumber || "-"}</td>
-          <td className="py-3 px-2 text-muted-foreground text-xs font-mono">
+          <td className="py-3 px-2 text-card-foreground">
             {job.vehicle?.registrationNumber || "-"}
           </td>
           <td className="py-3 px-2 text-card-foreground">{job.customer?.name || "-"}</td>
-          <td className="py-3 px-2 text-muted-foreground text-xs font-mono">{job.customer?.mobileNo || "-"}</td>
-          <td className="py-3 px-2 text-muted-foreground">{job.fileNo || "-"}</td>
-          <td className="py-3 px-2 text-muted-foreground">{formatCurrency(job.total)}</td>
-          <td className="py-3 px-2 text-muted-foreground">{formatCurrency(job.advancePayment)}</td>
+          <td className="py-3 px-2 text-card-foreground">{job.customer?.mobileNo || "-"}</td>
+          <td className="py-3 px-2 text-card-foreground">{job.fileNo || "-"}</td>
+          <td className="py-3 px-2 text-card-foreground">{formatCurrency(job.total)}</td>
+          <td className="py-3 px-2 text-card-foreground">{formatCurrency(job.advancePayment)}</td>
           <td className="py-3 px-2">
             <span
               className={cn(
@@ -145,7 +133,7 @@ export const RecentJobCards = memo(function RecentJobCards({ jobs }: RecentJobCa
               {externalShopValue}
             </span>
           </td>
-          <td className="py-3 px-2 text-muted-foreground text-xs">{job.externalShopRemarks || "-"}</td>
+          <td className="py-3 px-2 text-card-foreground">{job.externalShopRemarks || "-"}</td>
         </tr>
       )
     })
@@ -158,20 +146,11 @@ export const RecentJobCards = memo(function RecentJobCards({ jobs }: RecentJobCa
           <h3 className="text-lg font-heading font-semibold text-card-foreground">
             Recent Job Cards
           </h3>
-          <button
-            type="button"
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-1 px-3 py-1.5 text-sm text-muted-foreground border border-border rounded-lg hover:bg-muted transition-colors"
-          >
-            View All
-            <ChevronRight className="w-4 h-4" />
-          </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left py-3 px-2 font-medium text-muted-foreground">Job Card ID</th>
                 <th className="text-left py-3 px-2 font-medium text-muted-foreground">Vehicle</th>
                 <th className="text-left py-3 px-2 font-medium text-muted-foreground">Customer Name</th>
                 <th className="text-left py-3 px-2 font-medium text-muted-foreground">Customer Mobile</th>
@@ -182,39 +161,10 @@ export const RecentJobCards = memo(function RecentJobCards({ jobs }: RecentJobCa
                 <th className="text-left py-3 px-2 font-medium text-muted-foreground">External Shop Remarks</th>
               </tr>
             </thead>
-            <tbody>{renderTable(recentRows)}</tbody>
+            <tbody>{renderTable(allUnderServiceJobs)}</tbody>
           </table>
         </div>
       </div>
-
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="w-[95vw] max-w-7xl max-h-[85vh] overflow-hidden p-0">
-          <DialogHeader className="px-6 pt-6 pb-2">
-            <DialogTitle>All Under-Service Job Cards</DialogTitle>
-            <DialogDescription>
-              Showing all under-service job cards, ordered by last updated.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="px-6 pb-6 overflow-auto">
-            <table className="w-full text-sm min-w-[1100px]">
-              <thead className="sticky top-0 bg-background">
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Job Card ID</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Vehicle</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Customer Name</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Customer Mobile</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">File No</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Total Bill</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Advance</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">External Shop</th>
-                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">External Shop Remarks</th>
-                </tr>
-              </thead>
-              <tbody>{renderTable(allUnderServiceJobs)}</tbody>
-            </table>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   )
 })

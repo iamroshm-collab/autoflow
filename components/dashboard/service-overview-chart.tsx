@@ -23,7 +23,7 @@ export const ServiceOverviewChart = memo(function ServiceOverviewChart({ data }:
   const chartData = data && data.length > 0 ? data : fallbackData
 
   return (
-    <div className="flex flex-col p-5 bg-card text-card-foreground rounded-xl shadow-sm border border-border/50">
+    <div className="flex h-full flex-col p-5 bg-card text-card-foreground rounded-xl shadow-sm border border-border/50">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-heading font-semibold text-card-foreground">
           Service Overview
@@ -37,7 +37,7 @@ export const ServiceOverviewChart = memo(function ServiceOverviewChart({ data }:
           </button>
         </div>
       </div>
-      <div className="h-64">
+      <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
             <defs>

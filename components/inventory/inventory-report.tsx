@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from '@/components/ui/notify'
@@ -102,15 +102,14 @@ export function InventoryReportComponent() {
   const totalValue = filteredReport.reduce((sum, item) => sum + item.balanceValue, 0)
 
   return (
-    <div className="w-full space-y-6 p-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Inventory & Stock Balance Report</CardTitle>
-          <CardDescription>
-            Track purchased, sold, and returned inventory with real-time stock balances
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-base font-semibold">Inventory & Stock Balance Report</h2>
+        <p className="text-sm text-muted-foreground">
+          Track purchased, sold, and returned inventory with real-time stock balances
+        </p>
+      </div>
+
           {/* Filters */}
           <div className="grid gap-4 md:grid-cols-5">
             <div className="space-y-2">
@@ -309,8 +308,7 @@ export function InventoryReportComponent() {
             <div>Total Records: {filteredReport.length}</div>
             <div>Last Updated: {new Date().toLocaleString()}</div>
           </div>
-        </CardContent>
-      </Card>
+
     </div>
   )
 }

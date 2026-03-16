@@ -6,12 +6,13 @@ import { Tabs, TabsContent } from "@/components/ui/tabs"
 import PurchaseEntryForm from "@/components/inventory/purchase-entry-form"
 import { POSSalesForm } from "@/components/inventory/pos-sales"
 import { InventoryReportComponent } from "@/components/inventory/inventory-report"
+import { InventoryMovementForm } from "@/components/inventory/InventoryMovementForm"
 import { CreditNoteTab, DebitNoteTab, GstReportTab } from "@/components/inventory/credit-debit-gst"
 import type { NoteEntry } from "@/components/inventory/credit-debit-gst"
 import { notify } from "@/components/ui/notify"
 
 interface InventoryPosModuleProps {
-	activeTab: "purchase" | "sales" | "inventory" | "credit-notes" | "debit-notes" | "gst-report"
+	activeTab: "purchase" | "sales" | "inventory" | "stock-movement" | "credit-notes" | "debit-notes" | "gst-report"
 }
 
 export function InventoryPosModule({ activeTab }: InventoryPosModuleProps) {
@@ -245,6 +246,10 @@ export function InventoryPosModule({ activeTab }: InventoryPosModuleProps) {
 
 				<TabsContent value="inventory" className="global-tabs-panel space-y-4">
 					<InventoryReportComponent />
+				</TabsContent>
+
+				<TabsContent value="stock-movement" className="global-tabs-panel space-y-4">
+					<InventoryMovementForm />
 				</TabsContent>
 
 				<TabsContent value="credit-notes" className="global-tabs-panel space-y-4">

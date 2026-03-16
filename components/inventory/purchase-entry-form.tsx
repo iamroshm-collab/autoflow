@@ -82,6 +82,13 @@ export default function PurchaseEntryForm() {
   const [searchResults, setSearchResults] = useState<PurchaseRecord[]>([])
   const [isSearching, setIsSearching] = useState(false)
 
+  const [billSearchInput, setBillSearchInput] = useState("")
+  const [billSearchAllResults, setBillSearchAllResults] = useState<PurchaseRecord[]>([])
+  const [isBillSearchOpen, setIsBillSearchOpen] = useState(false)
+  const [isBillSearchLoading, setIsBillSearchLoading] = useState(false)
+  const [billSearchHighlight, setBillSearchHighlight] = useState(0)
+  const billSearchRef = useRef<HTMLDivElement | null>(null)
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   const [isPriceModalOpen, setIsPriceModalOpen] = useState(false)
@@ -116,6 +123,25 @@ export default function PurchaseEntryForm() {
     if (!query) return suppliers
     return suppliers.filter((supplier) => supplier.supplierName.toLowerCase().includes(query))
   }, [newSupplierQuery, suppliers])
+
+  const billSearchFiltered = useMemo(() => {
+    const q = billSearchInput.trim().toLowerCase()
+    if (!q) return billSearchAllResults.slice(0, 50)
+    return billSearchAllResults.filter((r) =>
+      (r.refDocument || r.billNumber || "").toLowerCase().includes(q) ||
+      (r.supplier || "").toLowerCase().includes(q)
+    )
+  }, [billSearchInput, billSearchAllResults])
+
+  useEffect(() => {
+    const handleOutside = (event: MouseEvent) => {
+      if (!billSearchRef.current?.contains(event.target as Node)) {
+        setIsBillSearchOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleOutside)
+    return () => document.removeEventListener("mousedown", handleOutside)
+  }, [])
 
   const fetchSuppliers = async () => {
     try {
@@ -408,6 +434,22 @@ export default function PurchaseEntryForm() {
     await searchPurchases("")
   }
 
+  const openBillSearch = async () => {
+    setIsBillSearchOpen(true)
+    if (billSearchAllResults.length === 0) {
+      setIsBillSearchLoading(true)
+      try {
+        const response = await fetch("/api/purchases")
+        const data = await response.json()
+        setBillSearchAllResults(Array.isArray(data) ? (data as PurchaseRecord[]) : [])
+      } catch {
+        setBillSearchAllResults([])
+      } finally {
+        setIsBillSearchLoading(false)
+      }
+    }
+  }
+
   const openEditForPurchase = async (purchase: PurchaseRecord) => {
     const full = await loadPurchaseById(purchase.purchaseId)
     if (!full) return
@@ -433,10 +475,74 @@ export default function PurchaseEntryForm() {
         <div className="flex items-center justify-between gap-2 mb-4">
           <h2 className="text-base font-semibold">Inventory Purchase Entry</h2>
           <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" onClick={openSearchDialog}>
-              <Search className="h-4 w-4 mr-2" />
-              Search Bill
-            </Button>
+            <div className="relative" ref={billSearchRef}>
+              <div className="relative flex items-center">
+                <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <input
+                  type="text"
+                  className="h-9 w-72 rounded-md border border-input bg-background pl-9 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="Search bill or supplier..."
+                  value={billSearchInput}
+                  onFocus={() => void openBillSearch()}
+                  onChange={(e) => {
+                    setBillSearchInput(e.target.value)
+                    setBillSearchHighlight(0)
+                    setIsBillSearchOpen(true)
+                  }}
+                  onKeyDown={(e) => {
+                    if (!isBillSearchOpen) return
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault()
+                      setBillSearchHighlight((h) => Math.min(h + 1, billSearchFiltered.length - 1))
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault()
+                      setBillSearchHighlight((h) => Math.max(h - 1, 0))
+                    } else if (e.key === "Enter") {
+                      const sel = billSearchFiltered[billSearchHighlight]
+                      if (sel) {
+                        void loadPurchaseToMain(sel)
+                        setIsBillSearchOpen(false)
+                        setBillSearchInput("")
+                      }
+                    } else if (e.key === "Escape") {
+                      setIsBillSearchOpen(false)
+                    }
+                  }}
+                />
+              </div>
+              {isBillSearchOpen && (
+                <div className="dropdown-container">
+                  <div className="dropdown-scroll">
+                    {isBillSearchLoading ? (
+                      <div className="dropdown-empty-state">Loading bills...</div>
+                    ) : billSearchFiltered.length === 0 ? (
+                      <div className="dropdown-empty-state">No bills found.</div>
+                    ) : (
+                      billSearchFiltered.map((r, idx) => (
+                        <button
+                          key={r.purchaseId}
+                          type="button"
+                          className={`dropdown-item${idx === billSearchHighlight ? " selected" : ""}`}
+                          onMouseDown={() => {
+                            void loadPurchaseToMain(r)
+                            setIsBillSearchOpen(false)
+                            setBillSearchInput("")
+                          }}
+                        >
+                          <span className="font-medium">{r.refDocument || r.billNumber || "—"}</span>
+                          {r.supplier && (
+                            <span className="ml-2 text-xs text-slate-400">{r.supplier}</span>
+                          )}
+                          {r.purchaseDate && (
+                            <span className="ml-2 text-xs text-slate-400">{formatDateDDMMYY(r.purchaseDate)}</span>
+                          )}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

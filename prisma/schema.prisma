@@ -399,6 +399,7 @@ model Product {
   createdOn          DateTime           @default(now()) @map("CreatedOn")
   purchaseDetails    PurchaseDetail[]
   saleDetails        SaleDetail[]
+  inventoryMovements InventoryMovement[]
   creditNoteDetails  CreditNoteDetail[]
   supplier           Supplier           @relation(fields: [supplierId], references: [supplierId], onDelete: Cascade)
   category           Category?          @relation(fields: [categoryId], references: [categoryId], onDelete: SetNull)
@@ -406,6 +407,22 @@ model Product {
   @@index([supplierId])
   @@index([categoryId])
   @@map("Products")
+}
+
+model InventoryMovement {
+  id           Int      @id @default(autoincrement()) @map("ID")
+  itemId       Int      @map("ItemID")
+  movementType String   @map("MovementType")
+  quantity     Int      @map("Quantity")
+  referenceType String  @map("ReferenceType")
+  referenceId  Int?     @map("ReferenceID")
+  remarks      String?  @map("Remarks")
+  createdAt    DateTime @default(now()) @map("CreatedAt")
+  item         Product  @relation(fields: [itemId], references: [productId], onDelete: Restrict)
+
+  @@index([itemId])
+  @@index([createdAt])
+  @@map("InventoryMovement")
 }
 
 model Purchase {

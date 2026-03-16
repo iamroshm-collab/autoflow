@@ -22,7 +22,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { RefreshCw, Plus } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { RefreshCw, Plus, Search } from "lucide-react"
 import { notify } from "@/components/ui/notify"
 import DatePickerInput from "@/components/ui/date-picker-input"
 import { formatDateDDMMYY } from "@/lib/utils"
@@ -52,10 +60,12 @@ const NoteForm = ({
   onAdd,
   defaultTaxRate,
   label,
+  entries,
 }: {
   onAdd: (entry: NoteEntry) => Promise<void> | void
   defaultTaxRate: number
   label: "Credit" | "Debit"
+  entries: NoteEntry[]
 }) => {
   const today = formatDateDDMMYY(new Date())
   const [form, setForm] = useState({
@@ -69,6 +79,42 @@ const NoteForm = ({
     gstin: "",
   })
   const [submitting, setSubmitting] = useState(false)
+  const [isNewModalOpen, setIsNewModalOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchHighlight, setSearchHighlight] = useState(0)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
+
+  const filteredEntries = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return entries.slice(0, 50)
+    return entries.filter((entry) => {
+      const haystack = `${entry.noteNumber} ${entry.party} ${entry.reference} ${entry.reason} ${entry.date}`.toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [entries, searchQuery])
+
+  useEffect(() => {
+    if (!isSearchOpen) return
+    setSearchHighlight((prev) => {
+      const max = Math.max(0, filteredEntries.length - 1)
+      return Math.min(prev, max)
+    })
+  }, [filteredEntries.length, isSearchOpen])
+
+  const loadEntryToForm = (entry: NoteEntry) => {
+    setForm({
+      noteNumber: entry.noteNumber,
+      date: entry.date,
+      party: entry.party,
+      reference: entry.reference,
+      amount: String(entry.amount),
+      taxRate: String(entry.taxRate),
+      reason: entry.reason,
+      gstin: entry.gstin || "",
+    })
+    setIsSearchOpen(false)
+    setIsNewModalOpen(true)
+  }
 
   const handleSubmit = async () => {
     const amount = Number(form.amount || 0)
@@ -108,6 +154,7 @@ const NoteForm = ({
         reason: "",
         gstin: "",
       })
+      setIsNewModalOpen(false)
     } catch (error) {
       console.error("Failed to add note", error)
       notify.error("Failed to add note")
@@ -117,169 +164,244 @@ const NoteForm = ({
   }
 
   return (
-    <Card className="border-dashed">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-lg">{label} Note</CardTitle>
-      </CardHeader>
-      <CardContent className="grid gap-4 md:grid-cols-3">
-        <div className="space-y-2">
-          <Label htmlFor={`${label}-noteNumber`}>Note Number</Label>
+    <Card className="p-4 md:p-5">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h2 className="text-base font-semibold">{label} Notes</h2>
+        <div className="relative w-full max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <Input
-            id={`${label}-noteNumber`}
-            placeholder={`${label === "Credit" ? "CN" : "DN"}-001`}
-            value={form.noteNumber}
-            onChange={(e) => setForm((p) => ({ ...p, noteNumber: e.target.value }))}
+            value={searchQuery}
+            onFocus={() => setIsSearchOpen(true)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value)
+              setSearchHighlight(0)
+              setIsSearchOpen(true)
+            }}
+            onKeyDown={(e) => {
+              if (!isSearchOpen) return
+              if (filteredEntries.length === 0) return
+              if (e.key === "ArrowDown") {
+                e.preventDefault()
+                setSearchHighlight((h) => Math.min(h + 1, filteredEntries.length - 1))
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault()
+                setSearchHighlight((h) => Math.max(h - 1, 0))
+              } else if (e.key === "Enter") {
+                e.preventDefault()
+                const selected = filteredEntries[searchHighlight]
+                if (selected) loadEntryToForm(selected)
+              } else if (e.key === "Escape") {
+                e.preventDefault()
+                setIsSearchOpen(false)
+              }
+            }}
+            onBlur={() => setTimeout(() => setIsSearchOpen(false), 120)}
+            placeholder={`Search by note #, party, reference, date, reason...`}
+            className="pl-9"
           />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${label}-date`}>Date</Label>
-          <DatePickerInput
-            id={`${label}-date`}
-            value={form.date}
-            onChange={(e) => setForm((p) => ({ ...p, date: e }))}
-            format="dd-mm-yy"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${label}-party`}>Customer / Supplier</Label>
-          <Input
-            id={`${label}-party`}
-            placeholder="Party name"
-            value={form.party}
-            onChange={(e) => setForm((p) => ({ ...p, party: e.target.value }))}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${label}-reference`}>Reference Invoice</Label>
-          <Input
-            id={`${label}-reference`}
-            placeholder="INV-123"
-            value={form.reference}
-            onChange={(e) => setForm((p) => ({ ...p, reference: e.target.value }))}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${label}-amount`}>Taxable Amount</Label>
-          <Input
-            id={`${label}-amount`}
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.amount}
-            onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${label}-taxRate`}>GST %</Label>
-          <Select
-            value={form.taxRate}
-            onValueChange={(v) => setForm((p) => ({ ...p, taxRate: v }))}
-          >
-            <SelectTrigger id={`${label}-taxRate`}>
-              <SelectValue placeholder="Select GST %" />
-            </SelectTrigger>
-            <SelectContent>
-              {[0, 5, 12, 18, 28].map((rate) => (
-                <SelectItem key={rate} value={String(rate)}>
-                  {rate}%
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="md:col-span-3 space-y-2">
-          <Label htmlFor={`${label}-reason`}>Reason / Notes</Label>
-          <Textarea
-            id={`${label}-reason`}
-            rows={2}
-            placeholder="Return, rate revision, damage adjustment, etc."
-            value={form.reason}
-            onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={`${label}-gstin`}>GSTIN (optional)</Label>
-          <Input
-            id={`${label}-gstin`}
-            placeholder="29ABCDE1234F2Z5"
-            value={form.gstin}
-            onChange={(e) => setForm((p) => ({ ...p, gstin: e.target.value }))}
-          />
-        </div>
-      </CardContent>
-      <div className="sticky-form-actions flex justify-end px-6 pb-6">
-        <Button onClick={handleSubmit} disabled={submitting}>
-          {submitting ? "Saving..." : (
-            <>
-              <Plus className="mr-2 h-4 w-4" />
-              Add {label} Note
-            </>
+
+          {isSearchOpen && (
+            <div className="dropdown-container">
+              <div className="dropdown-scroll">
+                {filteredEntries.length === 0 ? (
+                  <div className="dropdown-empty-state">No notes found.</div>
+                ) : (
+                  filteredEntries.map((entry, idx) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      className={`dropdown-item ${idx === searchHighlight ? "selected" : ""}`}
+                      onMouseDown={() => loadEntryToForm(entry)}
+                      onMouseEnter={() => setSearchHighlight(idx)}
+                    >
+                      <span className="font-medium">{entry.noteNumber}</span>
+                      <span className="ml-2 text-xs text-slate-400">{entry.party}</span>
+                      <span className="ml-2 text-xs text-slate-400">{entry.date}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
           )}
+        </div>
+      </div>
+
+      <Dialog open={isNewModalOpen} onOpenChange={setIsNewModalOpen}>
+        <DialogContent className="max-w-[46rem]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-semibold">Add {label} Note</DialogTitle>
+            <DialogDescription>Fill note details and save.</DialogDescription>
+          </DialogHeader>
+
+          <div className="border border-slate-200 rounded-lg bg-white p-4 space-y-3 max-h-[75vh] overflow-y-auto">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor={`${label}-noteNumber`}>Note Number</Label>
+                <Input
+                  id={`${label}-noteNumber`}
+                  placeholder={`${label === "Credit" ? "CN" : "DN"}-001`}
+                  value={form.noteNumber}
+                  onChange={(e) => setForm((p) => ({ ...p, noteNumber: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={`${label}-date`}>Date</Label>
+                <DatePickerInput
+                  id={`${label}-date`}
+                  value={form.date}
+                  onChange={(e) => setForm((p) => ({ ...p, date: e }))}
+                  format="dd-mm-yy"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={`${label}-party`}>Customer / Supplier</Label>
+                <Input
+                  id={`${label}-party`}
+                  placeholder="Party name"
+                  value={form.party}
+                  onChange={(e) => setForm((p) => ({ ...p, party: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor={`${label}-reference`}>Reference Invoice</Label>
+                <Input
+                  id={`${label}-reference`}
+                  placeholder="INV-123"
+                  value={form.reference}
+                  onChange={(e) => setForm((p) => ({ ...p, reference: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={`${label}-amount`}>Taxable Amount</Label>
+                <Input
+                  id={`${label}-amount`}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.amount}
+                  onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor={`${label}-taxRate`}>GST %</Label>
+                <Select
+                  value={form.taxRate}
+                  onValueChange={(v) => setForm((p) => ({ ...p, taxRate: v }))}
+                >
+                  <SelectTrigger id={`${label}-taxRate`}>
+                    <SelectValue placeholder="Select GST %" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[0, 5, 12, 18, 28].map((rate) => (
+                      <SelectItem key={rate} value={String(rate)}>
+                        {rate}%
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="md:col-span-3 space-y-2">
+                <Label htmlFor={`${label}-reason`}>Reason / Notes</Label>
+                <Textarea
+                  id={`${label}-reason`}
+                  rows={2}
+                  placeholder="Return, rate revision, damage adjustment, etc."
+                  value={form.reason}
+                  onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor={`${label}-gstin`}>GSTIN (optional)</Label>
+                <Input
+                  id={`${label}-gstin`}
+                  placeholder="29ABCDE1234F2Z5"
+                  value={form.gstin}
+                  onChange={(e) => setForm((p) => ({ ...p, gstin: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="sticky-form-actions flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsNewModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={handleSubmit} disabled={submitting}>
+                {submitting ? "Saving..." : `Save ${label} Note`}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <div className="mt-4 rounded-md border overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[110px]">Date</TableHead>
+              <TableHead>Note #</TableHead>
+              <TableHead>Party</TableHead>
+              <TableHead>Reference</TableHead>
+              <TableHead className="text-right">Taxable</TableHead>
+              <TableHead className="text-right">GST %</TableHead>
+              <TableHead className="text-right">GST Amt</TableHead>
+              <TableHead className="text-right">CGST</TableHead>
+              <TableHead className="text-right">SGST</TableHead>
+              <TableHead className="text-right">IGST</TableHead>
+              <TableHead>Reason</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {entries.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={11} className="text-center text-sm text-muted-foreground">
+                  No entries yet. Add a note to get started.
+                </TableCell>
+              </TableRow>
+            )}
+            {entries.map((entry) => {
+              const gstAmount = (entry.amount * entry.taxRate) / 100
+              const isIntra = deriveStateCode(entry.gstin) === shopStateCode
+              const cgst = isIntra ? gstAmount / 2 : 0
+              const sgst = isIntra ? gstAmount / 2 : 0
+              const igst = isIntra ? 0 : gstAmount
+              return (
+                <TableRow key={entry.id}>
+                  <TableCell>{entry.date}</TableCell>
+                  <TableCell>{entry.noteNumber}</TableCell>
+                  <TableCell>{entry.party}</TableCell>
+                  <TableCell>{entry.reference || "-"}</TableCell>
+                  <TableCell className="text-right">{currency(entry.amount)}</TableCell>
+                  <TableCell className="text-right">{entry.taxRate}%</TableCell>
+                  <TableCell className="text-right">{currency(gstAmount)}</TableCell>
+                  <TableCell className="text-right">{currency(cgst)}</TableCell>
+                  <TableCell className="text-right">{currency(sgst)}</TableCell>
+                  <TableCell className="text-right">{currency(igst)}</TableCell>
+                  <TableCell className="max-w-xs truncate" title={entry.reason}>
+                    {entry.reason || "-"}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="sticky-form-actions mt-4 flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          onClick={() => setIsNewModalOpen(true)}
+          className="flex-1 justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent"
+          variant="ghost"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          New {label} Note
         </Button>
       </div>
     </Card>
   )
 }
-
-const NoteTable = ({ entries }: { entries: NoteEntry[] }) => (
-  <Card>
-    <CardHeader className="pb-3">
-      <CardTitle className="text-base">Recent Entries</CardTitle>
-    </CardHeader>
-    <CardContent className="p-0">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[110px]">Date</TableHead>
-            <TableHead>Note #</TableHead>
-            <TableHead>Party</TableHead>
-            <TableHead>Reference</TableHead>
-            <TableHead className="text-right">Taxable</TableHead>
-            <TableHead className="text-right">GST %</TableHead>
-            <TableHead className="text-right">GST Amt</TableHead>
-            <TableHead className="text-right">CGST</TableHead>
-            <TableHead className="text-right">SGST</TableHead>
-            <TableHead className="text-right">IGST</TableHead>
-            <TableHead>Reason</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {entries.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={11} className="text-center text-sm text-muted-foreground">
-                No entries yet. Add a note to get started.
-              </TableCell>
-            </TableRow>
-          )}
-          {entries.map((entry) => {
-            const gstAmount = (entry.amount * entry.taxRate) / 100
-            const isIntra = deriveStateCode(entry.gstin) === shopStateCode
-            const cgst = isIntra ? gstAmount / 2 : 0
-            const sgst = isIntra ? gstAmount / 2 : 0
-            const igst = isIntra ? 0 : gstAmount
-            return (
-              <TableRow key={entry.id}>
-                <TableCell>{entry.date}</TableCell>
-                <TableCell>{entry.noteNumber}</TableCell>
-                <TableCell>{entry.party}</TableCell>
-                <TableCell>{entry.reference || "-"}</TableCell>
-                <TableCell className="text-right">{currency(entry.amount)}</TableCell>
-                <TableCell className="text-right">{entry.taxRate}%</TableCell>
-                <TableCell className="text-right">{currency(gstAmount)}</TableCell>
-                <TableCell className="text-right">{currency(cgst)}</TableCell>
-                <TableCell className="text-right">{currency(sgst)}</TableCell>
-                <TableCell className="text-right">{currency(igst)}</TableCell>
-                <TableCell className="max-w-xs truncate" title={entry.reason}>
-                  {entry.reason || "-"}
-                </TableCell>
-              </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
-    </CardContent>
-  </Card>
-)
 
 const NoteSummary = ({ title, entries }: { title: string; entries: NoteEntry[] }) => {
   const totals = useMemo(() => {
@@ -325,8 +447,7 @@ export function CreditNoteTab({ entries, onAdd }: { entries: NoteEntry[]; onAdd:
   return (
     <div className="space-y-4">
       <NoteSummary title="Credit Notes" entries={entries} />
-      <NoteForm onAdd={onAdd} defaultTaxRate={18} label="Credit" />
-      <NoteTable entries={entries} />
+      <NoteForm onAdd={onAdd} defaultTaxRate={18} label="Credit" entries={entries} />
     </div>
   )
 }
@@ -335,8 +456,7 @@ export function DebitNoteTab({ entries, onAdd }: { entries: NoteEntry[]; onAdd: 
   return (
     <div className="space-y-4">
       <NoteSummary title="Debit Notes" entries={entries} />
-      <NoteForm onAdd={onAdd} defaultTaxRate={18} label="Debit" />
-      <NoteTable entries={entries} />
+      <NoteForm onAdd={onAdd} defaultTaxRate={18} label="Debit" entries={entries} />
     </div>
   )
 }

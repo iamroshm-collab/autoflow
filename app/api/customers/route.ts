@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
         id: true,
         mobileNo: true,
         name: true,
+        stateId: true,
+        state: true,
       },
       orderBy: [{ name: "asc" }],
       take: 50,

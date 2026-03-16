@@ -174,7 +174,7 @@ function PageContent() {
   const [sparePartsTab, setSparePartsTab] = useState<"all" | "returned" | "payments">("all")
   const [attendancePayrollTab, setAttendancePayrollTab] = useState<"attendance" | "adjustments" | "payroll">("attendance")
   const [inventoryTab, setInventoryTab] = useState<"suppliers" | "products">("suppliers")
-  const [inventoryPosTab, setInventoryPosTab] = useState<"purchase" | "sales" | "inventory" | "credit-notes" | "debit-notes" | "gst-report">("purchase")
+  const [inventoryPosTab, setInventoryPosTab] = useState<"purchase" | "sales" | "inventory" | "stock-movement" | "credit-notes" | "debit-notes" | "gst-report">("purchase")
   const [sparePartsShopFilter, setSparePartsShopFilter] = useState("")
   const [sparePartsStartDate, setSparePartsStartDate] = useState("")
   const [sparePartsEndDate, setSparePartsEndDate] = useState("")
@@ -617,11 +617,11 @@ function PageContent() {
                   value={inventoryPosTab}
                   onValueChange={(value) =>
                     setInventoryPosTab(
-                      value as "purchase" | "sales" | "inventory" | "credit-notes" | "debit-notes" | "gst-report"
+                      value as "purchase" | "sales" | "inventory" | "stock-movement" | "credit-notes" | "debit-notes" | "gst-report"
                     )
                   }
                 >
-                  <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 border-b-0">
+                  <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 border-b-0">
                     <TabsTrigger value="purchase" className="w-full gap-2">
                       <FilePlus className="h-4 w-4 text-slate-600" />
                       <span>Purchase Entry</span>
@@ -633,6 +633,10 @@ function PageContent() {
                     <TabsTrigger value="inventory" className="w-full gap-2">
                       <Package className="h-4 w-4 text-slate-600" />
                       <span>Inventory Report</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="stock-movement" className="w-full gap-2">
+                      <RotateCcw className="h-4 w-4 text-slate-600" />
+                      <span>Stock Movement</span>
                     </TabsTrigger>
                     <TabsTrigger value="credit-notes" className="w-full gap-2">
                       <FileText className="h-4 w-4 text-slate-600" />

@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PurchaseEntryForm } from '@/components/inventory/purchase-entry'
 import { POSSalesForm } from '@/components/inventory/pos-sales'
 import { InventoryReportComponent } from '@/components/inventory/inventory-report'
+import { InventoryMovementForm } from '@/components/inventory/InventoryMovementForm'
 
 export default function InventoryPOSPage() {
   const [activeTab, setActiveTab] = useState('purchase')
@@ -24,7 +25,7 @@ export default function InventoryPOSPage() {
         {/* Tabs */}
         <div className="p-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3 border-b-0">
+            <TabsList className="grid w-full grid-cols-4 border-b-0">
               <TabsTrigger value="purchase" className="w-full">
                 <span className="mr-2">📦</span>
                 Purchase Entry
@@ -36,6 +37,10 @@ export default function InventoryPOSPage() {
               <TabsTrigger value="inventory" className="w-full">
                 <span className="mr-2">📊</span>
                 Inventory Report
+              </TabsTrigger>
+              <TabsTrigger value="stock-movement" className="w-full">
+                <span className="mr-2">🔄</span>
+                Stock Movement
               </TabsTrigger>
             </TabsList>
 
@@ -104,6 +109,11 @@ export default function InventoryPOSPage() {
             {/* Inventory Report Tab */}
             <TabsContent value="inventory" className="space-y-4">
               <InventoryReportComponent />
+            </TabsContent>
+
+            {/* Stock Movement Tab */}
+            <TabsContent value="stock-movement" className="space-y-4">
+              <InventoryMovementForm />
             </TabsContent>
           </Tabs>
         </div>

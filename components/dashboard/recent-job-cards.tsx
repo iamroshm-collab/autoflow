@@ -1,98 +1,220 @@
 "use client"
 
-import { memo } from "react"
+import { memo, useEffect, useMemo, useState } from "react"
 
-import { ChevronRight, UserCircle } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-type JobStatus = "Completed" | "In Progress" | "Pending" | "Cancelled"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 type RecentJob = {
-  id: string
-  customer: string
-  vehicle: string
-  date: string
-  status: JobStatus
+  jobCardNumber: string
+  fileNo?: string | null
+  total?: number | null
+  advancePayment?: number | null
+  externalShop?: boolean
+  externalShopRemarks?: string | null
+  customer?: {
+    name?: string | null
+    mobileNo?: string | null
+  } | null
+  vehicle?: {
+    registrationNumber?: string | null
+  } | null
 }
 
 interface RecentJobCardsProps {
-  jobs?: RecentJob[]
+  jobs?: unknown[]
 }
 
-const statusStyles: Record<JobStatus, string> = {
-  Completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  "In Progress": "bg-blue-50 text-blue-700 border-blue-200",
-  Pending: "bg-amber-50 text-amber-700 border-amber-200",
-  Cancelled: "bg-rose-50 text-rose-700 border-rose-200",
+const externalShopStyles: Record<"Yes" | "No", string> = {
+  Yes: "bg-emerald-500 text-white border-emerald-500",
+  No: "bg-rose-500 text-white border-rose-500",
 }
 
 export const RecentJobCards = memo(function RecentJobCards({ jobs }: RecentJobCardsProps) {
-  const tableRows = Array.isArray(jobs) ? jobs : []
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [allUnderServiceJobs, setAllUnderServiceJobs] = useState<RecentJob[]>([])
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadUnderServiceJobs = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const response = await fetch("/api/jobcards/under-service", { cache: "no-store" })
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data?.error || "Failed to fetch under-service job cards")
+        }
+
+        if (isMounted) {
+          setAllUnderServiceJobs(Array.isArray(data) ? data : [])
+        }
+      } catch (fetchError) {
+        if (isMounted) {
+          setError(fetchError instanceof Error ? fetchError.message : "Failed to load job cards")
+          setAllUnderServiceJobs([])
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadUnderServiceJobs()
+
+    return () => {
+      isMounted = false
+    }
+  }, [jobs])
+
+  const recentRows = useMemo(() => allUnderServiceJobs.slice(0, 10), [allUnderServiceJobs])
+
+  const formatCurrency = (value?: number | null) => {
+    const amount = Number(value || 0)
+    return `Rs ${amount.toFixed(2)}`
+  }
+
+  const renderTable = (rows: RecentJob[]) => {
+    if (loading) {
+      return (
+        <tr>
+          <td colSpan={9} className="py-6 px-2 text-center text-sm text-muted-foreground">
+            Loading...
+          </td>
+        </tr>
+      )
+    }
+
+    if (error) {
+      return (
+        <tr>
+          <td colSpan={9} className="py-6 px-2 text-center text-sm text-red-600">
+            Error: {error}
+          </td>
+        </tr>
+      )
+    }
+
+    if (rows.length === 0) {
+      return (
+        <tr>
+          <td colSpan={9} className="py-6 px-2 text-center text-sm text-muted-foreground">
+            No under-service job cards found.
+          </td>
+        </tr>
+      )
+    }
+
+    return rows.map((job) => {
+      const externalShopValue: "Yes" | "No" = job.externalShop ? "Yes" : "No"
+
+      return (
+        <tr
+          key={job.jobCardNumber}
+          className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors"
+        >
+          <td className="py-3 px-2 font-medium text-card-foreground">{job.jobCardNumber || "-"}</td>
+          <td className="py-3 px-2 text-muted-foreground text-xs font-mono">
+            {job.vehicle?.registrationNumber || "-"}
+          </td>
+          <td className="py-3 px-2 text-card-foreground">{job.customer?.name || "-"}</td>
+          <td className="py-3 px-2 text-muted-foreground text-xs font-mono">{job.customer?.mobileNo || "-"}</td>
+          <td className="py-3 px-2 text-muted-foreground">{job.fileNo || "-"}</td>
+          <td className="py-3 px-2 text-muted-foreground">{formatCurrency(job.total)}</td>
+          <td className="py-3 px-2 text-muted-foreground">{formatCurrency(job.advancePayment)}</td>
+          <td className="py-3 px-2">
+            <span
+              className={cn(
+                "inline-flex px-2.5 py-0.5 text-xs font-medium rounded-full border",
+                externalShopStyles[externalShopValue]
+              )}
+            >
+              {externalShopValue}
+            </span>
+          </td>
+          <td className="py-3 px-2 text-muted-foreground text-xs">{job.externalShopRemarks || "-"}</td>
+        </tr>
+      )
+    })
+  }
 
   return (
-    <div className="flex flex-col p-5 bg-card text-card-foreground rounded-xl shadow-sm border border-border/50">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-heading font-semibold text-card-foreground">
-          Recent Job Cards
-        </h3>
-        <button className="flex items-center gap-1 px-3 py-1.5 text-sm text-muted-foreground border border-border rounded-lg hover:bg-muted transition-colors">
-          View All
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border">
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Job Card ID</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Customer</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Vehicle</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Service Date</th>
-              <th className="text-left py-3 px-2 font-medium text-muted-foreground">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tableRows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="py-6 px-2 text-center text-sm text-muted-foreground">
-                  No recent job cards found.
-                </td>
+    <>
+      <div className="flex flex-col p-5 bg-card text-card-foreground rounded-xl shadow-sm border border-border/50">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-heading font-semibold text-card-foreground">
+            Recent Job Cards
+          </h3>
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-1 px-3 py-1.5 text-sm text-muted-foreground border border-border rounded-lg hover:bg-muted transition-colors"
+          >
+            View All
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left py-3 px-2 font-medium text-muted-foreground">Job Card ID</th>
+                <th className="text-left py-3 px-2 font-medium text-muted-foreground">Vehicle</th>
+                <th className="text-left py-3 px-2 font-medium text-muted-foreground">Customer Name</th>
+                <th className="text-left py-3 px-2 font-medium text-muted-foreground">Customer Mobile</th>
+                <th className="text-left py-3 px-2 font-medium text-muted-foreground">File No</th>
+                <th className="text-left py-3 px-2 font-medium text-muted-foreground">Total Bill</th>
+                <th className="text-left py-3 px-2 font-medium text-muted-foreground">Advance</th>
+                <th className="text-left py-3 px-2 font-medium text-muted-foreground">External Shop</th>
+                <th className="text-left py-3 px-2 font-medium text-muted-foreground">External Shop Remarks</th>
               </tr>
-            ) : (
-              tableRows.map((job) => (
-                <tr
-                  key={job.id}
-                  className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors"
-                >
-                  <td className="py-3 px-2 font-medium text-card-foreground">{job.id}</td>
-                  <td className="py-3 px-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0">
-                        <UserCircle className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                      <span className="text-card-foreground">{job.customer}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-2 text-muted-foreground font-mono text-xs">
-                    {job.vehicle}
-                  </td>
-                  <td className="py-3 px-2 text-muted-foreground">{job.date}</td>
-                  <td className="py-3 px-2">
-                    <span
-                      className={cn(
-                        "inline-flex px-2.5 py-0.5 text-xs font-medium rounded-full border",
-                        statusStyles[job.status]
-                      )}
-                    >
-                      {job.status}
-                    </span>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>{renderTable(recentRows)}</tbody>
+          </table>
+        </div>
       </div>
-    </div>
+
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="w-[95vw] max-w-7xl max-h-[85vh] overflow-hidden p-0">
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle>All Under-Service Job Cards</DialogTitle>
+            <DialogDescription>
+              Showing all under-service job cards, ordered by last updated.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pb-6 overflow-auto">
+            <table className="w-full text-sm min-w-[1100px]">
+              <thead className="sticky top-0 bg-background">
+                <tr className="border-b border-border">
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Job Card ID</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Vehicle</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Customer Name</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Customer Mobile</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">File No</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Total Bill</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Advance</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">External Shop</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">External Shop Remarks</th>
+                </tr>
+              </thead>
+              <tbody>{renderTable(allUnderServiceJobs)}</tbody>
+            </table>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 })

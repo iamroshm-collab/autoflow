@@ -6,7 +6,6 @@ import { MetricCards } from "./metric-cards"
 import { ServiceOverviewChart } from "./service-overview-chart"
 import { JobCardStatusChart } from "./job-card-status-chart"
 import { RecentJobCards } from "./recent-job-cards"
-import { ExternalShopJobs } from "./external-shop-jobs"
 
 type DashboardSummary = {
   metrics: {
@@ -95,13 +94,8 @@ export const DashboardContent = memo(function DashboardContent({ onNavigate }: D
           <JobCardStatusChart data={summary.statusBreakdown} />
         </div>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <RecentJobCards jobs={summary.recentJobCards} />
-        </div>
-        <div>
-          <ExternalShopJobs />
-        </div>
+      <div>
+        <RecentJobCards jobs={summary.recentJobCards} />
       </div>
     </div>
   )

@@ -113,7 +113,7 @@ export function DatePickerInput({
           className={cn("h-10 cursor-pointer", className)}
         />
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-[280px] p-0 border bg-white rounded-md shadow-lg" align="start" side="top" sideOffset={4}>
         <CalendarComponent
           mode="single"
           selected={selectedDate}

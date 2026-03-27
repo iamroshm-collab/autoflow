@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { getMobileValidationMessage, normalizeMobileNumber } from "@/lib/mobile-validation"
+import { composeAddress, parseAddress } from "@/lib/address-utils"
 import useContinuousRows from '@/components/hooks/useContinuousRows'
 
 interface VehicleRow {
@@ -37,7 +38,11 @@ interface CustomerRecord {
 interface CustomerForm {
   name: string
   mobileNo: string
-  address: string
+  addressLine1: string
+  addressLine2: string
+  city: string
+  district: string
+  postalCode: string
   state: string
   gstin: string
   pan: string
@@ -46,7 +51,11 @@ interface CustomerForm {
 const defaultCustomerForm = (): CustomerForm => ({
   name: "",
   mobileNo: "",
-  address: "",
+  addressLine1: "",
+  addressLine2: "",
+  city: "",
+  district: "",
+  postalCode: "",
   state: "",
   gstin: "",
   pan: "",
@@ -87,6 +96,21 @@ export function CustomerVehicleManagement({ initialSearch = "" }: CustomerVehicl
   const [customerToDelete, setCustomerToDelete] = useState<CustomerRecord | null>(null)
   const [mobileError, setMobileError] = useState<string>("")
   const [editableVehicleRowIds, setEditableVehicleRowIds] = useState<Set<string>>(new Set())
+  const [shopStateCode, setShopStateCode] = useState<string>("")
+
+  // Fetch shop settings to get default state code
+  useEffect(() => {
+    const fetchShopSettings = async () => {
+      try {
+        const response = await fetch("/api/settings/shop")
+        const data = await response.json()
+        setShopStateCode(String(data?.stateId ?? ""))
+      } catch (error) {
+        console.error("Error fetching shop settings:", error)
+      }
+    }
+    fetchShopSettings()
+  }, [])
 
   const loadCustomers = useCallback(async (searchValue: string) => {
     setIsLoadingCustomers(true)
@@ -140,10 +164,15 @@ export function CustomerVehicleManagement({ initialSearch = "" }: CustomerVehicl
       const data = await fetchCustomerById(customerId)
 
       setSelectedCustomerId(data.id)
+      const parsedAddress = parseAddress(data.address)
       setCustomerForm({
         name: data.name || "",
         mobileNo: data.mobileNo || "",
-        address: data.address || "",
+        addressLine1: parsedAddress.line1,
+        addressLine2: parsedAddress.line2,
+        city: parsedAddress.city,
+        district: parsedAddress.district,
+        postalCode: parsedAddress.postalCode,
         state: data.state || "",
         gstin: data.gstin || "",
         pan: data.pan || "",
@@ -181,6 +210,9 @@ export function CustomerVehicleManagement({ initialSearch = "" }: CustomerVehicl
 
   const handleOpenCustomerModalForAdd = () => {
     handleNewCustomer()
+    if (shopStateCode) {
+      setCustomerForm((prev) => ({ ...prev, state: shopStateCode }))
+    }
     setIsCustomerModalOpen(true)
   }
 
@@ -257,7 +289,16 @@ export function CustomerVehicleManagement({ initialSearch = "" }: CustomerVehicl
       const payload = {
         name: customerForm.name.trim(),
         mobileNo: normalizeMobileNumber(customerForm.mobileNo),
-        address: customerForm.address.trim(),
+        address: composeAddress(
+          {
+            line1: customerForm.addressLine1,
+            line2: customerForm.addressLine2,
+            city: customerForm.city,
+            district: customerForm.district,
+            postalCode: customerForm.postalCode,
+          },
+          { includeState: false }
+        ),
         state: customerForm.state.trim(),
         gstin: customerForm.gstin.trim(),
         pan: customerForm.pan.trim(),
@@ -581,7 +622,7 @@ export function CustomerVehicleManagement({ initialSearch = "" }: CustomerVehicl
             type="button"
             onClick={handleOpenCustomerModalForAdd}
             disabled={isSavingCustomer || isSavingVehicles}
-            className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
+            className="global-bottom-btn-add"
             variant="ghost"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -657,13 +698,60 @@ export function CustomerVehicleManagement({ initialSearch = "" }: CustomerVehicl
                 </div>
 
                 <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                  <Label htmlFor="customer-address">Address</Label>
-                  <Textarea
-                    id="customer-address"
-                    rows={3}
-                    value={customerForm.address}
+                  <Label htmlFor="customer-address-line-1">Address Line 1 (Apartment, Suite, Unit, Building, Floor)</Label>
+                  <Input
+                    id="customer-address-line-1"
+                    value={customerForm.addressLine1}
                     onChange={(event) =>
-                      setCustomerForm((prev) => ({ ...prev, address: event.target.value }))
+                      setCustomerForm((prev) => ({ ...prev, addressLine1: event.target.value }))
+                    }
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div className="space-y-2 md:col-span-2 lg:col-span-3">
+                  <Label htmlFor="customer-address-line-2">Address Line 2 (Street Address)</Label>
+                  <Input
+                    id="customer-address-line-2"
+                    value={customerForm.addressLine2}
+                    onChange={(event) =>
+                      setCustomerForm((prev) => ({ ...prev, addressLine2: event.target.value }))
+                    }
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="customer-city">City</Label>
+                  <Input
+                    id="customer-city"
+                    value={customerForm.city}
+                    onChange={(event) =>
+                      setCustomerForm((prev) => ({ ...prev, city: event.target.value }))
+                    }
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="customer-district">District</Label>
+                  <Input
+                    id="customer-district"
+                    value={customerForm.district}
+                    onChange={(event) =>
+                      setCustomerForm((prev) => ({ ...prev, district: event.target.value }))
+                    }
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="customer-postal-code">Postal Code</Label>
+                  <Input
+                    id="customer-postal-code"
+                    value={customerForm.postalCode}
+                    onChange={(event) =>
+                      setCustomerForm((prev) => ({ ...prev, postalCode: event.target.value }))
                     }
                     autoComplete="off"
                   />

@@ -65,6 +65,7 @@ export async function GET(_request: NextRequest) {
       orderBy: {
         deliveryDate: "desc",
       },
+      take: 500,
     })
 
     return NextResponse.json(jobcards)

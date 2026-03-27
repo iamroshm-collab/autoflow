@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,72 +22,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Card } from "@/components/ui/card"
 import { notify } from '@/components/ui/notify'
 import { startAction, successAction, errorAction } from "@/lib/action-feedback"
-import { Printer, Trash2, Plus } from "lucide-react"
 import { JOB_CARD_STATUSES, MAINTENANCE_TYPES } from "@/lib/constants"
 import useContinuousRows from '@/components/hooks/useContinuousRows'
 import { FinancialTransactionData } from "./financial-transaction-modal"
-import ShopAutocomplete from "@/components/ShopAutocomplete"
 import DatePickerInput from "@/components/ui/date-picker-input"
 import { useDropdownKeyboardNav } from "@/hooks/use-dropdown-keyboard-nav"
-
-interface SparePartRow {
-  id: string
-  shopName: string
-  billDate: string
-  billNumber: string
-  item: string
-  amount: number
-  paid?: number
-  paidDate?: string
-  isReturn: boolean
-  returnDate: string
-  returnAmount: number
-}
-
-interface SparePartReturnRow {
-  id: string
-  billNumber: string
-  returnDate: string
-  returnAmount: number
-}
-
-interface ServiceRow {
-  id: string
-  description: string
-  unit: string
-  quantity: number
-  amount: number
-  discountRate?: number
-  discountAmount?: number
-  cgstRate?: number
-  cgstAmount?: number
-  sgstRate?: number
-  sgstAmount?: number
-  igstRate?: number
-  igstAmount?: number
-  totalAmount?: number
-  stateId?: string
-}
-
-interface TechnicianRow {
-  id: string
-  employeeName: string
-  taskAssigned: string
-  allocationAmount: number
-}
-
-interface FinancialTransactionRow {
-  id: string
-  transactionType: string
-  transactionDate: string
-  paymentType: string
-  applyTo: string
-  transactionAmount: number
-  description: string
-}
+import { SparePartsTable } from "./update-job-card/spare-parts-table"
+import { SparePartReturnTable } from "./update-job-card/spare-part-return-table"
+import { ServiceDescriptionTable } from "./update-job-card/service-description-table"
+import { TechnicianAllocationTable } from "./update-job-card/technician-allocation-table"
+import { FinancialTransactionsTable } from "./update-job-card/financial-transactions-table"
+import { CustomerStateForm } from "./update-job-card/CustomerStateForm"
+import type {
+  FinancialTransactionRow,
+  ServiceRow,
+  SparePartReturnRow,
+  SparePartRow,
+  TechnicianRow,
+} from "./update-job-card/types"
 
 interface UpdateFormData {
   jobCardId: string
@@ -336,6 +290,7 @@ const emptyForm: UpdateFormData = {
 }
 
 interface UpdateJobCardFormProps {
+  activeSubform?: "main-form" | "spare-parts-purchase" | "spare-part-return" | "service-description" | "technician-allocation" | "financial-transactions"
   selectedJobCardId?: string
   searchInputRef?: React.RefObject<HTMLInputElement | null>
   searchValue?: string
@@ -345,6 +300,7 @@ interface UpdateJobCardFormProps {
 }
 
 export function UpdateJobCardForm({
+  activeSubform = "main-form",
   selectedJobCardId,
   searchInputRef,
   searchValue,
@@ -399,6 +355,7 @@ export function UpdateJobCardForm({
   const sparePartRefsMap = useRef<Map<string, HTMLInputElement>>(new Map())
   const serviceRefsMap = useRef<Map<string, HTMLInputElement>>(new Map())
   const technicianRefsMap = useRef<Map<string, HTMLInputElement>>(new Map())
+  const loadJobCardRef = useRef<(jobCardId?: string, opts?: { silent?: boolean }) => Promise<void>>(() => Promise.resolve())
   
   const dropdownNav = useDropdownKeyboardNav({
     itemCount: registrationSuggestions.length,
@@ -421,6 +378,114 @@ export function UpdateJobCardForm({
       paymentStatusButtonRef.current.click()
     }
   }
+
+  const fetchRegistrationSuggestions = useCallback(
+    async (inputValue: string) => {
+      // Filter allVehicles based on input
+      const query = inputValue.trim().toUpperCase()
+      
+      if (!query) {
+        // Show all vehicles if empty
+        setRegistrationSuggestions(allVehicles)
+      } else {
+        // Filter by registration number or customer name
+        setRegistrationSuggestions(
+          allVehicles.filter(
+            (v) =>
+              v.registrationNumber.includes(query) ||
+              v.customerName.toUpperCase().includes(query)
+          )
+        )
+      }
+      dropdownNav.resetHighlight()
+    },
+    [allVehicles, dropdownNav]
+  )
+
+  const handleRegistrationInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      // Don't allow input changes while selection is locked
+      if (selectionLockRef.current) {
+        return
+      }
+      
+      const value = e.target.value.toUpperCase()
+
+      setSuppressAutoReload(true)
+
+      setFormData((prev) => ({
+        ...prev,
+        registrationNumber: value,
+        jobCardId: "",
+        customerId: "",
+        vehicleId: "",
+        customerName: "",
+        vehicleModel: "",
+      }))
+
+      // Filter and show dropdown as user types
+      fetchRegistrationSuggestions(value)
+      setShowRegistrationSuggestions(true)
+    },
+    [fetchRegistrationSuggestions]
+  )
+
+  const handleSelectRegistrationSuggestion = useCallback(
+    async (suggestion: RegistrationSuggestion) => {
+      const selectedId = suggestion.id
+      console.log("handleSelectRegistrationSuggestion called:", { selectedId, reg: suggestion.registrationNumber })
+      
+      // Check if already selecting
+      if (selectionLockRef.current || isSelectingSuggestion) {
+        console.log("Selection blocked - already selecting")
+        return
+      }
+      
+      // Lock the selection immediately
+      selectionLockRef.current = true
+      selectedSuggestionRef.current = suggestion
+      
+      // Immediately close dropdown and prevent all updates
+      setShowRegistrationSuggestions(false)
+      setIsLoadingSuggestions(false)
+      setRegistrationSuggestions([])
+      setIsSelectingSuggestion(true)
+      setSuppressAutoReload(true)
+      
+      // Cancel any pending debounced fetches
+      if (suggestionDebounceRef.current) {
+        clearTimeout(suggestionDebounceRef.current)
+      }
+      
+      const makeModel = [suggestion.vehicleMake, suggestion.vehicleModel]
+        .filter(Boolean)
+        .join(" ")
+
+      setFormData((prev) => ({
+        ...prev,
+        fileNo: suggestion.fileNo,
+        mobileNo: suggestion.mobileNo,
+        registrationNumber: suggestion.registrationNumber,
+        vehicleModel: makeModel || prev.vehicleModel,
+        jobCardId: selectedId,
+        customerId: "",
+        vehicleId: "",
+        customerName: "",
+      }))
+
+      try {
+        await loadJobCardRef.current(selectedId)
+      } catch (error) {
+        console.error('Error loading job card:', error)
+      } finally {
+        setSuppressAutoReload(false)
+        setIsSelectingSuggestion(false)
+        selectionLockRef.current = false
+        selectedSuggestionRef.current = null
+      }
+    },
+    [isSelectingSuggestion]
+  )
 
   useEffect(() => {
     console.debug("UpdateJobCardForm:prop selectedJobCardId", { selectedJobCardId })
@@ -492,7 +557,7 @@ export function UpdateJobCardForm({
       inputElement.removeEventListener("keydown", handleKeyDown)
       document.removeEventListener("mousedown", handleClickOutside)
     }
-  }, [registrationInputRef, showRegistrationSuggestions, registrationSuggestions, dropdownNav])
+  }, [registrationInputRef, showRegistrationSuggestions, registrationSuggestions, dropdownNav, handleSelectRegistrationSuggestion])
 
   // Auto-detect taxable status: if any service has tax data, set taxable to true
   useEffect(() => {
@@ -727,7 +792,7 @@ export function UpdateJobCardForm({
         inputElement.removeEventListener('focus', handleClick)
       }
     }
-  }, [searchInputRef, registrationInputRef, dropdownNav, allVehicles])
+  }, [searchInputRef, registrationInputRef, dropdownNav, allVehicles, handleRegistrationInputChange])
 
   useEffect(() => {
     const fetchStates = async () => {
@@ -758,6 +823,33 @@ export function UpdateJobCardForm({
       fetchStates()
     }
   }, [formData.taxable])
+
+  const handleTaxableToggle = (isTaxable: boolean) => {
+    setFormData((prev) => ({ ...prev, taxable: isTaxable }))
+
+    if (isTaxable) {
+      setShowCustomerStateForm(true)
+      if (!selectedStateId) {
+        const preselect = states.find(s => s.stateCode === customerStateId || s.stateId === customerStateId)
+          || states.find(s => s.stateCode === shopStateId || s.stateId === shopStateId)
+        if (preselect) setSelectedStateId(preselect.stateId)
+      }
+      return
+    }
+
+    services.forEach((service) => {
+      updateServiceRow(service.id, {
+        cgstRate: 0,
+        cgstAmount: 0,
+        sgstRate: 0,
+        sgstAmount: 0,
+        igstRate: 0,
+        igstAmount: 0,
+        stateId: undefined,
+        totalAmount: service.amount,
+      } as Partial<ServiceRow>)
+    })
+  }
 
   const handleMaintenanceTypeChange = (value: string) => {
     setFormData((prev) => ({ ...prev, maintenanceType: value }))
@@ -1097,108 +1189,10 @@ export function UpdateJobCardForm({
     }
   }
 
-  const fetchRegistrationSuggestions = async (inputValue: string) => {
-    // Filter allVehicles based on input
-    const query = inputValue.trim().toUpperCase()
-    
-    if (!query) {
-      // Show all vehicles if empty
-      setRegistrationSuggestions(allVehicles)
-    } else {
-      // Filter by registration number or customer name
-      setRegistrationSuggestions(
-        allVehicles.filter(
-          (v) =>
-            v.registrationNumber.includes(query) ||
-            v.customerName.toUpperCase().includes(query)
-        )
-      )
-    }
-    dropdownNav.resetHighlight()
-  }
-
-  const handleRegistrationInputChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    // Don't allow input changes while selection is locked
-    if (selectionLockRef.current) {
-      return
-    }
-    
-    const value = e.target.value.toUpperCase()
-
-    setSuppressAutoReload(true)
-
-    setFormData((prev) => ({
-      ...prev,
-      registrationNumber: value,
-      jobCardId: "",
-      customerId: "",
-      vehicleId: "",
-      customerName: "",
-      vehicleModel: "",
-    }))
-
-    // Filter and show dropdown as user types
-    fetchRegistrationSuggestions(value)
-    setShowRegistrationSuggestions(true)
-  }
-
-  const handleSelectRegistrationSuggestion = async (
-    suggestion: RegistrationSuggestion
-  ) => {
-    const selectedId = suggestion.id
-    console.log("handleSelectRegistrationSuggestion called:", { selectedId, reg: suggestion.registrationNumber })
-    
-    // Check if already selecting
-    if (selectionLockRef.current || isSelectingSuggestion) {
-      console.log("Selection blocked - already selecting")
-      return
-    }
-    
-    // Lock the selection immediately
-    selectionLockRef.current = true
-    selectedSuggestionRef.current = suggestion
-    
-    // Immediately close dropdown and prevent all updates
-    setShowRegistrationSuggestions(false)
-    setIsLoadingSuggestions(false)
-    setRegistrationSuggestions([])
-    setIsSelectingSuggestion(true)
-    setSuppressAutoReload(true)
-    
-    // Cancel any pending debounced fetches
-    if (suggestionDebounceRef.current) {
-      clearTimeout(suggestionDebounceRef.current)
-    }
-    
-    const makeModel = [suggestion.vehicleMake, suggestion.vehicleModel]
-      .filter(Boolean)
-      .join(" ")
-
-    setFormData((prev) => ({
-      ...prev,
-      fileNo: suggestion.fileNo,
-      mobileNo: suggestion.mobileNo,
-      registrationNumber: suggestion.registrationNumber,
-      vehicleModel: makeModel || prev.vehicleModel,
-      jobCardId: selectedId,
-      customerId: "",
-      vehicleId: "",
-      customerName: "",
-    }))
-
-    try {
-      await loadJobCard(selectedId)
-    } catch (error) {
-      console.error('Error loading job card:', error)
-    } finally {
-      setSuppressAutoReload(false)
-      setIsSelectingSuggestion(false)
-      selectionLockRef.current = false
-      selectedSuggestionRef.current = null
-    }
-  }
+  // Update the ref whenever loadJobCard is defined
+  useEffect(() => {
+    loadJobCardRef.current = loadJobCard
+  }, [])
 
   const handleJobCardStatusChange = (value: string) => {
     setFormData((prev) => ({ ...prev, jobcardStatus: value }))
@@ -1849,14 +1843,34 @@ export function UpdateJobCardForm({
     }
   }, [openTechnicianDropdownRowId])
 
+  useEffect(() => {
+    const onSave = () => {
+      void handleSave()
+    }
+
+    const onDelete = () => {
+      setDeleteDialogOpen(true)
+    }
+
+    window.addEventListener("updateJobCard:save", onSave)
+    window.addEventListener("updateJobCard:delete", onDelete)
+
+    return () => {
+      window.removeEventListener("updateJobCard:save", onSave)
+      window.removeEventListener("updateJobCard:delete", onDelete)
+    }
+  }, [handleSave])
+
   return (
     <>
       {dropdownElement}
       {technicianDropdownElement}
-      <div className="grid gap-6">
+      <div className="grid h-full min-h-0 gap-3 md:gap-6">
+      {activeSubform === "main-form" && (
+      <>
       {/* 5-Column x 3-Row Form Layout */}
-      <Card className="p-4 md:p-6">
-        <div className="grid grid-cols-5 gap-4">
+      <div className="global-main-form-content py-3 md:py-6">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-5">
           {/* Row 1 */}
           <div className="grid gap-2">
             <Label htmlFor="fileNo">File No</Label>
@@ -2066,10 +2080,27 @@ export function UpdateJobCardForm({
             />
           </div>
 
-          {/* Row 4 - External Shop */}
-          <div className="col-span-2 grid gap-2">
+          {/* Row 4 - Taxable and External Shop */}
+          <div className="grid gap-2">
+            <Label htmlFor="taxable" className="text-sm font-medium">Taxable</Label>
+            <div className="flex items-center gap-2 h-10 border rounded-md px-3 py-2 bg-white">
+              <Checkbox
+                id="taxable"
+                checked={!!formData.taxable}
+                onCheckedChange={(v) => handleTaxableToggle(Boolean(v))}
+                disabled={isLoading}
+                aria-label="Taxable"
+                className="w-4 h-4 aspect-square"
+              />
+              <span className="text-sm text-muted-foreground">
+                {!!formData.taxable ? "Yes" : "No"}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid gap-2">
             <Label htmlFor="externalShop" className="text-sm font-medium">External Shop</Label>
-            <div className="flex items-center gap-3 h-10 border rounded-md p-2 bg-white">
+            <div className="flex items-center gap-2 h-10 border rounded-md px-3 py-2 bg-white">
               <Checkbox
                 id="externalShop"
                 checked={!!formData.externalShop}
@@ -2077,6 +2108,7 @@ export function UpdateJobCardForm({
                 disabled={isLoading || formData.jobcardStatus === "Completed"}
                 aria-label="External Shop"
                 title={formData.jobcardStatus === "Completed" ? "Cannot modify when job card is completed" : ""}
+                className="w-4 h-4 aspect-square"
               />
               <span className="text-sm text-muted-foreground">
                 {!!formData.externalShop ? "Yes" : "No"}
@@ -2084,7 +2116,7 @@ export function UpdateJobCardForm({
             </div>
           </div>
 
-          <div className="col-span-3 grid gap-2">
+          <div className="col-span-1 grid gap-2 sm:col-span-2 lg:col-span-3">
             <Label htmlFor="externalShopRemarks">External Shop Remarks</Label>
             <Input
               id="externalShopRemarks"
@@ -2096,811 +2128,111 @@ export function UpdateJobCardForm({
             />
           </div>
         </div>
-      </Card>
+      </div>
+      </>
+      )}
 
-      <Card className="p-4 md:p-6">
-        <h3 className="text-base font-semibold mb-4">Spare Parts Purchase</h3>
-        <div className="overflow-x-hidden border rounded-md">
-          <table className="w-full text-xs table-fixed">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="text-center p-1.5 w-[16%]">Shop Name</th>
-                <th className="text-center p-1.5 w-[8.4%]">Bill Date</th>
-                <th className="text-center p-1.5 w-[12%]">Bill Number</th>
-                <th className="text-center p-1.5 w-[28.4%]">Item</th>
-                <th className="text-center p-1.5 w-[9%]">Amount</th>
-                <th className="text-center p-1.5 w-[9%]">Paid</th>
-                <th className="text-center p-1.5 w-[9%]">Paid Date</th>
-                <th className="text-center p-1.5 w-[6%]">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {spareParts.length === 0 ? (
-                <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={8}>
-                    No spare parts added.
-                  </td>
-                </tr>
-              ) : (
-                spareParts.map((row) => (
-                  <tr key={row.id} className="border-t [&>td]:align-middle">
-                    <td className="p-1">
-                      <ShopAutocomplete
-                        placeholder="Search shop"
-                        value={row.shopName ?? ""}
-                        onSelect={(shopName) => handleSparePartChange(row.id, "shopName", shopName)}
-                        onChange={(value) => handleSparePartChange(row.id, "shopName", value)}
-                        renderInPortal
-                        disabled={isLoading}
-                        inputClassName="h-10 w-full px-3 py-2 text-sm text-center border rounded-md"
-                      />
-                    </td>
-                    <td className="p-1">
-                      <DatePickerInput
-                        value={row.billDate ?? ""}
-                        onChange={(value) => handleSparePartChange(row.id, "billDate", value)}
-                        disabled={isLoading}
-                        placeholder="dd-mm-yy"
-                        format="dd-mm-yy"
-                      />
-                    </td>
-                    <td className="p-1">
-                      <Input
-                        name="billNumber"
-                        ref={(el) => {
-                          if (el) sparePartRefsMap.current.set(`${row.id}-billNumber`, el)
-                        }}
-                        value={row.billNumber ?? ""}
-                        onChange={(e) => handleSparePartChange(row.id, "billNumber", e.target.value)}
-                        onFocus={() => handleSparePartRowFocus(row.id)}
-                        disabled={isLoading}
-                        className="h-10 w-full px-2 text-sm text-center"
-                      />
-                    </td>
-                    <td className="p-1">
-                      <Input
-                        name="item"
-                        ref={(el) => {
-                          if (el) sparePartRefsMap.current.set(`${row.id}-item`, el)
-                        }}
-                        value={row.item ?? ""}
-                        onChange={(e) => handleSparePartChange(row.id, "item", e.target.value)}
-                        onFocus={() => handleSparePartRowFocus(row.id)}
-                        disabled={isLoading}
-                        className="h-10 w-full px-1.5 text-sm text-center"
-                      />
-                    </td>
-                    <td className="p-1">
-                      <Input
-                        type="number"
-                        ref={(el) => {
-                          if (el) sparePartRefsMap.current.set(`${row.id}-amount`, el)
-                        }}
-                        value={row.amount ?? 0}
-                        onChange={(e) =>
-                          handleSparePartChange(row.id, "amount", Number(e.target.value) || 0)
-                        }
-                        onFocus={() => handleSparePartRowFocus(row.id)}
-                        disabled={isLoading}
-                        className="h-10 w-full px-2 text-sm text-center"
-                      />
-                    </td>
-                    <td className="p-1">
-                      <Input
-                        type="number"
-                        value={row.paid ?? 0}
-                        onChange={(e) =>
-                          handleSparePartChange(row.id, "paid", Number(e.target.value) || 0)
-                        }
-                        onFocus={() => handleSparePartRowFocus(row.id)}
-                        disabled={isLoading}
-                        className="h-10 w-full px-2 text-sm text-center"
-                      />
-                    </td>
-                    <td className="p-1">
-                      <DatePickerInput
-                        value={row.paidDate ?? ""}
-                        onChange={(value) => handleSparePartChange(row.id, "paidDate", value)}
-                        disabled={isLoading}
-                        placeholder="dd-mm-yy"
-                        format="dd-mm-yy"
-                      />
-                    </td>
-                    <td className="p-1 text-center">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          setSpareParts((prev) => {
-                            const filtered = prev.filter((item) => item.id !== row.id)
-                            const hasBillInRemaining = filtered.some(
-                              (item) => item.billNumber.trim() && item.billNumber.trim() === row.billNumber.trim()
-                            )
+      {activeSubform === "spare-parts-purchase" && (
+      <SparePartsTable
+        rows={spareParts}
+        isLoading={isLoading}
+        sparePartRefsMap={sparePartRefsMap}
+        onChange={handleSparePartChange}
+        onRowFocus={handleSparePartRowFocus}
+        onRemoveRow={(rowId) => {
+          const currentRow = spareParts.find((item) => item.id === rowId)
+          if (!currentRow) {
+            return
+          }
 
-                            if (!hasBillInRemaining && row.billNumber.trim()) {
-                              setSparePartReturns((prevReturns) =>
-                                prevReturns.filter((entry) => entry.billNumber.trim() !== row.billNumber.trim())
-                              )
-                            }
+          setSpareParts((prev) => {
+            const filtered = prev.filter((item) => item.id !== rowId)
+            const hasBillInRemaining = filtered.some(
+              (item) => item.billNumber.trim() && item.billNumber.trim() === currentRow.billNumber.trim()
+            )
 
-                            return filtered
-                          })
-                        }
-                        disabled={isLoading}
-                        className="text-red-600 hover:text-red-800"
-                        aria-label="Remove spare part row"
-                        title="Remove"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-4">
-          <Button
-            type="button"
-            onClick={() => addSparePartRow()}
-            className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
-            variant="ghost"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Spare Part
-          </Button>
-        </div>
-      </Card>
+            if (!hasBillInRemaining && currentRow.billNumber.trim()) {
+              setSparePartReturns((prevReturns) =>
+                prevReturns.filter((entry) => entry.billNumber.trim() !== currentRow.billNumber.trim())
+              )
+            }
 
-      <Card className="p-4 md:p-6">
-        <h3 className="text-base font-semibold mb-4">Spare Part Return</h3>
-        <div className="overflow-x-auto border rounded-md">
-          <table className="w-full text-xs table-fixed">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="text-center p-1.5 w-[40%]">Bill Number</th>
-                <th className="text-center p-1.5 w-[26%]">Return Date (dd-mm-yy)</th>
-                <th className="text-center p-1.5 w-[26%]">Return Amount</th>
-                <th className="text-center p-1.5 w-[8%]">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sparePartReturns.length === 0 ? (
-                <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={4}>
-                    No spare parts returns added.
-                  </td>
-                </tr>
-              ) : (
-                sparePartReturns.map((row) => (
-                <tr key={row.id} className="border-t [&>td]:align-middle">
-                  <td className="p-1">
-                    <Select
-                      value={row.billNumber}
-                      onValueChange={(value) =>
-                        handleSparePartReturnChange(row.id, "billNumber", value)
-                      }
-                      disabled={isLoading}
-                    >
-                      <SelectTrigger
-                        className="h-10 text-sm"
-                        onFocus={() => handleSparePartReturnRowFocus(row.id)}
-                      >
-                        <SelectValue placeholder="Select bill" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sparePartBillOptions.map((billNo) => (
-                          <SelectItem key={billNo} value={billNo}>
-                            {billNo}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="p-1">
-                    <DatePickerInput
-                      value={row.returnDate}
-                      onChange={(value) =>
-                        handleSparePartReturnChange(row.id, "returnDate", value)
-                      }
-                      disabled={isLoading}
-                      placeholder="dd-mm-yy"
-                      format="dd-mm-yy"
-                    />
-                  </td>
-                  <td className="p-1">
-                    <Input
-                      type="number"
-                      value={row.returnAmount}
-                      onChange={(e) =>
-                        handleSparePartReturnChange(
-                          row.id,
-                          "returnAmount",
-                          Number(e.target.value) || 0
-                        )
-                      }
-                      onFocus={() => handleSparePartReturnRowFocus(row.id)}
-                      disabled={isLoading}
-                      className="h-10 w-full px-2 text-sm text-center"
-                    />
-                  </td>
-                  <td className="p-1 text-center">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() =>
-                        setSparePartReturns((prev) => {
-                          const filtered = prev.filter((item) => item.id !== row.id)
-                          return filtered
-                        })
-                      }
-                      disabled={isLoading}
-                      className="text-red-600 hover:text-red-800"
-                      aria-label="Remove return row"
-                      title="Remove"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </td>
-                </tr>
-              ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-4">
-          <Button
-            type="button"
-            onClick={() => addSparePartReturnRow()}
-            className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
-            variant="ghost"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Spare Part Return
-          </Button>
-        </div>
-      </Card>
+            return filtered
+          })
+        }}
+        onAddRow={addSparePartRow}
+      />
+      )}
 
-      <Card className="p-4 md:p-6">
-        <div className="flex items-start justify-between mb-4">
-          <h3 className="text-base font-semibold">Service Description</h3>
-          <div className="flex items-center gap-2">
-            <Label className="text-sm">Taxable</Label>
-            <Checkbox
-              checked={!!formData.taxable}
-              onCheckedChange={(v) => {
-                const isTaxable = Boolean(v);
-                setFormData((prev) => ({ ...prev, taxable: isTaxable }));
-                
-                // When toggling ON, show customer state form
-                if (isTaxable) {
-                  setShowCustomerStateForm(true)
-                } else {
-                  // When toggling OFF, clear all tax-related data from service rows
-                  services.forEach((service) => {
-                    updateServiceRow(service.id, {
-                      cgstRate: 0,
-                      cgstAmount: 0,
-                      sgstRate: 0,
-                      sgstAmount: 0,
-                      igstRate: 0,
-                      igstAmount: 0,
-                      stateId: undefined,
-                      totalAmount: service.amount,
-                    } as Partial<ServiceRow>);
-                  });
-                }
-              }}
-              aria-label="Taxable"
-            />
-          </div>
-        </div>
+      {activeSubform === "spare-part-return" && (
+      <SparePartReturnTable
+        rows={sparePartReturns}
+        sparePartBillOptions={sparePartBillOptions}
+        isLoading={isLoading}
+        onChange={handleSparePartReturnChange}
+        onRowFocus={handleSparePartReturnRowFocus}
+        onRemoveRow={(rowId) => {
+          setSparePartReturns((prev) => prev.filter((item) => item.id !== rowId))
+        }}
+        onAddRow={addSparePartReturnRow}
+      />
+      )}
 
+      {activeSubform === "service-description" && (
+      <div className="global-subform-table-content flex min-h-0 flex-col">
         {/* Customer State Sub-form */}
         {formData.taxable && showCustomerStateForm && (
-          <div className="border rounded-md p-4 mb-4 bg-blue-50">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="stateName">State Name</Label>
-                <Select
-                  value={selectedStateId}
-                  onValueChange={setSelectedStateId}
-                  disabled={isLoading || isLoadingStates}
-                >
-                  <SelectTrigger id="stateName" className="h-10">
-                    <SelectValue placeholder={isLoadingStates ? "Loading states..." : "Select a state"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {states.map((state) => (
-                      <SelectItem key={state.stateId} value={state.stateId}>
-                        {state.stateName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="stateCode">State Code</Label>
-                <Input
-                  id="stateCode"
-                  value={states.find((s) => s.stateId === selectedStateId)?.stateCode || ""}
-                  readOnly
-                  disabled
-                  className="h-10 bg-muted"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-2 mt-4">
-              <Button
-                type="button"
-                onClick={handleSaveCustomerStateForm}
-                disabled={isLoading || !selectedStateId || isLoadingStates}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                Save State
-              </Button>
-            </div>
-          </div>
+          <CustomerStateForm
+            states={states}
+            selectedStateId={selectedStateId}
+            isLoading={isLoading}
+            isLoadingStates={isLoadingStates}
+            onStateIdChange={setSelectedStateId}
+            onSave={handleSaveCustomerStateForm}
+          />
         )}
         
-        <div className="overflow-x-auto border rounded-md">
-          <table className="w-full text-xs table-fixed">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="text-center p-1.5 w-[32%]">Description</th>
-                <th className="text-center p-1.5 w-[12%]">Unit</th>
-                <th className="text-center p-1.5 w-[10%]">Quantity</th>
-                <th className="text-center p-1.5 w-[10%]">Amount</th>
-                {formData.taxable && (
-                  <>
-                    <th className="text-center p-1.5 w-[10%]">Total Amount</th>
-                    {customerStateId && shopStateId && customerStateId !== shopStateId ? (
-                      <th className="text-center p-1.5 w-[10%]">IGST %</th>
-                    ) : (
-                      <>
-                        <th className="text-center p-1.5 w-[10%]">CGST %</th>
-                        <th className="text-center p-1.5 w-[10%]">SGST %</th>
-                      </>
-                    )}
-                    <th className="text-center p-1.5 w-[8%]">State Code</th>
-                  </>
-                )}
-                <th className="text-center p-1.5 w-[6%]">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {services.length === 0 ? (
-                <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={formData.taxable ? 10 : 6}>
-                    No services added.
-                  </td>
-                </tr>
-              ) : (
-                services.map((row) => (
-                  <tr key={row.id} className="border-t [&>td]:align-middle">
-                    <td className="p-1">
-                      <Input
-                        name="description"
-                        ref={(el) => {
-                          if (el) serviceRefsMap.current.set(`${row.id}-description`, el)
-                        }}
-                        value={row.description ?? ""}
-                        onChange={(e) => handleServiceChange(row.id, "description", e.target.value)}
-                        onFocus={() => handleServiceRowFocus(row.id)}
-                        disabled={isLoading}
-                        className="h-10 px-2 text-sm text-center"
-                      />
-                    </td>
-                    <td className="p-1">
-                      <Input
-                        name="unit"
-                        value={row.unit ?? ""}
-                        onChange={(e) => handleServiceChange(row.id, "unit", e.target.value)}
-                        onFocus={() => handleServiceRowFocus(row.id)}
-                        disabled={isLoading}
-                        className="h-10 px-2 text-sm text-center"
-                      />
-                    </td>
-                    <td className="p-1">
-                      <Input
-                        type="number"
-                        value={row.quantity ?? 0}
-                        onChange={(e) =>
-                          handleServiceChange(row.id, "quantity", Number(e.target.value) || 0)
-                        }
-                        onFocus={() => handleServiceRowFocus(row.id)}
-                        disabled={isLoading}
-                        className="h-10 px-2 text-sm text-center"
-                      />
-                    </td>
-                    <td className="p-1">
-                      <Input
-                        type="number"
-                        ref={(el) => {
-                          if (el) serviceRefsMap.current.set(`${row.id}-amount`, el)
-                        }}
-                        value={row.amount ?? 0}
-                        onChange={(e) =>
-                          handleServiceChange(row.id, "amount", Number(e.target.value) || 0)
-                        }
-                        onFocus={() => handleServiceRowFocus(row.id)}
-                        disabled={isLoading}
-                        className="h-10 px-2 text-sm text-center"
-                      />
-                    </td>
-                    {formData.taxable && (
-                      <td className="p-1">
-                        <Input
-                          type="number"
-                          value={Number(row.totalAmount || 0).toFixed(2)}
-                          readOnly
-                          disabled
-                          className="h-10 px-2 text-sm text-center bg-muted"
-                        />
-                      </td>
-                    )}
-                    {formData.taxable && (
-                      <>
-                        {customerStateId && shopStateId && customerStateId !== shopStateId ? (
-                          <td className="p-1">
-                            <Input
-                              type="number"
-                              value={row.igstRate ?? 0}
-                              onChange={(e) =>
-                                handleServiceChange(row.id, "igstRate", Number(e.target.value) || 0)
-                              }
-                              onFocus={() => handleServiceRowFocus(row.id)}
-                              disabled={isLoading}
-                              className="h-10 px-2 text-sm text-center"
-                            />
-                          </td>
-                        ) : (
-                          <>
-                            <td className="p-1">
-                              <Input
-                                type="number"
-                                value={row.cgstRate ?? 0}
-                                onChange={(e) =>
-                                  handleServiceChange(row.id, "cgstRate", Number(e.target.value) || 0)
-                                }
-                                onFocus={() => handleServiceRowFocus(row.id)}
-                                disabled={isLoading}
-                                className="h-10 px-2 text-sm text-center"
-                              />
-                            </td>
-                            <td className="p-1">
-                              <Input
-                                type="number"
-                                value={row.sgstRate ?? 0}
-                                readOnly
-                                disabled
-                                className="h-10 px-2 text-sm text-center bg-muted"
-                                title="SGST is automatically set equal to CGST"
-                              />
-                            </td>
-                          </>
-                        )}
-                        <td className="p-1">
-                          <Input
-                            value={row.stateId ?? ""}
-                            onChange={(e) =>
-                              handleServiceChange(row.id, "stateId", e.target.value)
-                            }
-                            onFocus={() => handleServiceRowFocus(row.id)}
-                            disabled={isLoading}
-                            className="h-10 px-2 text-sm text-center"
-                          />
-                        </td>
-                      </>
-                    )}
-                    <td className="p-1 text-center">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          setServices((prev) => {
-                            const filtered = prev.filter((item) => item.id !== row.id)
-                            return filtered
-                          })
-                        }
-                        disabled={isLoading}
-                        className="text-red-600 hover:text-red-800"
-                        aria-label="Remove service row"
-                        title="Remove"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-4">
-          <Button
-            type="button"
-            onClick={() => addServiceRow()}
-            className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
-            variant="ghost"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Service
-          </Button>
-        </div>
-      </Card>
+        <ServiceDescriptionTable
+          rows={services}
+          taxable={Boolean(formData.taxable)}
+          isDifferentState={Boolean(customerStateId && shopStateId && customerStateId !== shopStateId)}
+          isLoading={isLoading}
+          serviceRefsMap={serviceRefsMap}
+          onChange={handleServiceChange}
+          onRowFocus={handleServiceRowFocus}
+          onRemoveRow={(rowId) => {
+            setServices((prev) => prev.filter((item) => item.id !== rowId))
+          }}
+          onAddRow={addServiceRow}
+        />
+      </div>
+      )}
 
-      <Card className="p-4 md:p-6">
-        <h3 className="text-base font-semibold mb-4">Technician Allocation</h3>
-        <div className="overflow-x-auto border rounded-md">
-          <table className="w-full text-xs table-fixed">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="text-center p-1.5 w-[24%]">Employee Name</th>
-                <th className="text-center p-1.5 w-[50%]">Task Assigned</th>
-                <th className="text-center p-1.5 w-[20%]">Earning</th>
-                <th className="text-center p-1.5 w-[6%]">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {technicians.length === 0 ? (
-                <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={4}>
-                    No technician allocations added.
-                  </td>
-                </tr>
-              ) : (
-                technicians.map((row) => (
-                  <tr key={row.id} className="border-t [&>td]:align-middle">
-                    <td className="p-1">
-                      <Input
-                        ref={(el) => {
-                          if (el) technicianRefsMap.current.set(`${row.id}-employeeName`, el)
-                        }}
-                        value={row.employeeName}
-                        readOnly
-                        onClick={() => openTechnicianDropdown(row.id)}
-                        onFocus={() => openTechnicianDropdown(row.id)}
-                        disabled={isLoading}
-                        className="h-10 px-2 text-sm text-center"
-                        placeholder="Select employee"
-                      />
-                    </td>
-                    <td className="p-1">
-                      <Input
-                        ref={(el) => {
-                          if (el) technicianRefsMap.current.set(`${row.id}-taskAssigned`, el)
-                        }}
-                        value={row.taskAssigned}
-                        onChange={(e) => handleTechnicianChange(row.id, "taskAssigned", e.target.value)}
-                        onFocus={() => handleTechnicianRowFocus(row.id)}
-                        disabled={isLoading}
-                        className="h-10 px-2 text-sm text-center"
-                      />
-                    </td>
-                    <td className="p-1">
-                      <Input
-                        type="number"
-                        ref={(el) => {
-                          if (el) technicianRefsMap.current.set(`${row.id}-allocationAmount`, el)
-                        }}
-                        value={row.allocationAmount}
-                        onChange={(e) =>
-                          handleTechnicianChange(row.id, "allocationAmount", e.target.value)
-                        }
-                        onFocus={() => handleTechnicianRowFocus(row.id)}
-                        disabled={isLoading}
-                        className="h-10 px-2 text-sm text-center"
-                      />
-                    </td>
-                    <td className="p-1 text-center">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          setTechnicians((prev) => {
-                            const filtered = prev.filter((item) => item.id !== row.id)
-                            return filtered
-                          })
-                        }
-                        disabled={isLoading}
-                        className="text-red-600 hover:text-red-800"
-                        aria-label="Remove technician row"
-                        title="Remove"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-4">
-          <Button
-            type="button"
-            onClick={() => addTechnicianRow()}
-            className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
-            variant="ghost"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Technician
-          </Button>
-        </div>
-      </Card>
+      {activeSubform === "technician-allocation" && (
+      <TechnicianAllocationTable
+        rows={technicians}
+        isLoading={isLoading}
+        technicianRefsMap={technicianRefsMap}
+        onChange={handleTechnicianChange}
+        onRowFocus={handleTechnicianRowFocus}
+        onOpenDropdown={openTechnicianDropdown}
+        onRemoveRow={(rowId) => {
+          setTechnicians((prev) => prev.filter((item) => item.id !== rowId))
+        }}
+        onAddRow={addTechnicianRow}
+      />
+      )}
 
       {/* Financial Transaction Sub-form */}
-      <Card className="p-4 md:p-6">
-        <h3 className="text-base font-semibold mb-4">Financial Transactions</h3>
-        <div className="overflow-x-auto border rounded-md">
-          <table className="w-full text-xs table-fixed">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="text-center p-1.5 w-[15%]">Type</th>
-                <th className="text-center p-1.5 w-[10%]">Date</th>
-                <th className="text-center p-1.5 w-[15%]">Payment Type</th>
-                <th className="text-center p-1.5 w-[15%]">Apply To</th>
-                <th className="text-center p-1.5 w-[10%]">Amount</th>
-                <th className="text-center p-1.5 w-[30%]">Description</th>
-                <th className="text-center p-1.5 w-[8%]">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {financialTransactions.length === 0 ? (
-                <tr>
-                  <td className="p-3 text-muted-foreground" colSpan={7}>
-                    No financial transactions added.
-                  </td>
-                </tr>
-              ) : (
-                financialTransactions.map((row) => (
-                <tr key={row.id} className="border-t">
-                  <td className="p-1">
-                    <Select
-                      value={row.transactionType}
-                      onValueChange={(value) =>
-                        updateFinancialTransactionRow(row.id, { transactionType: value })
-                      }
-                      disabled={isLoading}
-                    >
-                      <SelectTrigger className="h-10 text-sm">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Income">Income</SelectItem>
-                        <SelectItem value="Expense">Expense</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="p-1">
-                    <DatePickerInput
-                      value={row.transactionDate ?? ""}
-                      onChange={(value) =>
-                        updateFinancialTransactionRow(row.id, { transactionDate: value })
-                      }
-                      disabled={isLoading}
-                      placeholder="dd-mm-yy"
-                      format="dd-mm-yy"
-                    />
-                  </td>
-                  <td className="p-1">
-                    <Select
-                      value={row.paymentType}
-                      onValueChange={(value) =>
-                        updateFinancialTransactionRow(row.id, { paymentType: value })
-                      }
-                      disabled={isLoading}
-                    >
-                      <SelectTrigger className="h-10 text-sm">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Cash">Cash</SelectItem>
-                        <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                        <SelectItem value="UPI">UPI</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="p-1">
-                    <Select
-                      value={row.applyTo}
-                      onValueChange={(value) =>
-                        updateFinancialTransactionRow(row.id, { applyTo: value })
-                      }
-                      disabled={isLoading}
-                    >
-                      <SelectTrigger className="h-10 text-sm">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Advance Payment">Advance Payment</SelectItem>
-                        <SelectItem value="Bill Payment">Bill Payment</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="p-1">
-                    <Input
-                      type="number"
-                      placeholder="0.00"
-                      value={row.transactionAmount ?? 0}
-                      onChange={(e) =>
-                        updateFinancialTransactionRow(row.id, {
-                          transactionAmount: Number(e.target.value) || 0,
-                        })
-                      }
-                      disabled={isLoading}
-                      className="h-10 px-2 text-sm text-center"
-                    />
-                  </td>
-                  <td className="p-1">
-                    <Input
-                      type="text"
-                      placeholder="Optional"
-                      value={row.description ?? ""}
-                      onChange={(e) =>
-                        updateFinancialTransactionRow(row.id, { description: e.target.value })
-                      }
-                      disabled={isLoading}
-                      className="h-10 px-2 text-sm"
-                    />
-                  </td>
-                  <td className="p-1 text-center">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeFinancialTransactionRow(row.id)}
-                      disabled={isLoading}
-                      className="text-red-600 hover:text-red-800"
-                      aria-label="Remove transaction row"
-                      title="Remove"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </td>
-                </tr>
-              ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-4">
-          <Button
-            type="button"
-            onClick={() => addFinancialTransactionRow()}
-            className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
-            variant="ghost"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Financial Transaction
-          </Button>
-        </div>
-      </Card>
-
-      <div className="sticky-form-actions flex flex-wrap justify-end gap-5">
-        <Button
-          onClick={handleSave}
-          disabled={isLoading || !formData.jobCardId}
-          className="bg-green-600 text-white hover:bg-green-700"
-        >
-          {isLoading ? "Saving..." : "Save"}
-        </Button>
-        <Button
-          variant="destructive"
-          onClick={() => setDeleteDialogOpen(true)}
-          disabled={isLoading || !formData.jobCardId}
-        >
-          Delete
-        </Button>
-      </div>
+      {activeSubform === "financial-transactions" && (
+      <FinancialTransactionsTable
+        rows={financialTransactions}
+        isLoading={isLoading}
+        onUpdateRow={updateFinancialTransactionRow}
+        onRemoveRow={removeFinancialTransactionRow}
+        onAddRow={addFinancialTransactionRow}
+      />
+      )}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

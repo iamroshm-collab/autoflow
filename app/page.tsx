@@ -2,16 +2,21 @@
 
 import { Suspense, useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import dynamic from "next/dynamic"
+import dynamicImport from "next/dynamic"
+import { DashboardContent } from "@/components/dashboard/dashboard-content"
 import { Sidebar, menuItems } from "@/components/dashboard/sidebar"
-import { TopHeader } from "@/components/dashboard/top-header"
+import { TopBar, type TopBarSearchConfig } from "@/components/dashboard/top-bar"
 import { PlaceholderContent } from "@/components/dashboard/placeholder-content"
-import { useDropdownKeyboardNav } from "@/hooks/use-dropdown-keyboard-nav"
+import { JobCardTabStrip, type JobCardSubformTab } from "@/components/dashboard/job-card-tab-strip"
+import { useEmployeeSearch } from "@/hooks/useEmployeeSearch"
+import { canAccessMenu, type UserRole } from "@/lib/access-control"
+import { getOrCreateDeviceId } from "@/lib/device-identity"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DatePickerInput } from "@/components/ui/date-picker-input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   ClipboardList,
   Home,
@@ -31,42 +36,46 @@ import {
   Cog,
   Settings,
   RotateCcw,
+  Save,
   X,
   Search,
   Percent,
+  Store,
+  MapPin,
+  MessageCircle,
+  SlidersHorizontal,
+  Banknote,
+  CreditCard,
 } from "lucide-react"
 
-const DashboardContent = dynamic(
-  () => import("@/components/dashboard/dashboard-content").then((m) => m.DashboardContent),
-  { loading: () => <div className="text-sm text-muted-foreground">Loading dashboard...</div> }
-)
+export const dynamic = 'force-dynamic'
 
-const NewJobCardForm = dynamic(
+const NewJobCardForm = dynamicImport(
   () => import("@/components/dashboard/new-job-card-form").then((m) => m.NewJobCardForm),
   { loading: () => <div className="text-sm text-muted-foreground">Loading form...</div> }
 )
 
-const UpdateJobCardForm = dynamic(
+const UpdateJobCardForm = dynamicImport(
   () => import("@/components/dashboard/update-job-card-form").then((m) => m.UpdateJobCardForm),
   { loading: () => <div className="text-sm text-muted-foreground">Loading form...</div> }
 )
 
-const ReadyForDeliveryForm = dynamic(
+const ReadyForDeliveryForm = dynamicImport(
   () => import("@/components/dashboard/ready-for-delivery-form").then((m) => m.ReadyForDeliveryForm),
   { loading: () => <div className="text-sm text-muted-foreground">Loading form...</div> }
 )
 
-const EmployeeMasterForm = dynamic(
+const EmployeeMasterForm = dynamicImport(
   () => import("@/components/dashboard/employee-master-form").then((m) => m.EmployeeMasterForm),
   { loading: () => <div className="text-sm text-muted-foreground">Loading form...</div> }
 )
 
-const AttendancePayrollModule = dynamic(
+const AttendancePayrollModule = dynamicImport(
   () => import("@/components/dashboard/attendance-payroll-module").then((m) => m.AttendancePayrollModule),
   { loading: () => <div className="text-sm text-muted-foreground">Loading module...</div> }
 )
 
-const SupplierProductInventoryForm = dynamic(
+const SupplierProductInventoryForm = dynamicImport(
   () =>
     import("@/components/dashboard/supplier-product-inventory-form").then(
       (m) => m.SupplierProductInventoryForm
@@ -74,40 +83,53 @@ const SupplierProductInventoryForm = dynamic(
   { loading: () => <div className="text-sm text-muted-foreground">Loading form...</div> }
 )
 
-const SparePartsPurchaseLedger = dynamic(
+const SparePartsPurchaseLedger = dynamicImport(
   () => import("@/components/dashboard/spare-parts-purchase-ledger").then((m) => m.SparePartsPurchaseLedger),
   { loading: () => <div className="text-sm text-muted-foreground">Loading ledger...</div> }
 )
 
-const CustomerVehicleManagement = dynamic(
+const CustomerVehicleManagement = dynamicImport(
   () => import("@/components/dashboard/customer-vehicle-management").then((m) => m.CustomerVehicleManagement),
   { loading: () => <div className="text-sm text-muted-foreground">Loading module...</div> }
 )
 
-const InventoryPosModule = dynamic(
+const InventoryPosModule = dynamicImport(
   () => import("@/components/dashboard/inventory-pos-module").then((m) => m.InventoryPosModule),
   { loading: () => <div className="text-sm text-muted-foreground">Loading POS...</div> }
 )
 
-const AccountingMasterForm = dynamic(
+const AccountingMasterForm = dynamicImport(
   () => import("@/components/dashboard/accounting-master-form").then((m) => m.AccountingMasterForm),
   { loading: () => <div className="text-sm text-muted-foreground">Loading module...</div> }
 )
 
-const SettingsModule = dynamic(
+const SettingsModule = dynamicImport(
   () => import("@/components/settings/settings-module"),
   { loading: () => <div className="text-sm text-muted-foreground">Loading settings...</div> }
 )
 
-const MaintenanceTracker = dynamic(
+const MaintenanceTracker = dynamicImport(
   () => import("@/components/maintenance/maintenance-tracker"),
   { loading: () => <div className="text-sm text-muted-foreground">Loading tracker...</div> }
 )
 
-const TechnicianTaskDetailsForm = dynamic(
+const TechnicianTaskDetailsForm = dynamicImport(
   () => import("@/components/dashboard/technician-task-details-form").then((m) => m.TechnicianTaskDetailsForm),
   { loading: () => <div className="text-sm text-muted-foreground">Loading task details...</div> }
 )
+
+const WhatsAppAdminMessagesComponent = dynamicImport(
+  () => import("@/components/dashboard/whatsapp-admin-messages").then((m) => m.WhatsAppAdminMessages),
+  { loading: () => <div className="text-sm text-muted-foreground">Loading messages...</div> }
+)
+
+function WhatsAppNavIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M12 2C6.49 2 2 6.37 2 11.75c0 1.95.6 3.84 1.74 5.45L2.5 22l4.98-1.2A10.1 10.1 0 0 0 12 21.5c5.51 0 10-4.37 10-9.75S17.51 2 12 2Zm0 17.71c-1.5 0-2.97-.39-4.27-1.12l-.31-.18-2.95.71.79-2.82-.2-.31a7.64 7.64 0 0 1-1.23-4.24c0-4.27 3.67-7.74 8.17-7.74s8.17 3.47 8.17 7.74-3.66 7.96-8.17 7.96Zm4.57-5.98c-.25-.12-1.47-.71-1.69-.79-.23-.09-.39-.12-.56.12-.17.24-.65.79-.79.95-.15.15-.29.17-.54.06-.25-.12-1.07-.38-2.03-1.2a7.5 7.5 0 0 1-1.4-1.69c-.15-.24-.02-.37.1-.48.11-.11.25-.29.37-.43.12-.15.17-.25.25-.42.08-.18.04-.33-.02-.46-.06-.12-.56-1.34-.77-1.84-.2-.47-.41-.41-.56-.42h-.48c-.17 0-.46.06-.7.33-.24.27-.91.89-.91 2.17s.93 2.51 1.05 2.69c.12.17 1.82 2.79 4.4 3.9.62.27 1.11.43 1.49.55.62.2 1.19.17 1.64.1.5-.08 1.47-.6 1.67-1.18.21-.58.21-1.08.15-1.18-.06-.11-.22-.17-.47-.29Z" />
+    </svg>
+  )
+}
 
 const iconMap: Record<string, React.ElementType> = {
   dashboard: Home,
@@ -124,6 +146,7 @@ const iconMap: Record<string, React.ElementType> = {
   customers: UserCircle,
   "income-expense": TrendingUpDown,
   "spare-parts": Cog,
+  "whatsapp-messages": WhatsAppNavIcon,
   settings: Settings,
 }
 
@@ -141,6 +164,7 @@ const labelMap: Record<string, string> = {
   customers: "Customers",
   "income-expense": "Income - Expense",
   "spare-parts": "Spare Parts",
+  "whatsapp-messages": "WhatsApp Messages",
   settings: "Settings",
 }
 
@@ -149,46 +173,72 @@ interface JobCardNavigationItem {
   jobCardNumber: string
 }
 
-interface EmployeeSearchOption {
-  employeeId: number
-  empName: string
-  mobile: string
-  designation: string | null
+interface SessionUser {
+  id: string
+  name: string
+  email: string
+  role: UserRole
+  employeeRefId?: number | null
+  approvedDeviceId?: string | null
+  approvedDeviceIp?: string | null
+  pendingDeviceId?: string | null
+  pendingDeviceIp?: string | null
+  deviceApprovalStatus?: string | null
 }
 
 function PageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [activeItem, setActiveItem] = useState("dashboard")
+  const [currentUser, setCurrentUser] = useState<SessionUser | null>(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [deviceStatusBadge, setDeviceStatusBadge] = useState<{ label: string; tone: "ok" | "warn" } | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [navigationRecords, setNavigationRecords] = useState<JobCardNavigationItem[]>([])
   const [deliveredRegistrationFilter, setDeliveredRegistrationFilter] = useState("")
   const [searchValue, setSearchValue] = useState("")
   const [searchInputFocused, setSearchInputFocused] = useState(false)
   const [customerSearch, setCustomerSearch] = useState("")
-  const [employeeSearch, setEmployeeSearch] = useState("")
-  const [employeeSearchResults, setEmployeeSearchResults] = useState<EmployeeSearchOption[]>([])
-  const [isEmployeeSearchOpen, setIsEmployeeSearchOpen] = useState(false)
-  const [isEmployeeSearchLoading, setIsEmployeeSearchLoading] = useState(false)
-  const [selectedEmployeeRecordId, setSelectedEmployeeRecordId] = useState<number | null>(null)
+  const [technicianSearch, setTechnicianSearch] = useState("")
+  const [maintenanceSearch, setMaintenanceSearch] = useState("")
+  const {
+    employeeSearch,
+    setEmployeeSearch,
+    employeeSearchResults,
+    isEmployeeSearchOpen,
+    setIsEmployeeSearchOpen,
+    isEmployeeSearchLoading,
+    selectedEmployeeRecordId,
+    setSelectedEmployeeRecordId,
+    employeeSearchInputRef,
+    employeeSearchContainerRef,
+    loadEmployeeSearchResults,
+    handleSelectEmployeeSearchResult,
+    openEmployeeSearchDropdown,
+    employeeDropdownNav,
+  } = useEmployeeSearch(activeItem)
   const [sparePartsTab, setSparePartsTab] = useState<"all" | "returned" | "payments">("all")
   const [attendancePayrollTab, setAttendancePayrollTab] = useState<"attendance" | "adjustments" | "payroll">("attendance")
   const [inventoryTab, setInventoryTab] = useState<"suppliers" | "products">("suppliers")
   const [inventoryPosTab, setInventoryPosTab] = useState<"purchase" | "sales" | "inventory" | "stock-movement" | "credit-notes" | "debit-notes" | "gst-report">("purchase")
+  const [updateJobCardSubformTab, setUpdateJobCardSubformTab] = useState<JobCardSubformTab>("main-form")
+  const [readyForDeliverySubformTab, setReadyForDeliverySubformTab] = useState<JobCardSubformTab>("main-form")
+  const [settingsTab, setSettingsTab] = useState<"shop" | "spare-parts" | "gst-states">("shop")
   const [sparePartsShopFilter, setSparePartsShopFilter] = useState("")
   const [sparePartsStartDate, setSparePartsStartDate] = useState("")
   const [sparePartsEndDate, setSparePartsEndDate] = useState("")
+  const [whatsAppContactName, setWhatsAppContactName] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const employeeSearchInputRef = useRef<HTMLInputElement>(null)
-  const employeeSearchContainerRef = useRef<HTMLDivElement>(null)
-  const employeeSearchDebounceRef = useRef<number | null>(null)
 
   const selectedJobCardId = searchParams.get("jobCardId") || ""
 
   const handleSelect = useCallback((id: string) => {
+    if (!currentUser || !canAccessMenu(currentUser.role, id)) {
+      return
+    }
     setActiveItem(id)
     setSidebarOpen(false)
-  }, [])
+  }, [currentUser])
 
   const ActiveIcon = iconMap[activeItem] || Home
   const activeLabel = labelMap[activeItem] || "Dashboard"
@@ -201,6 +251,106 @@ function PageContent() {
   }, [selectedJobCardId, navigationRecords])
 
   const totalRecords = navigationRecords.length
+
+  useEffect(() => {
+    let mounted = true
+
+    const loadSession = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" })
+        if (!response.ok) {
+          router.replace("/register")
+          return
+        }
+
+        const data = await response.json()
+        if (mounted && data?.user) {
+          if (data.user.role !== "admin") {
+            const currentDeviceId = getOrCreateDeviceId()
+            const approvedDeviceId = String(data.user.approvedDeviceId || "").trim()
+            const pendingDeviceId = String(data.user.pendingDeviceId || "").trim()
+
+            if (pendingDeviceId && pendingDeviceId === currentDeviceId) {
+              setDeviceStatusBadge({
+                label: "Device change requested. Waiting for admin approval.",
+                tone: "warn",
+              })
+            } else if (approvedDeviceId && approvedDeviceId === currentDeviceId) {
+              setDeviceStatusBadge(null)
+            } else if (approvedDeviceId) {
+              setDeviceStatusBadge({
+                label: "This browser device is not approved for this account.",
+                tone: "warn",
+              })
+            } else {
+              setDeviceStatusBadge({
+                label: "No approved device is currently mapped.",
+                tone: "warn",
+              })
+            }
+          } else {
+            setDeviceStatusBadge(null)
+          }
+
+          if (typeof window !== "undefined") {
+            localStorage.setItem("gms_user_role", String(data.user.role || ""))
+            if (data.user.employeeRefId) {
+              localStorage.setItem("gms_employee_id", String(data.user.employeeRefId))
+            } else {
+              localStorage.removeItem("gms_employee_id")
+            }
+          }
+          setCurrentUser(data.user)
+        }
+      } catch (error) {
+        console.error("[PAGE_SESSION_LOAD]", error)
+        // Only redirect on actual auth errors, not transient network/DB failures
+        const isAuthError = error instanceof Response
+          ? (error.status === 401 || error.status === 403)
+          : false
+        if (isAuthError) {
+          router.replace("/register")
+        }
+      } finally {
+        if (mounted) {
+          setAuthLoading(false)
+        }
+      }
+    }
+
+    void loadSession()
+
+    return () => {
+      mounted = false
+    }
+  }, [router])
+
+  useEffect(() => {
+    const form = searchParams.get("form")
+    if (!form || !currentUser) {
+      return
+    }
+
+    if (canAccessMenu(currentUser.role, form)) {
+      setActiveItem(form)
+    }
+  }, [searchParams, currentUser])
+
+  useEffect(() => {
+    if (!currentUser) {
+      return
+    }
+
+    if (!canAccessMenu(currentUser.role, activeItem)) {
+      setActiveItem("dashboard")
+    }
+  }, [activeItem, currentUser])
+
+  // Clear context-aware search state when switching away from its form
+  useEffect(() => {
+    if (activeItem !== "technician-task-details") setTechnicianSearch("")
+    if (activeItem !== "maintenance-tracker") setMaintenanceSearch("")
+  }, [activeItem])
 
   const fetchNavigationRecords = useCallback(
     async (options?: { jobcardStatus?: string; registrationNumber?: string; excludeVehicleStatus?: string }) => {
@@ -269,101 +419,62 @@ function PageContent() {
     router.replace(params.toString() ? `?${params.toString()}` : "?", { scroll: false })
   }
 
-  const handleNavigatePrevious = () => {
-    // Navigation removed - only record counter displayed
-  }
+  const handleNavigatePrevious = useCallback(() => {
+    const currentIndex = navigationRecords.findIndex((r) => r.id === selectedJobCardId)
+    if (currentIndex > 0) {
+      const previousRecord = navigationRecords[currentIndex - 1]
+      setActiveItem("update-job-card")
+      setSelectedJobCardId(previousRecord.id)
+    }
+  }, [navigationRecords, selectedJobCardId])
 
-  const handleNavigateNext = () => {
-    // Navigation removed - only record counter displayed
-  }
+  const handleNavigateNext = useCallback(() => {
+    const currentIndex = navigationRecords.findIndex((r) => r.id === selectedJobCardId)
+    if (currentIndex < navigationRecords.length - 1) {
+      const nextRecord = navigationRecords[currentIndex + 1]
+      setActiveItem("update-job-card")
+      setSelectedJobCardId(nextRecord.id)
+    }
+  }, [navigationRecords, selectedJobCardId])
 
-  const loadEmployeeSearchResults = useCallback(async (search: string) => {
-    setIsEmployeeSearchLoading(true)
+  const handleNotificationNavigate = useCallback((targetForm: string) => {
+    if (currentUser && canAccessMenu(currentUser.role, targetForm)) {
+      setActiveItem(targetForm)
+      return
+    }
+    if (targetForm.startsWith("/")) {
+      router.push(targetForm)
+      return
+    }
+    router.push(`/?form=${encodeURIComponent(targetForm)}`)
+  }, [currentUser, router])
 
+  const handleLogout = useCallback(async () => {
     try {
-      const response = await fetch(`/api/employees?search=${encodeURIComponent(search)}`)
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch employees")
-      }
-
-      setEmployeeSearchResults(Array.isArray(data) ? data : [])
-    } catch (error) {
-      console.error("Error fetching employee search results:", error)
-      setEmployeeSearchResults([])
+      await fetch("/api/auth/logout", { method: "POST" })
     } finally {
-      setIsEmployeeSearchLoading(false)
-    }
-  }, [])
-
-  const handleSelectEmployeeSearchResult = useCallback((employee: EmployeeSearchOption) => {
-    setEmployeeSearch(employee.empName)
-    setSelectedEmployeeRecordId(employee.employeeId)
-    setIsEmployeeSearchOpen(false)
-    setEmployeeSearchResults([])
-  }, [])
-
-  const employeeDropdownNav = useDropdownKeyboardNav({
-    itemCount: employeeSearchResults.length,
-    isOpen: isEmployeeSearchOpen,
-    onSelect: (index) => {
-      const employee = employeeSearchResults[index]
-      if (employee) {
-        handleSelectEmployeeSearchResult(employee)
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("gms_user_role")
+        localStorage.removeItem("gms_employee_id")
       }
-    },
-    onClose: () => setIsEmployeeSearchOpen(false),
-  })
-
-  useEffect(() => {
-    if (activeItem !== "employee") {
-      setIsEmployeeSearchOpen(false)
-      setEmployeeSearchResults([])
-      setSelectedEmployeeRecordId(null)
-      return
+      router.replace("/register")
     }
+  }, [router])
 
-    if (!isEmployeeSearchOpen) {
-      return
-    }
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">Loading session...</p>
+      </div>
+    )
+  }
 
-    if (employeeSearchDebounceRef.current) {
-      window.clearTimeout(employeeSearchDebounceRef.current)
-    }
-
-    employeeSearchDebounceRef.current = window.setTimeout(() => {
-      loadEmployeeSearchResults(employeeSearch.trim())
-    }, 180)
-
-    return () => {
-      if (employeeSearchDebounceRef.current) {
-        window.clearTimeout(employeeSearchDebounceRef.current)
-      }
-    }
-  }, [activeItem, employeeSearch, isEmployeeSearchOpen, loadEmployeeSearchResults])
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!employeeSearchContainerRef.current?.contains(event.target as Node)) {
-        setIsEmployeeSearchOpen(false)
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
-
-  const openEmployeeSearchDropdown = useCallback(() => {
-    if (!isEmployeeSearchOpen) {
-      setIsEmployeeSearchOpen(true)
-      employeeDropdownNav.resetHighlight()
-      void loadEmployeeSearchResults(employeeSearch.trim())
-    }
-  }, [employeeDropdownNav, employeeSearch, isEmployeeSearchOpen, loadEmployeeSearchResults])
+  if (!currentUser) {
+    return null
+  }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen overflow-hidden bg-slate-100 p-[1mm] gap-[1mm]">
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
@@ -378,20 +489,152 @@ function PageContent() {
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         } lg:transform-none`}
       >
-        <div className="relative h-full">
-          <Sidebar activeItem={activeItem} onSelect={handleSelect} />
+        <div className="relative h-full rounded-2xl overflow-hidden">
+          <Sidebar
+            activeItem={activeItem}
+            onSelect={handleSelect}
+            role={currentUser.role}
+            userName={currentUser.name}
+            onNotificationNavigate={handleNotificationNavigate}
+            onLogout={handleLogout}
+          />
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <TopHeader
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden rounded-2xl bg-background">
+
+        <TopBar
+          pageTitle={activeLabel}
+          pageIcon={ActiveIcon}
+          pageSubtitle={activeItem === "whatsapp-messages" && whatsAppContactName ? whatsAppContactName : undefined}
+          searchConfig={
+            activeItem === "update-job-card" || activeItem === "delivered"
+              ? {
+                  placeholder: "Search Vehicle",
+                  value: searchValue,
+                  onChange: (v) => setSearchValue(v.toUpperCase()),
+                  suffix: (
+                    <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                      {totalRecords === 0
+                        ? "1 of 1"
+                        : currentRecordIndex >= 0
+                          ? `${currentRecordIndex + 1} of ${totalRecords + 1}`
+                          : `${totalRecords + 1} of ${totalRecords + 1}`}
+                    </span>
+                  ),
+                }
+              : activeItem === "customers"
+              ? {
+                  placeholder: "Search customer by name, mobile, vehicle...",
+                  value: customerSearch,
+                  onChange: setCustomerSearch,
+                }
+              : activeItem === "maintenance-tracker"
+              ? {
+                  placeholder: "Search customer or vehicle...",
+                  value: maintenanceSearch,
+                  onChange: setMaintenanceSearch,
+                }
+              : undefined
+          }
+          customSearch={
+            activeItem === "technician-task-details" ? (
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                <Input
+                  value={technicianSearch}
+                  onChange={(e) => setTechnicianSearch(e.target.value)}
+                  placeholder="Search technician, task, vehicle..."
+                  className="h-7 pl-8 pr-3 bg-slate-50 border-slate-200 text-xs rounded-full"
+                  autoComplete="off"
+                />
+              </div>
+            ) : activeItem === "employee" ? (
+              <div ref={employeeSearchContainerRef} className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                <Input
+                  ref={employeeSearchInputRef}
+                  value={employeeSearch}
+                  onChange={(e) => {
+                    setEmployeeSearch(e.target.value)
+                    if (!isEmployeeSearchOpen) setIsEmployeeSearchOpen(true)
+                    employeeDropdownNav.resetHighlight()
+                  }}
+                  onClick={openEmployeeSearchDropdown}
+                  onFocus={openEmployeeSearchDropdown}
+                  onKeyDown={(e) => {
+                    if (!isEmployeeSearchOpen && (e.key === "ArrowDown" || e.key === "Enter")) {
+                      e.preventDefault()
+                      openEmployeeSearchDropdown()
+                      return
+                    }
+                    if (isEmployeeSearchOpen) employeeDropdownNav.handleKeyDown(e)
+                  }}
+                  placeholder="Search employee..."
+                  className="h-7 pl-8 pr-3 bg-slate-50 border-slate-200 text-xs rounded-full"
+                  aria-label="Search Employee"
+                  aria-autocomplete="list"
+                  aria-expanded={isEmployeeSearchOpen}
+                  aria-controls="employee-search-dropdown"
+                />
+                {isEmployeeSearchOpen && (
+                  <div className="dropdown-container">
+                    <div id="employee-search-dropdown" className="dropdown-scroll" role="listbox">
+                      {isEmployeeSearchLoading ? (
+                        <div className="dropdown-empty-state">Loading employees...</div>
+                      ) : employeeSearchResults.length > 0 ? (
+                        employeeSearchResults.map((employee, index) => (
+                          <button
+                            key={employee.employeeId}
+                            type="button"
+                            role="option"
+                            aria-selected={index === employeeDropdownNav.highlightedIndex}
+                            {...employeeDropdownNav.getItemProps(index)}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => handleSelectEmployeeSearchResult(employee)}
+                            className={`dropdown-item ${index === employeeDropdownNav.highlightedIndex ? "selected" : ""}`}
+                          >
+                            <div className="font-medium">{employee.empName}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {employee.mobile}
+                              {employee.designation ? ` • ${employee.designation}` : ""}
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="dropdown-empty-state">No employees found.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : undefined
+          }
+          userName={currentUser.name}
+          userRole={currentUser.role}
+          whatsAppAllowed={canAccessMenu(currentUser.role, "whatsapp-messages")}
+          onWhatsApp={() => handleSelect("whatsapp-messages")}
+          onNotificationNavigate={handleNotificationNavigate}
           onToggleSidebar={() => setSidebarOpen(true)}
-          onSettings={() => setActiveItem("settings")}
         />
 
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-6">
+        <main className={`flex-1 h-full min-h-0 ${(activeItem === "settings" || activeItem === "update-job-card" || activeItem === "delivered" || activeItem === "whatsapp-messages" || activeItem === "new-job-card") ? "overflow-hidden" : "overflow-y-auto"}`}>
+          <div
+            className={`form-main-wrapper ${activeItem === "whatsapp-messages" ? "flex h-full min-h-0 flex-col !p-0" : `${(activeItem === "settings" || activeItem === "update-job-card" || activeItem === "delivered") ? "flex h-full min-h-0 flex-col" : ""} ${activeItem === "new-job-card" ? "h-full" : ""}`}`}
+          >
+            {deviceStatusBadge ? (
+              <div
+                className={`mb-4 rounded-lg border px-3 py-2 text-sm ${
+                  deviceStatusBadge.tone === "ok"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : "border-amber-200 bg-amber-50 text-amber-900"
+                }`}
+              >
+                {deviceStatusBadge.label}
+              </div>
+            ) : null}
+
             {sidebarOpen && (
               <div className="relative z-50 flex justify-end mb-3 lg:hidden">
                 <button
@@ -401,151 +644,6 @@ function PageContent() {
                 >
                   <X className="w-4 h-4" />
                 </button>
-              </div>
-            )}
-
-            {/* Page Heading */}
-            {activeItem === "attendance-payroll" ? (
-              <div className="mb-3">
-                <ActiveIcon className="w-5 h-5 text-muted-foreground inline-block align-middle" />
-                <h1 className="text-lg font-heading font-bold text-foreground inline-block align-middle ml-3">{activeLabel}</h1>
-              </div>
-            ) : (
-              <div className="flex items-end justify-between gap-4 mb-6">
-                <div className="flex items-center gap-3">
-                  <ActiveIcon className="w-5 h-5 text-muted-foreground" />
-                  <h1 className="text-lg font-heading font-bold text-foreground">{activeLabel}</h1>
-                </div>
-
-                <div className="flex items-end gap-3">
-                {activeItem === "update-job-card" && (
-                  <div className="flex items-center gap-2 flex-1 max-w-[27.6rem]">
-                    <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                      {totalRecords === 0
-                        ? "1 of 1"
-                        : currentRecordIndex >= 0
-                          ? `${currentRecordIndex + 1} of ${totalRecords + 1}`
-                          : `${totalRecords + 1} of ${totalRecords + 1}`}
-                    </span>
-                    <Input
-                      ref={searchInputRef}
-                      value={searchValue}
-                      onChange={(e) => setSearchValue(e.target.value.toUpperCase())}
-                      placeholder="Search Vehicle"
-                      className="h-10 w-96"
-                      aria-label="Search Vehicle"
-                    />
-                  </div>
-                )}
-
-                {(activeItem === "delivered") && (
-                  <div className="flex items-center gap-2 flex-1 max-w-[27.6rem]">
-                    <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                      {totalRecords === 0
-                        ? "1 of 1"
-                        : currentRecordIndex >= 0
-                          ? `${currentRecordIndex + 1} of ${totalRecords + 1}`
-                          : `${totalRecords + 1} of ${totalRecords + 1}`}
-                    </span>
-                    <Input
-                      ref={searchInputRef}
-                      value={searchValue}
-                      onChange={(e) => setSearchValue(e.target.value.toUpperCase())}
-                      onFocus={() => setSearchInputFocused(true)}
-                      onBlur={() => setSearchInputFocused(false)}
-                      placeholder="Search Vehicle"
-                      className="h-10 w-96"
-                      aria-label="Search Vehicle"
-                    />
-                  </div>
-                )}
-
-
-
-                {activeItem === "customers" && (
-                  <div className="flex items-center gap-2 flex-1 max-w-[27.6rem]">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                      <Input
-                        value={customerSearch}
-                        onChange={(e) => setCustomerSearch(e.target.value)}
-                        placeholder="Search customer by name, mobile, vehicle..."
-                        className="h-10 w-96 pl-9"
-                        aria-label="Search Customer"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {activeItem === "employee" && (
-                  <div className="flex items-center gap-2 flex-1 max-w-[27.6rem]">
-                    <div ref={employeeSearchContainerRef} className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                      <Input
-                        ref={employeeSearchInputRef}
-                        value={employeeSearch}
-                        onChange={(e) => {
-                          setEmployeeSearch(e.target.value)
-                          if (!isEmployeeSearchOpen) {
-                            setIsEmployeeSearchOpen(true)
-                          }
-                          employeeDropdownNav.resetHighlight()
-                        }}
-                        onClick={openEmployeeSearchDropdown}
-                        onFocus={openEmployeeSearchDropdown}
-                        onKeyDown={(e) => {
-                          if (!isEmployeeSearchOpen && (e.key === "ArrowDown" || e.key === "Enter")) {
-                            e.preventDefault()
-                            openEmployeeSearchDropdown()
-                            return
-                          }
-
-                          if (isEmployeeSearchOpen) {
-                            employeeDropdownNav.handleKeyDown(e)
-                          }
-                        }}
-                        placeholder="Search employee by name, mobile..."
-                        className="h-10 w-96 pl-9"
-                        aria-label="Search Employee"
-                        aria-autocomplete="list"
-                        aria-expanded={isEmployeeSearchOpen}
-                        aria-controls="employee-search-dropdown"
-                      />
-
-                      {isEmployeeSearchOpen && (
-                        <div className="dropdown-container">
-                          <div id="employee-search-dropdown" className="dropdown-scroll" role="listbox">
-                            {isEmployeeSearchLoading ? (
-                              <div className="dropdown-empty-state">Loading employees...</div>
-                            ) : employeeSearchResults.length > 0 ? (
-                              employeeSearchResults.map((employee, index) => (
-                                <button
-                                  key={employee.employeeId}
-                                  type="button"
-                                  role="option"
-                                  aria-selected={index === employeeDropdownNav.highlightedIndex}
-                                  {...employeeDropdownNav.getItemProps(index)}
-                                  onMouseDown={(event) => event.preventDefault()}
-                                  onClick={() => handleSelectEmployeeSearchResult(employee)}
-                                  className={`dropdown-item ${index === employeeDropdownNav.highlightedIndex ? "selected" : ""}`}
-                                >
-                                  <div className="font-medium">{employee.empName}</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {employee.mobile}
-                                    {employee.designation ? ` • ${employee.designation}` : ""}
-                                  </div>
-                                </button>
-                              ))
-                            ) : (
-                              <div className="dropdown-empty-state">No employees found.</div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-                </div>
               </div>
             )}
 
@@ -561,10 +659,19 @@ function PageContent() {
                     setAttendancePayrollTab(value as "attendance" | "adjustments" | "payroll")
                   }
                 >
-                  <TabsList className="global-tabs-list">
-                    <TabsTrigger value="attendance">Mobile Attendance</TabsTrigger>
-                    <TabsTrigger value="adjustments">Adjustments</TabsTrigger>
-                    <TabsTrigger value="payroll">Payroll</TabsTrigger>
+                  <TabsList className="settings-tabs-list desktop-only-tab-strip">
+                    <TabsTrigger value="attendance" className="settings-tabs-trigger">
+                      <CalendarCheck className="h-4 w-4 text-slate-600" />
+                      <span>{currentUser.role === "technician" ? "My Attendance" : "Mobile Attendance"}</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="adjustments" className="settings-tabs-trigger">
+                      <SlidersHorizontal className="h-4 w-4 text-slate-600" />
+                      <span>{currentUser.role === "technician" ? "Payment History" : "Adjustments"}</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="payroll" className="settings-tabs-trigger">
+                      <Banknote className="h-4 w-4 text-slate-600" />
+                      <span>{currentUser.role === "technician" ? "My Payroll" : "Payroll"}</span>
+                    </TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
@@ -580,10 +687,19 @@ function PageContent() {
                   value={sparePartsTab}
                   onValueChange={(value) => setSparePartsTab(value as "all" | "returned" | "payments")}
                 >
-                  <TabsList className="global-tabs-list">
-                    <TabsTrigger value="all">All Records</TabsTrigger>
-                    <TabsTrigger value="returned">Returned Bills</TabsTrigger>
-                    <TabsTrigger value="payments">Bill Payments</TabsTrigger>
+                  <TabsList className="settings-tabs-list desktop-only-tab-strip">
+                    <TabsTrigger value="all" className="settings-tabs-trigger">
+                      <ClipboardList className="h-4 w-4 text-slate-600" />
+                      <span>All Records</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="returned" className="settings-tabs-trigger">
+                      <RotateCcw className="h-4 w-4 text-slate-600" />
+                      <span>Returned Bills</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="payments" className="settings-tabs-trigger">
+                      <CreditCard className="h-4 w-4 text-slate-600" />
+                      <span>Bill Payments</span>
+                    </TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
@@ -599,9 +715,15 @@ function PageContent() {
                   value={inventoryTab}
                   onValueChange={(value) => setInventoryTab(value as "suppliers" | "products")}
                 >
-                  <TabsList className="global-tabs-list">
-                    <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
-                    <TabsTrigger value="products">Products</TabsTrigger>
+                  <TabsList className="settings-tabs-list desktop-only-tab-strip">
+                    <TabsTrigger value="suppliers" className="settings-tabs-trigger">
+                      <Users className="h-4 w-4 text-slate-600" />
+                      <span>Suppliers</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="products" className="settings-tabs-trigger">
+                      <Package className="h-4 w-4 text-slate-600" />
+                      <span>Products</span>
+                    </TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
@@ -621,32 +743,32 @@ function PageContent() {
                     )
                   }
                 >
-                  <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 border-b-0">
-                    <TabsTrigger value="purchase" className="w-full gap-2">
+                  <TabsList className="settings-tabs-list desktop-only-tab-strip">
+                    <TabsTrigger value="purchase" className="settings-tabs-trigger">
                       <FilePlus className="h-4 w-4 text-slate-600" />
                       <span>Purchase Entry</span>
                     </TabsTrigger>
-                    <TabsTrigger value="sales" className="w-full gap-2">
+                    <TabsTrigger value="sales" className="settings-tabs-trigger">
                       <ShoppingCart className="h-4 w-4 text-slate-600" />
                       <span>POS Sales</span>
                     </TabsTrigger>
-                    <TabsTrigger value="inventory" className="w-full gap-2">
+                    <TabsTrigger value="inventory" className="settings-tabs-trigger">
                       <Package className="h-4 w-4 text-slate-600" />
                       <span>Inventory Report</span>
                     </TabsTrigger>
-                    <TabsTrigger value="stock-movement" className="w-full gap-2">
+                    <TabsTrigger value="stock-movement" className="settings-tabs-trigger">
                       <RotateCcw className="h-4 w-4 text-slate-600" />
                       <span>Stock Movement</span>
                     </TabsTrigger>
-                    <TabsTrigger value="credit-notes" className="w-full gap-2">
+                    <TabsTrigger value="credit-notes" className="settings-tabs-trigger">
                       <FileText className="h-4 w-4 text-slate-600" />
                       <span>Credit Notes</span>
                     </TabsTrigger>
-                    <TabsTrigger value="debit-notes" className="w-full gap-2">
+                    <TabsTrigger value="debit-notes" className="settings-tabs-trigger">
                       <FileMinus className="h-4 w-4 text-slate-600" />
                       <span>Debit Notes</span>
                     </TabsTrigger>
-                    <TabsTrigger value="gst-report" className="w-full gap-2">
+                    <TabsTrigger value="gst-report" className="settings-tabs-trigger">
                       <Percent className="h-4 w-4 text-slate-600" />
                       <span>GST Report</span>
                     </TabsTrigger>
@@ -654,16 +776,59 @@ function PageContent() {
                 </Tabs>
               </div>
             )}
+
+            {activeItem === "settings" && (
+              <div
+                className={`global-tabs-wrap ${
+                  settingsTab === "shop" ? "is-first" : "is-offset"
+                } sticky top-[2.2rem] z-20 bg-background pb-0`}
+              >
+                <Tabs
+                  value={settingsTab}
+                  onValueChange={(value) =>
+                    setSettingsTab(value as "shop" | "spare-parts" | "gst-states")
+                  }
+                >
+                  <TabsList className="settings-tabs-list">
+                    <TabsTrigger value="shop" className="settings-tabs-trigger">
+                      <Store className="h-4 w-4 text-slate-600" />
+                      <span>Shop Settings</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="spare-parts" className="settings-tabs-trigger">
+                      <Package className="h-4 w-4 text-slate-600" />
+                      <span>Spare Part Shops</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="gst-states" className="settings-tabs-trigger">
+                      <MapPin className="h-4 w-4 text-slate-600" />
+                      <span>GST States</span>
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+            )}
+
+            {activeItem === "update-job-card" && (
+              <JobCardTabStrip value={updateJobCardSubformTab} onValueChange={setUpdateJobCardSubformTab} />
+            )}
+
+            {activeItem === "delivered" && (
+              <JobCardTabStrip value={readyForDeliverySubformTab} onValueChange={setReadyForDeliverySubformTab} />
+            )}
             {/* Content */}
             {activeItem === "dashboard" ? (
-              <DashboardContent onNavigate={handleSelect} />
+              <DashboardContent onNavigate={handleSelect} role={currentUser.role} />
             ) : activeItem === "new-job-card" ? (
-              <div className="bg-white rounded-lg border border-border p-6">
+              <div className="global-form-shell fill-height">
                 <NewJobCardForm />
               </div>
             ) : activeItem === "update-job-card" ? (
-              <div className="bg-white rounded-lg border border-border p-6">
+              <div
+                className={`global-form-shell update-job-card-shell ${
+                  updateJobCardSubformTab === "main-form" ? "is-first" : ""
+                }`}
+              >
                 <UpdateJobCardForm
+                  activeSubform={updateJobCardSubformTab}
                   selectedJobCardId={selectedJobCardId}
                   searchInputRef={searchInputRef}
                   searchValue={searchValue}
@@ -679,12 +844,21 @@ function PageContent() {
                 />
               </div>
             ) : activeItem === "technician-task-details" ? (
-              <div className="bg-white rounded-lg border border-border p-6">
-                <TechnicianTaskDetailsForm />
+              <div className="global-form-shell">
+                <TechnicianTaskDetailsForm
+                currentEmployeeId={currentUser.employeeRefId ?? null}
+                externalSearch={technicianSearch}
+                onExternalSearchChange={setTechnicianSearch}
+              />
               </div>
             ) : activeItem === "delivered" ? (
-              <div className="bg-white rounded-lg border border-border p-6">
+              <div
+                className={`global-form-shell update-job-card-shell ${
+                  readyForDeliverySubformTab === "main-form" ? "is-first" : ""
+                }`}
+              >
                 <ReadyForDeliveryForm
+                  activeSubform={readyForDeliverySubformTab}
                   selectedJobCardId={selectedJobCardId}
                   searchInputRef={searchInputRef}
                   searchValue={searchValue}
@@ -713,9 +887,12 @@ function PageContent() {
                 />
               </div>
             ) : activeItem === "maintenance-tracker" ? (
-              <MaintenanceTracker />
+              <MaintenanceTracker
+                externalSearch={maintenanceSearch}
+                onExternalSearchChange={setMaintenanceSearch}
+              />
             ) : activeItem === "employee" ? (
-              <div className="bg-white rounded-lg border border-border p-6">
+              <div className="global-form-shell">
                 <EmployeeMasterForm
                   searchTerm={employeeSearch}
                   selectedEmployeeId={selectedEmployeeRecordId}
@@ -731,6 +908,8 @@ function PageContent() {
                 <AttendancePayrollModule
                   activeTab={attendancePayrollTab}
                   onTabChange={setAttendancePayrollTab}
+                  viewerRole={currentUser.role}
+                  currentEmployeeId={currentUser.employeeRefId ?? null}
                 />
               </div>
             ) : activeItem === "inventory" ? (
@@ -744,17 +923,21 @@ function PageContent() {
             ) : activeItem === "inventory-pos" ? (
               <div
                 className={`global-tabs-frame ${
-                  inventoryPosTab === "purchase" ? "is-first" : inventoryPosTab === "gst-report" ? "is-last" : ""
+                  inventoryPosTab === "purchase"
+                    ? "tabs-fill-width is-first"
+                    : inventoryPosTab === "gst-report"
+                      ? "tabs-fill-width is-last"
+                      : "tabs-fill-width"
                 }`}
               >
                 <InventoryPosModule activeTab={inventoryPosTab} />
               </div>
             ) : activeItem === "customers" ? (
-              <div className="bg-white rounded-lg border border-border p-6">
+              <div className="global-form-shell">
                 <CustomerVehicleManagement initialSearch={customerSearch} />
               </div>
             ) : activeItem === "income-expense" ? (
-              <div className="bg-white rounded-lg border border-border p-6">
+              <div className="global-form-shell">
                 <AccountingMasterForm />
               </div>
             ) : activeItem === "spare-parts" ? (
@@ -773,20 +956,103 @@ function PageContent() {
                   onEndDateChange={setSparePartsEndDate}
                 />
               </div>
+            ) : activeItem === "whatsapp-messages" ? (
+              <div style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                background: "#f0f2f5"
+              }}>
+                <WhatsAppAdminMessagesComponent onContactChange={setWhatsAppContactName} />
+              </div>
             ) : activeItem === "settings" ? (
-              <div className="bg-white rounded-lg border border-border p-6">
-                <SettingsModule />
+              <div className="hide-scrollbar min-h-0 flex-1 overflow-hidden pr-2">
+                <div
+                  className={`global-tabs-frame settings-no-container ${
+                    settingsTab === "shop" ? "is-first" : ""
+                  }`}
+                >
+                  <SettingsModule activeTab={settingsTab} />
+                </div>
               </div>
             ) : (
               <PlaceholderContent title={activeLabel} icon={ActiveIcon} />
             )}
+            {/* Footer clearance spacer — not needed, footer is now in-flow */}
           </div>
 
           {/* Footer */}
-          <footer className="px-6 py-4 mt-6 border-t border-border">
-              <p className="text-xs text-muted-foreground text-center">
-              &copy; 2025 Garage Management System | All Rights Reserved.
-            </p>
+          <footer className={`shrink-0 bg-background border-t border-slate-100 px-6 py-3 ${activeItem === "whatsapp-messages" ? "hidden" : ""}`}>
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-xs text-muted-foreground">
+                &copy; 2025 Garage Management System | All Rights Reserved.
+              </p>
+              {activeItem === "settings" && settingsTab === "shop" && (
+                <div className="mr-4 flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="global-bottom-btn-secondary"
+                    onClick={() => window.dispatchEvent(new CustomEvent("shopSettings:reset"))}
+                  >
+                    Reset
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9 px-4 text-sm bg-green-600 text-white hover:bg-green-700 gap-2"
+                    onClick={() => window.dispatchEvent(new CustomEvent("shopSettings:save"))}
+                  >
+                    <Save className="h-4 w-4" />
+                    Save Settings
+                  </Button>
+                </div>
+              )}
+              {activeItem === "update-job-card" && (
+                <div className="mr-4 flex items-center gap-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9 px-4 text-sm bg-green-600 text-white hover:bg-green-700"
+                    onClick={() => window.dispatchEvent(new CustomEvent("updateJobCard:save"))}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="h-9 px-4 text-sm"
+                    onClick={() => window.dispatchEvent(new CustomEvent("updateJobCard:delete"))}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              )}
+              {activeItem === "delivered" && (
+                <div className="mr-4 flex items-center gap-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9 px-4 text-sm bg-green-600 text-white hover:bg-green-700"
+                    onClick={() => window.dispatchEvent(new CustomEvent("readyForDelivery:save"))}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="h-9 px-4 text-sm"
+                    onClick={() => window.dispatchEvent(new CustomEvent("readyForDelivery:delete"))}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              )}
+            </div>
           </footer>
         </main>
       </div>

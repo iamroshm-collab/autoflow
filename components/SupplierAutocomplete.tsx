@@ -64,7 +64,7 @@ export function SupplierAutocomplete({
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current)
     }
-  }, [q, open])
+  }, [q, open, fetchUrl])
 
   useEffect(() => {
     // subscribe to supplier changes elsewhere in the app
@@ -72,7 +72,7 @@ export function SupplierAutocomplete({
       if (open) load(q || "")
     })
     return unsub
-  }, [open, q])
+  }, [open, q, fetchUrl])
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {

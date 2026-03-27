@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx prisma:*)",
+      "Bash(node -e \":*)",
+      "Bash(ls -la \"c:/Users/Thakkudu/Desktop/new-garage-app/\"*.env*)",
+      "Bash(ls -la \"c:/Users/Thakkudu/Desktop/new-garage-app/.env\"*)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}

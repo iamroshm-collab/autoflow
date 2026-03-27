@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { saveDeviceToken } from '@/services/firebaseNotificationService';
+import { saveNotificationDevice } from '@/services/notificationService';
 
 /**
  * POST /api/notifications/device-token
@@ -8,25 +8,21 @@ import { saveDeviceToken } from '@/services/firebaseNotificationService';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { technicianId, token, deviceType } = body;
-    const parsedTechnicianId = Number(technicianId);
+    const employeeId = Number(body?.employeeId ?? body?.technicianId);
+    const oneSignalPlayerId = String(body?.oneSignalPlayerId ?? body?.token ?? '').trim();
 
-    if (!Number.isInteger(parsedTechnicianId) || !token) {
+    if (!Number.isInteger(employeeId) || !oneSignalPlayerId) {
       return NextResponse.json(
-        { error: 'technicianId (employeeId) and token are required' },
+        { error: 'employeeId and oneSignalPlayerId are required' },
         { status: 400 }
       );
     }
 
-    const deviceToken = await saveDeviceToken(
-      String(parsedTechnicianId),
-      token,
-      typeof deviceType === 'string' && deviceType.trim() ? deviceType.trim() : 'web'
-    );
+    const deviceToken = await saveNotificationDevice(employeeId, oneSignalPlayerId);
 
     return NextResponse.json({
       success: true,
-      message: 'Device token saved successfully',
+      message: 'OneSignal device saved successfully',
       deviceToken,
     });
   } catch (error: any) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { createRoleNotifications } from "@/lib/app-notifications"
 
 export async function POST(request: NextRequest) {
   try {
@@ -80,6 +81,14 @@ export async function POST(request: NextRequest) {
         customer: true,
         vehicle: true,
       },
+    })
+
+    await createRoleNotifications(["admin", "manager"], {
+      title: "New Job Card Created",
+      body: `${jobCard.jobCardNumber} for ${jobCard.vehicle?.registrationNumber || "Unknown vehicle"}`,
+      targetForm: "update-job-card",
+      url: `/?form=update-job-card&jobCardId=${encodeURIComponent(jobCard.id)}`,
+      type: "job_created",
     })
 
     return NextResponse.json(jobCard, { status: 201 })

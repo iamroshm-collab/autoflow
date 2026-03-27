@@ -3,11 +3,21 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET(request: NextRequest) {
   try {
-    // Get all products with their purchase and sale history
+    // Cap report rows to avoid loading the full inventory tree into memory.
     const products = await prisma.product.findMany({
+      take: 1000,
       include: {
-        purchaseDetails: true,
-        saleDetails: true,
+        purchaseDetails: {
+          select: {
+            qnty: true,
+          },
+        },
+        saleDetails: {
+          select: {
+            qnty: true,
+            returnQnty: true,
+          },
+        },
         supplier: {
           select: {
             supplierName: true,

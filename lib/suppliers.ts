@@ -4,7 +4,9 @@ const subscribers = new Set<Subscriber>()
 
 export function subscribeSuppliers(cb: Subscriber) {
   subscribers.add(cb)
-  return () => subscribers.delete(cb)
+  return () => {
+    subscribers.delete(cb)
+  }
 }
 
 export function notifySuppliersChanged() {

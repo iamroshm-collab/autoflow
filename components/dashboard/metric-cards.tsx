@@ -1,6 +1,7 @@
 "use client"
 
 import { memo } from "react"
+import { type UserRole } from "@/lib/access-control"
 
 import { ClipboardList, Wrench, IndianRupee, Users } from "lucide-react"
 
@@ -11,6 +12,8 @@ interface MetricCardsProps {
     pendingBilling: number
     totalCustomers: number
   }
+  role?: UserRole
+  hidePendingBilling?: boolean
 }
 
 const formatNumber = (value: number) => value.toLocaleString("en-IN")
@@ -19,7 +22,7 @@ const formatCurrency = (value: number) =>
   `₹ ${value.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
 
 export const MetricCards = memo(
-  function MetricCards({ metrics }: MetricCardsProps) {
+  function MetricCards({ metrics, role = "admin", hidePendingBilling = false }: MetricCardsProps) {
   const cards = [
   {
     label: "Total Job Cards",
@@ -50,10 +53,19 @@ export const MetricCards = memo(
     iconColor: "text-rose-600",
   },
 ]
+  const isTechnician = role === "technician"
+  let visibleCards = cards
+  if (isTechnician) {
+    visibleCards = cards.filter(
+      (card) => card.label !== "Total Job Cards" && card.label !== "Total Customers" && (hidePendingBilling ? card.label !== "Pending Billing" : true)
+    )
+  } else if (hidePendingBilling) {
+    visibleCards = cards.filter((card) => card.label !== "Pending Billing")
+  }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      {cards.map((metric) => (
+    <div className="grid grid-cols-1 gap-[1mm] sm:grid-cols-2 xl:grid-cols-4">
+      {visibleCards.map((metric) => (
         <div
           key={metric.label}
           className="flex items-center gap-4 p-5 bg-card text-card-foreground rounded-xl shadow-sm border border-border/50 hover:shadow-md transition-shadow"
@@ -89,6 +101,8 @@ export const MetricCards = memo(
     }
 
     return (
+      (prevProps.role ?? "admin") === (nextProps.role ?? "admin") &&
+      (prevProps.hidePendingBilling ?? false) === (nextProps.hidePendingBilling ?? false) &&
       p.totalJobCards === n.totalJobCards &&
       p.todayService === n.todayService &&
       p.pendingBilling === n.pendingBilling &&

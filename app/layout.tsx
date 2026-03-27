@@ -4,6 +4,7 @@ import { Inter, Space_Grotesk } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
 import Providers from '@/components/providers'
+import { CSSLoader } from '@/components/css-loader'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -25,6 +26,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  themeColor: '#ffffff',
 }
 
 export default function RootLayout({
@@ -36,6 +38,7 @@ export default function RootLayout({
     <html lang="en">
       <body suppressHydrationWarning className={`${inter.variable} ${spaceGrotesk.variable} font-sans antialiased`}>
         <Providers>
+          <CSSLoader />
           {children}
           <Toaster />
         </Providers>

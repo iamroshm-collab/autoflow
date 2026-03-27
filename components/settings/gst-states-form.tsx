@@ -23,7 +23,7 @@ const emptyState: Omit<GSTState, "stateId"> = {
   stateCode: "",
 }
 
-export default function GSTStatesForm() {
+export default function GSTStatesForm({ panelCornerClass = "" }: { panelCornerClass?: string }) {
   const [states, setStates] = useState<GSTState[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isFetching, setIsFetching] = useState(true)
@@ -39,7 +39,7 @@ export default function GSTStatesForm() {
   const loadStates = async () => {
     try {
       setIsFetching(true)
-      const response = await fetch("/api/settings/states")
+      const response = await fetch("/api/settings/states", { cache: 'force-cache' })
       const data = await parseJsonResponse<GSTState[]>(response, "Failed to load states")
 
       setStates(data)
@@ -175,11 +175,8 @@ export default function GSTStatesForm() {
   }
 
   return (
-    <div className="space-y-4">
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">States</h3>
-        </div>
+    <div className="h-full min-h-0">
+      <Card className={`global-settings-panel ${panelCornerClass}`}>
 
         <Dialog open={isAdding} onOpenChange={(open) => { 
           setIsAdding(open)
@@ -187,13 +184,13 @@ export default function GSTStatesForm() {
             setAddForm(emptyState)
           }
         }}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-visible">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New State</DialogTitle>
               <DialogDescription>Enter the state details to create a new state record.</DialogDescription>
             </DialogHeader>
 
-            <div className="border border-slate-200 rounded-lg bg-white p-6 space-y-4 overflow-visible">
+            <div className="global-form-shell space-y-4 overflow-visible">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 items-start">
               <div className="space-y-2">
                 <Label htmlFor="add-stateName">State Name *</Label>
@@ -220,11 +217,11 @@ export default function GSTStatesForm() {
             </div>
 
             <DialogFooter className="flex gap-4 justify-end mt-4">
-              <Button onClick={cancelAdd} disabled={isLoading} variant="outline" className="bg-white hover:bg-gray-100">
+              <Button onClick={cancelAdd} disabled={isLoading} variant="outline" className="px-4 py-2 min-h-[40px] bg-white hover:bg-gray-100">
                 <X className="h-4 w-4" />
                 Cancel
               </Button>
-              <Button onClick={handleAdd} disabled={isLoading} className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700">
+              <Button onClick={handleAdd} disabled={isLoading} className="px-4 py-2 min-h-[40px] flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700">
                 <Save className="h-4 w-4" />
                 Save
               </Button>
@@ -232,47 +229,67 @@ export default function GSTStatesForm() {
           </DialogContent>
         </Dialog>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th className="text-left p-3 font-medium">State Name</th>
-                <th className="text-left p-3 font-medium">State Code</th>
-                <th className="text-center p-3 font-medium w-[120px]">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {states.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="text-center p-6 text-muted-foreground">
-                    No states found. Click "Add State" to create one.
-                  </td>
-                </tr>
-              ) : (
-                states.map((state) => (
-                  <tr key={state.stateId} className="border-t">
-                    {editingId === state.stateId ? (
-                      <>
-                        <td className="p-2">
-                          <Input
-                            name="stateName"
-                            value={editForm.stateName}
-                            onChange={(e) => setEditForm({ ...editForm, stateName: e.target.value })}
-                            disabled={isLoading}
-                            className="h-9"
-                          />
-                        </td>
-                        <td className="p-2">
-                          <Input
-                            name="stateCode"
-                            value={editForm.stateCode}
-                            onChange={(e) => setEditForm({ ...editForm, stateCode: e.target.value })}
-                            disabled={isLoading}
-                            className="h-9"
-                          />
-                        </td>
-                        <td className="p-2">
-                          <div className="flex items-center justify-center gap-1">
+        <div className="global-list-form-content">
+          {states.length === 0 ? (
+            <div className="text-center p-6 text-muted-foreground">No states found. Click "Add State" to create one.</div>
+          ) : (
+            <div className="global-list-viewport">
+                <div className="global-list-sticky-header">
+                  <div className="global-settings-list-header flex items-center justify-between">
+                    <div className="flex-1 flex gap-4">
+                      <div className="min-w-[320px] text-center">
+                        <Label className="text-sm font-semibold">State Name</Label>
+                      </div>
+                      <div className="min-w-[140px] text-center">
+                        <Label className="text-sm font-semibold">State Code</Label>
+                      </div>
+                    </div>
+                    <div className="min-w-[120px] flex flex-col items-center justify-center">
+                      <Label className="text-sm font-semibold">Actions</Label>
+                    </div>
+                  </div>
+                </div>
+
+                {states.map((state) => (
+                  <div key={state.stateId} className="border-b last:border-b-0">
+                    <div className="global-settings-list-row flex items-center justify-between">
+                      <div className="flex-1 flex gap-4 items-center">
+                        {editingId === state.stateId ? (
+                          <>
+                            <div className="min-w-[320px] text-center">
+                              <Input
+                                name="stateName"
+                                value={editForm.stateName}
+                                onChange={(e) => setEditForm({ ...editForm, stateName: e.target.value })}
+                                disabled={isLoading}
+                                className="h-9 text-center"
+                              />
+                            </div>
+                            <div className="min-w-[140px] text-center">
+                              <Input
+                                name="stateCode"
+                                value={editForm.stateCode}
+                                onChange={(e) => setEditForm({ ...editForm, stateCode: e.target.value })}
+                                disabled={isLoading}
+                                className="h-9 text-center"
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="min-w-[320px] text-center">
+                              <div className="text-sm text-slate-700">{state.stateName}</div>
+                            </div>
+                            <div className="min-w-[140px] text-center">
+                              <div className="text-sm text-slate-700">{state.stateCode}</div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="min-w-[120px] flex items-center justify-center">
+                        {editingId === state.stateId ? (
+                          <div className="w-28 flex items-center justify-center gap-1">
                             <Button
                               onClick={() => handleUpdate(state.stateId)}
                               disabled={isLoading}
@@ -292,61 +309,56 @@ export default function GSTStatesForm() {
                               <X className="h-4 w-4" />
                             </Button>
                           </div>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="p-3">{state.stateName}</td>
-                        <td className="p-3">{state.stateCode}</td>
-                        <td className="p-3">
-                          <div className="flex items-center justify-center gap-2">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  onClick={() => startEdit(state)}
-                                  disabled={isLoading || editingId !== null}
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-blue-600 hover:text-blue-800"
-                                  aria-label={`Edit ${state.stateName}`}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" align="center">Edit</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  onClick={() => handleDelete(state.stateId)}
-                                  disabled={isLoading || editingId !== null}
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-red-600 hover:text-red-800"
-                                  aria-label={`Delete ${state.stateName}`}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" align="center">Delete</TooltipContent>
-                            </Tooltip>
+                        ) : (
+                          <div className="w-28 flex items-center justify-center">
+                            <div className="flex items-center gap-2">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    onClick={() => startEdit(state)}
+                                    disabled={isLoading || editingId !== null}
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-blue-600 hover:text-blue-800"
+                                    aria-label={`Edit ${state.stateName}`}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" align="center">Edit</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    onClick={() => handleDelete(state.stateId)}
+                                    disabled={isLoading || editingId !== null}
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                    aria-label={`Delete ${state.stateName}`}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" align="center">Delete</TooltipContent>
+                              </Tooltip>
+                            </div>
                           </div>
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
         </div>
 
         {/* Add State Button - Sticky footer */}
-        <div className="sticky-form-actions flex justify-center mt-4">
+        <div className="flex shrink-0 justify-center">
           {!isAdding && (
             <Button
               onClick={() => setIsAdding(true)}
-              className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
+              className="global-bottom-btn-add"
               variant="ghost"
             >
               <Plus className="h-4 w-4 mr-2" />

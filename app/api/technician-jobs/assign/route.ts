@@ -3,7 +3,7 @@ import {
   assignTechniciansToJob,
   getJobAllocations,
 } from '@/services/jobAllocationService';
-import { sendJobAssignmentNotifications } from '@/services/firebaseNotificationService';
+import { sendJobAssignmentNotifications } from '@/services/notificationService';
 
 /**
  * POST /api/technician-jobs/assign

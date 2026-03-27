@@ -12,11 +12,11 @@ const Checkbox = React.forwardRef<
   <CheckboxPrimitive.Root
     ref={ref}
     style={{ 
-      width: '18px',      // Smaller size
-      height: '18px',     // Smaller size
-      minWidth: '18px', 
-      minHeight: '18px',
-      borderRadius: '3px', // Sharper corners for a smaller box
+      width: '20px',      // Standard size for mobile
+      height: '20px',     // Standard size for mobile
+      minWidth: '20px', 
+      minHeight: '20px',
+      borderRadius: '4px', // Slightly rounded corners
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -32,7 +32,7 @@ const Checkbox = React.forwardRef<
     {...props}
   >
     <CheckboxPrimitive.Indicator className="flex items-center justify-center">
-      <Check style={{ width: '12px', height: '12px' }} strokeWidth={4} />
+      <Check style={{ width: '14px', height: '14px' }} strokeWidth={3} />
     </CheckboxPrimitive.Indicator>
   </CheckboxPrimitive.Root>
 ))

@@ -317,9 +317,9 @@ export function FinancialTransactionModal({
           </div>
         </DialogHeader>
 
-        <div className="border border-slate-200 rounded-lg bg-white p-6 space-y-4">
+        <div className="border border-slate-200 rounded-lg bg-white p-3 md:p-6 space-y-3 md:space-y-4">
           {/* 5 Columns x 3 Rows Grid */}
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
             {/* Row 1 */}
             <div className="grid gap-2">
               <Label htmlFor="reg">Vehicle Registration</Label>

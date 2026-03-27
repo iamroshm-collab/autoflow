@@ -77,7 +77,7 @@ export function PurchaseEntryForm() {
   const fetchProducts = async (supplierId?: number) => {
     try {
       const url = supplierId ? `/api/products?supplierId=${supplierId}` : `/api/products`
-      const response = await fetch(url)
+      const response = await fetch(url, { cache: 'force-cache' })
       const data = await response.json()
       setProducts(data.products || [])
     } catch (error) {
@@ -550,11 +550,11 @@ export function PurchaseEntryForm() {
                   }
                 }
               }}
-              className="h-8"
+              className="px-4 py-2 min-h-[40px]"
             >
               Clear
             </Button>
-            <Button onClick={handleSave} disabled={isLoading || !supplierName.trim() || lineItems.length === 0} className="h-8">
+            <Button onClick={handleSave} disabled={isLoading || !supplierName.trim() || lineItems.length === 0} className="px-4 py-2 min-h-[40px]">
               {isLoading ? 'Saving...' : 'Save Purchase'}
             </Button>
           </div>
@@ -569,7 +569,11 @@ function AddSupplierForm({ onSuccess }: { onSuccess: () => void }) {
   const [formData, setFormData] = useState({
     supplierName: '',
     mobileNo: '',
-    address: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    district: '',
+    postalCode: '',
     gstin: '',
     pan: '',
   })
@@ -594,7 +598,17 @@ function AddSupplierForm({ onSuccess }: { onSuccess: () => void }) {
       const response = await fetch('/api/suppliers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, mobileNo: normalizeMobileNumber(formData.mobileNo) }),
+        body: JSON.stringify({
+          ...formData,
+          address: [
+            formData.addressLine1,
+            formData.addressLine2,
+            formData.city,
+            formData.district,
+            formData.postalCode,
+          ].map((item) => item.trim()).filter(Boolean).join(', '),
+          mobileNo: normalizeMobileNumber(formData.mobileNo),
+        }),
       })
 
       if (response.ok) {
@@ -646,13 +660,51 @@ function AddSupplierForm({ onSuccess }: { onSuccess: () => void }) {
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="address">Address</Label>
+        <Label htmlFor="addressLine1">Address Line 1 (Apartment, Suite, Unit, Building, Floor)</Label>
         <Input
-          id="address"
-          value={formData.address}
-          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+          id="addressLine1"
+          value={formData.addressLine1}
+          onChange={(e) => setFormData({ ...formData, addressLine1: e.target.value })}
           className="h-8"
         />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="addressLine2">Address Line 2 (Street Address)</Label>
+        <Input
+          id="addressLine2"
+          value={formData.addressLine2}
+          onChange={(e) => setFormData({ ...formData, addressLine2: e.target.value })}
+          className="h-8"
+        />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="space-y-2">
+          <Label htmlFor="city">City</Label>
+          <Input
+            id="city"
+            value={formData.city}
+            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+            className="h-8"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="district">District</Label>
+          <Input
+            id="district"
+            value={formData.district}
+            onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+            className="h-8"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="postalCode">Postal Code</Label>
+          <Input
+            id="postalCode"
+            value={formData.postalCode}
+            onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+            className="h-8"
+          />
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="gstin">GSTIN</Label>

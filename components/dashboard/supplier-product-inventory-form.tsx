@@ -15,6 +15,7 @@ import SupplierAutocomplete from '@/components/SupplierAutocomplete'
 import { Label } from "@/components/ui/label"
 import StateSelect from "@/components/ui/state-select"
 import { Textarea } from "@/components/ui/textarea"
+import { composeAddress, parseAddress } from "@/lib/address-utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import useContinuousRows from '@/components/hooks/useContinuousRows'
 import {
@@ -90,6 +91,11 @@ interface SupplierFormState {
   supplierId: string
   supplierName: string
   address: string
+  addressLine1: string
+  addressLine2: string
+  city: string
+  district: string
+  postalCode: string
   mobileNo: string
   stateName: string
   stateCode: string
@@ -148,6 +154,11 @@ const defaultSupplierForm = (): SupplierFormState => ({
   supplierId: "",
   supplierName: "",
   address: "",
+  addressLine1: "",
+  addressLine2: "",
+  city: "",
+  district: "",
+  postalCode: "",
   mobileNo: "",
   stateName: "",
   stateCode: "",
@@ -340,6 +351,25 @@ export function SupplierProductInventoryForm({
     fetchShopSettings()
   }, [])
 
+  // Default new supplier state to shop state when the Add dialog opens fresh
+  useEffect(() => {
+    if (!addSupplierDialogOpen || editingFromListId !== null) return
+    if (!shopStateId || availableStates.length === 0) return
+    const shopState = availableStates.find(
+      (s) => s.stateCode === shopStateId || s.stateId === shopStateId
+    )
+    if (shopState) {
+      const code = String(shopState.stateCode || "")
+      const name = shopState.stateName
+      setNewSupplierForm((prev) => ({
+        ...prev,
+        stateName: name,
+        stateCode: code,
+      }))
+      setNewSupplierStateFilter(`${code} - ${name}`)
+    }
+  }, [addSupplierDialogOpen, editingFromListId, shopStateId, availableStates])
+
   const filteredSuppliers = useMemo(() => {
     const term = search.trim().toLowerCase()
     if (!term) return suppliers
@@ -357,10 +387,16 @@ export function SupplierProductInventoryForm({
       }
 
       setSelectedSupplierId(data.supplierId)
+      const parsedAddress = parseAddress(data.address)
       setSupplierForm({
         supplierId: String(data.supplierId) || "",
         supplierName: data.supplierName || "",
         address: data.address || "",
+        addressLine1: parsedAddress.line1,
+        addressLine2: parsedAddress.line2,
+        city: parsedAddress.city,
+        district: parsedAddress.district,
+        postalCode: parsedAddress.postalCode,
         mobileNo: data.mobileNo || "",
         stateName: data.stateName || "",
         stateCode: data.stateCode || data.stateId || "",
@@ -571,7 +607,16 @@ export function SupplierProductInventoryForm({
 
       const payload = {
         supplierName: String(supplierForm.supplierName || "").trim(),
-        address: String(supplierForm.address || "").trim(),
+        address: composeAddress(
+          {
+            line1: supplierForm.addressLine1,
+            line2: supplierForm.addressLine2,
+            city: supplierForm.city,
+            district: supplierForm.district,
+            postalCode: supplierForm.postalCode,
+          },
+          { includeState: false }
+        ),
         mobileNo: normalizeMobileNumber(supplierForm.mobileNo),
         stateCode: String(supplierForm.stateCode || "").trim(),
         stateName: String(supplierForm.stateName || "").trim(),
@@ -650,10 +695,16 @@ export function SupplierProductInventoryForm({
         throw new Error(data.error || "Failed to load supplier details")
       }
 
+      const parsedAddress = parseAddress(data.address)
       setNewSupplierForm({
         supplierId: String(data.supplierId) || "",
         supplierName: data.supplierName || "",
         address: data.address || "",
+        addressLine1: parsedAddress.line1,
+        addressLine2: parsedAddress.line2,
+        city: parsedAddress.city,
+        district: parsedAddress.district,
+        postalCode: parsedAddress.postalCode,
         mobileNo: data.mobileNo || "",
         stateName: data.stateName || "",
         stateCode: data.stateCode || data.stateId || "",
@@ -697,7 +748,16 @@ export function SupplierProductInventoryForm({
     try {
       const payload = {
         supplierName: String(editSupplierForm.supplierName || "").trim(),
-        address: String(editSupplierForm.address || "").trim(),
+        address: composeAddress(
+          {
+            line1: editSupplierForm.addressLine1,
+            line2: editSupplierForm.addressLine2,
+            city: editSupplierForm.city,
+            district: editSupplierForm.district,
+            postalCode: editSupplierForm.postalCode,
+          },
+          { includeState: false }
+        ),
         mobileNo: normalizeMobileNumber(editSupplierForm.mobileNo),
         stateCode: String(editSupplierForm.stateCode || "").trim(),
         stateName: String(editSupplierForm.stateName || "").trim(),
@@ -900,7 +960,7 @@ export function SupplierProductInventoryForm({
                                   size="icon"
                                   onClick={() => handleDeleteSupplierFromList(supplier.supplierId)}
                                   aria-label="Delete"
-                                  className="text-red-600 hover:text-red-800"
+                                  className="text-red-600 hover:bg-red-50 hover:text-red-700"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -920,7 +980,7 @@ export function SupplierProductInventoryForm({
               <Button
                 type="button"
                 onClick={() => setAddSupplierDialogOpen(true)}
-                className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
+                className="global-bottom-btn-add"
                 variant="ghost"
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -1136,13 +1196,14 @@ export function SupplierProductInventoryForm({
                     onClick={handleClearNew}
                     disabled={isSaving}
                     variant="outline"
+                    className="px-4 py-2 min-h-[40px]"
                   >
                     Clear
                   </Button>
                   <Button
                     onClick={handleSave}
                     disabled={isSaving || isLoadingDetails}
-                    className="bg-green-600 text-white hover:bg-green-700"
+                    className="bg-green-600 text-white hover:bg-green-700 px-4 py-2 min-h-[40px]"
                   >
                     {isSaving ? "Saving..." : "Save"}
                   </Button>
@@ -1172,7 +1233,7 @@ export function SupplierProductInventoryForm({
               {editingFromListId !== null ? "Update supplier details." : "Enter the supplier details to create a new supplier record."}
             </DialogDescription>
           </DialogHeader>
-          <div className="border border-slate-200 rounded-lg bg-white p-6 space-y-4">
+          <div className="global-form-shell space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 items-start">
               <div className="space-y-2">
                 <Label htmlFor="new-supplier-name">Supplier Name *</Label>
@@ -1350,13 +1411,48 @@ export function SupplierProductInventoryForm({
               </div>
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="new-address">Address</Label>
-              <Textarea
-                id="new-address"
-                rows={3}
-                value={newSupplierForm.address}
-                onChange={(e) => setNewSupplierForm((prev) => ({ ...prev, address: e.target.value }))}
-                placeholder="Enter address"
+              <Label htmlFor="new-address-line-1">Address Line 1 (Apartment, Suite, Unit, Building, Floor)</Label>
+              <Input
+                id="new-address-line-1"
+                value={newSupplierForm.addressLine1}
+                onChange={(e) => setNewSupplierForm((prev) => ({ ...prev, addressLine1: e.target.value }))}
+                placeholder="Enter address line 1"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="new-address-line-2">Address Line 2 (Street Address)</Label>
+              <Input
+                id="new-address-line-2"
+                value={newSupplierForm.addressLine2}
+                onChange={(e) => setNewSupplierForm((prev) => ({ ...prev, addressLine2: e.target.value }))}
+                placeholder="Enter address line 2"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-city">City</Label>
+              <Input
+                id="new-city"
+                value={newSupplierForm.city}
+                onChange={(e) => setNewSupplierForm((prev) => ({ ...prev, city: e.target.value }))}
+                placeholder="Enter city"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-district">District</Label>
+              <Input
+                id="new-district"
+                value={newSupplierForm.district}
+                onChange={(e) => setNewSupplierForm((prev) => ({ ...prev, district: e.target.value }))}
+                placeholder="Enter district"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-postal">Postal Code</Label>
+              <Input
+                id="new-postal"
+                value={newSupplierForm.postalCode}
+                onChange={(e) => setNewSupplierForm((prev) => ({ ...prev, postalCode: e.target.value }))}
+                placeholder="Enter postal code"
               />
             </div>
           </div>
@@ -1395,7 +1491,16 @@ export function SupplierProductInventoryForm({
                   
                   const payload = {
                     supplierName: String(newSupplierForm.supplierName || "").trim(),
-                    address: String(newSupplierForm.address || "").trim(),
+                    address: composeAddress(
+                      {
+                        line1: newSupplierForm.addressLine1,
+                        line2: newSupplierForm.addressLine2,
+                        city: newSupplierForm.city,
+                        district: newSupplierForm.district,
+                        postalCode: newSupplierForm.postalCode,
+                      },
+                      { includeState: false }
+                    ),
                     mobileNo: normalizeMobileNumber(newSupplierForm.mobileNo || ""),
                     stateCode: String(newSupplierForm.stateCode || "").trim(),
                     stateName: String(newSupplierForm.stateName || "").trim(),
@@ -1432,7 +1537,7 @@ export function SupplierProductInventoryForm({
                   errorAction(error instanceof Error ? error.message : "Failed to save supplier")
                 }
               }}
-              className="bg-green-600 text-white hover:bg-green-700"
+              className="bg-green-600 text-white hover:bg-green-700 px-4 py-2 min-h-[40px]"
             >
               {editingFromListId !== null ? "Update Supplier" : "Create Supplier"}
             </Button>
@@ -1448,7 +1553,7 @@ export function SupplierProductInventoryForm({
             <DialogDescription>Update product details.</DialogDescription>
           </DialogHeader>
           
-          <div className="border border-slate-200 rounded-lg bg-white p-6 space-y-4">
+          <div className="global-form-shell space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2 md:col-span-2">
                 <Label className="font-semibold">Product Name</Label>
@@ -1564,12 +1669,13 @@ export function SupplierProductInventoryForm({
                 setEditProductModalOpen(false)
                 setEditingProduct(null)
               }}
+              className="px-4 py-2 min-h-[40px]"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSaveEditProduct}
-              className="bg-blue-600 text-white hover:bg-blue-700"
+              className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 min-h-[40px]"
             >
               Update Product
             </Button>

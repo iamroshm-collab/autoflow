@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getCurrentUserFromRequest } from "@/lib/auth-session"
 
 export const dynamic = "force-dynamic"
 
@@ -9,19 +10,44 @@ function toTurnaroundMinutes(assignedAt: Date, completedAt: Date | null, status:
   return Math.max(0, Math.floor(diffMs / 60000))
 }
 
+function parseOptionalInt(value: string | null) {
+  if (value == null || value === "") {
+    return null
+  }
+
+  const parsed = Number(value)
+  return Number.isInteger(parsed) ? parsed : null
+}
+
 export async function GET(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUserFromRequest(request)
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const searchParams = request.nextUrl.searchParams
     const status = (searchParams.get("status") || "all").trim()
     const search = (searchParams.get("search") || "").trim()
+    const requestedEmployeeId = parseOptionalInt(searchParams.get("employeeId"))
+    const role = String(currentUser.role || "").toLowerCase()
 
     const where: any = {}
+
+    if (role === "technician") {
+      if (!Number.isInteger(currentUser.employeeRefId)) {
+        return NextResponse.json({ error: "Technician account is not linked to an employee" }, { status: 403 })
+      }
+      where.employeeId = Number(currentUser.employeeRefId)
+    } else if (requestedEmployeeId != null) {
+      where.employeeId = requestedEmployeeId
+    }
 
     if (status !== "all") {
       where.status = status
     }
 
-    if (search) {
+    if (search && role !== "technician") {
       const numericSearch = Number(search)
       where.OR = [
         {
@@ -79,6 +105,8 @@ export async function GET(request: NextRequest) {
             vehicle: {
               select: {
                 registrationNumber: true,
+                make: true,
+                model: true,
               },
             },
           },
@@ -100,6 +128,8 @@ export async function GET(request: NextRequest) {
         jobCardId: row.jobId,
         jobCardNumber: row.jobCard?.jobCardNumber || row.jobId,
         vehicleNumber: row.jobCard?.vehicle?.registrationNumber || "-",
+        vehicleMake: row.jobCard?.vehicle?.make || "-",
+        vehicleModel: row.jobCard?.vehicle?.model || "-",
         status: row.status,
         taskAssigned: row.taskAssigned || "-",
         assignedAt: row.assignedAt,

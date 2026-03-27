@@ -5,7 +5,9 @@ import {
   sendJobAssignmentNotifications,
   sendJobDeletedNotifications,
   sendJobReassignedNotifications,
-} from "@/services/firebaseNotificationService"
+} from "@/services/notificationService"
+import { createRoleNotifications } from "@/lib/app-notifications"
+import { sendMetaWhatsappJobCardNotification } from "@/lib/meta-whatsapp"
 
 interface SparePartPayload {
   shopName: string
@@ -476,6 +478,31 @@ export async function PUT(
       })
     })
 
+    const transitionedToCompleted =
+      existing.jobcardStatus !== "Completed" && String(jobcardStatus || "").trim() === "Completed"
+
+    if (updated && transitionedToCompleted) {
+      await createRoleNotifications(["admin", "manager"], {
+        title: "Job Card Completed",
+        body: `${updated.jobCardNumber} marked completed for ${updated.vehicle?.registrationNumber || "Unknown vehicle"}`,
+        targetForm: "delivered",
+        url: `/?form=delivered&jobCardId=${encodeURIComponent(updated.id)}`,
+        type: "job_completed",
+      })
+
+      // Notify customer on WhatsApp when their vehicle service is completed
+      const customerMobile = updated.customer?.mobileNo
+      if (customerMobile) {
+        await sendMetaWhatsappJobCardNotification({
+          mobile: customerMobile,
+          customerName: updated.customer?.name || "Customer",
+          vehicleNumber: updated.vehicle?.registrationNumber || "",
+          status: "Service Completed",
+          jobCardNumber: updated.jobCardNumber || updated.id,
+        }).catch((err) => console.error("[JOBCARD_WA_NOTIFY]", err))
+      }
+    }
+
     if (updated && (newlyAssignedEmployeeIds.length > 0 || removedEmployeeIds.length > 0)) {
       try {
         // Build quick-lookup maps (empId → task/amount) from incoming form data
@@ -674,6 +701,11 @@ export async function PATCH(
     if (vehicleStatus) updateData.vehicleStatus = vehicleStatus
     if (jobcardPaymentStatus) updateData.jobcardPaymentStatus = jobcardPaymentStatus
 
+    const existing = await prisma.jobCard.findUnique({
+      where: { id },
+      select: { vehicleStatus: true, jobCardNumber: true },
+    })
+
     const updated = await prisma.jobCard.update({
       where: { id },
       data: updateData,
@@ -685,6 +717,22 @@ export async function PATCH(
         employeeEarnings: true,
       },
     })
+
+    // Notify customer on WhatsApp when vehicle status changes to Ready or Delivered
+    const statusChanged = vehicleStatus && existing?.vehicleStatus !== vehicleStatus
+    if (statusChanged && (vehicleStatus === "Ready" || vehicleStatus === "Delivered")) {
+      const customerMobile = updated.customer?.mobileNo
+      if (customerMobile) {
+        const statusLabel = vehicleStatus === "Ready" ? "Ready for Pickup" : "Delivered"
+        sendMetaWhatsappJobCardNotification({
+          mobile: customerMobile,
+          customerName: updated.customer?.name || "Customer",
+          vehicleNumber: updated.vehicle?.registrationNumber || "",
+          status: statusLabel,
+          jobCardNumber: updated.jobCardNumber || updated.id,
+        }).catch((err) => console.error("[JOBCARD_WA_NOTIFY_PATCH]", err))
+      }
+    }
 
     return NextResponse.json(updated)
   } catch (error) {

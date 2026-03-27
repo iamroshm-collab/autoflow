@@ -1,0 +1,32 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "waba-test",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15550001111",
+              "phone_number_id": "1234567890"
+            },
+            "messages": [
+              {
+                "from": "bsuid:test:guest",
+                "id": "wamid.BSUID-GUEST-TEST",
+                "timestamp": "1770000001",
+                "type": "text",
+                "user_id": "bsuid:test:guest",
+                "text": {
+                  "body": "hello from guest fixture"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

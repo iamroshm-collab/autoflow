@@ -194,6 +194,7 @@ export async function GET(request: NextRequest) {
           },
         },
         orderBy: [{ attendanceDate: "desc" }, { attendanceId: "desc" }],
+        take: 500,
       })
 
       payrollRows = payrollRecords.flatMap((row) => {

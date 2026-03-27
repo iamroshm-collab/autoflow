@@ -507,17 +507,17 @@ export function SparePartsPurchaseLedger({
             <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
               <table className="w-full min-w-[1120px] text-sm">
                 <thead className="sticky top-0 z-20">
-                  <tr className="h-16 bg-slate-100">
-                    <th className="text-center p-2" style={{ width: "9%" }}>Type</th>
-                    <th className="text-center p-2" style={{ width: "12%" }}>Shop Name</th>
-                    <th className="text-center p-2" style={{ width: "10%" }}>Bill Date</th>
-                    <th className="text-center p-2" style={{ width: "11%" }}>Bill Number</th>
-                    <th className="text-center p-2" style={{ width: "26%" }}>Item</th>
-                    <th className="text-center p-2" style={{ width: "10%" }}>Amount</th>
-                    <th className="text-center p-2" style={{ width: "8%" }}>Return</th>
-                    <th className="text-center p-2" style={{ width: "10%" }}>Return Date</th>
-                    <th className="text-center p-2" style={{ width: "7%" }}>Return Amount</th>
-                    <th className="text-center p-2" style={{ width: "7%" }}>Paid Amount</th>
+                  <tr>
+                    <th className="text-center" style={{ width: "9%" }}>Type</th>
+                    <th className="text-center" style={{ width: "12%" }}>Shop Name</th>
+                    <th className="text-center" style={{ width: "10%" }}>Bill Date</th>
+                    <th className="text-center" style={{ width: "11%" }}>Bill Number</th>
+                    <th className="text-center" style={{ width: "26%" }}>Item</th>
+                    <th className="text-center" style={{ width: "10%" }}>Amount</th>
+                    <th className="text-center" style={{ width: "8%" }}>Return</th>
+                    <th className="text-center" style={{ width: "10%" }}>Return Date</th>
+                    <th className="text-center" style={{ width: "7%" }}>Return Amount</th>
+                    <th className="text-center" style={{ width: "7%" }}>Paid Amount</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -535,25 +535,25 @@ export function SparePartsPurchaseLedger({
                     </tr>
                   ) : (
                     filteredRows.map((row) => (
-                      <tr key={row.id} className="h-14">
-                        <td className="p-2 text-center">
+                      <tr key={row.id}>
+                        <td className="text-center">
                           <span
                             className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getRecordTypeClassName(row)}`}
                           >
                             {getRecordTypeLabel(row)}
                           </span>
                         </td>
-                        <td className="p-2 text-center">{row.shopName}</td>
-                        <td className="p-2 text-center">{formatDateDDMMYY(row.billDate) || "-"}</td>
-                        <td className="p-2 text-center">{row.billNumber}</td>
-                        <td className="p-2 text-center">{row.item}</td>
-                        <td className="p-2 text-center">{toCurrency(row.amount)}</td>
-                        <td className="p-2 text-center">{row.return ? "Yes" : "No"}</td>
-                        <td className="p-2 text-center">
+                        <td className="text-center">{row.shopName}</td>
+                        <td className="text-center">{formatDateDDMMYY(row.billDate) || "-"}</td>
+                        <td className="text-center">{row.billNumber}</td>
+                        <td className="text-center">{row.item}</td>
+                        <td className="text-center">{toCurrency(row.amount)}</td>
+                        <td className="text-center">{row.return ? "Yes" : "No"}</td>
+                        <td className="text-center">
                           {formatDateDDMMYY(row.returnDate) || "-"}
                         </td>
-                        <td className="p-2 text-center">{toCurrency(row.returnAmount)}</td>
-                        <td className="p-2 text-center">{toCurrency(row.paidAmount)}</td>
+                        <td className="text-center">{toCurrency(row.returnAmount)}</td>
+                        <td className="text-center">{toCurrency(row.paidAmount)}</td>
                       </tr>
                     ))
                   )}
@@ -570,14 +570,14 @@ export function SparePartsPurchaseLedger({
             <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
               <table className="w-full min-w-[1120px] text-sm">
                 <thead className="sticky top-0 z-20">
-                  <tr className="bg-slate-100">
-                    <th className="text-center p-2" style={{ width: "16%" }}>Shop Name</th>
-                    <th className="text-center p-2" style={{ width: "12%" }}>Bill Date</th>
-                    <th className="text-center p-2" style={{ width: "14%" }}>Bill Number</th>
-                    <th className="text-center p-2" style={{ width: "26%" }}>Item</th>
-                    <th className="text-center p-2" style={{ width: "12%" }}>Return Date</th>
-                    <th className="text-center p-2" style={{ width: "10%" }}>Return Amount</th>
-                    <th className="text-center p-2" style={{ width: "10%" }}>Actions</th>
+                  <tr>
+                    <th className="text-center" style={{ width: "16%" }}>Shop Name</th>
+                    <th className="text-center" style={{ width: "12%" }}>Bill Date</th>
+                    <th className="text-center" style={{ width: "14%" }}>Bill Number</th>
+                    <th className="text-center" style={{ width: "26%" }}>Item</th>
+                    <th className="text-center" style={{ width: "12%" }}>Return Date</th>
+                    <th className="text-center" style={{ width: "10%" }}>Return Amount</th>
+                    <th className="text-center" style={{ width: "10%" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -597,13 +597,13 @@ export function SparePartsPurchaseLedger({
                     returnedRows.map((row) => {
                       return (
                         <tr key={row.id}>
-                          <td className="p-2 text-center">{row.shopName || "-"}</td>
-                          <td className="p-2 text-center">{formatDateDDMMYY(row.billDate) || "-"}</td>
-                          <td className="p-2 text-center">{row.billNumber || "-"}</td>
-                          <td className="p-2 text-center">{row.item || "-"}</td>
-                          <td className="p-2 text-center">{formatDateDDMMYY(row.returnDate) || "-"}</td>
-                          <td className="p-2 text-center">{toCurrency(row.returnAmount)}</td>
-                          <td className="p-2 text-center">
+                          <td className="text-center">{row.shopName || "-"}</td>
+                          <td className="text-center">{formatDateDDMMYY(row.billDate) || "-"}</td>
+                          <td className="text-center">{row.billNumber || "-"}</td>
+                          <td className="text-center">{row.item || "-"}</td>
+                          <td className="text-center">{formatDateDDMMYY(row.returnDate) || "-"}</td>
+                          <td className="text-center">{toCurrency(row.returnAmount)}</td>
+                          <td className="text-center">
                             <div className="flex items-center justify-center gap-1">
                               <Button
                                 type="button"
@@ -619,7 +619,7 @@ export function SparePartsPurchaseLedger({
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="text-red-600 hover:text-red-800"
+                                className="text-red-600 hover:bg-red-50 hover:text-red-700"
                                 aria-label={`Delete return for bill ${row.billNumber}`}
                                 onClick={() => handleDeleteReturn(row)}
                               >
@@ -656,14 +656,14 @@ export function SparePartsPurchaseLedger({
             <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
               <table className="w-full min-w-[1120px] text-sm">
                 <thead className="sticky top-0 z-20">
-                  <tr className="bg-slate-100">
-                    <th className="text-center p-2" style={{ width: "12%" }}>Shop Name</th>
-                    <th className="text-center p-2" style={{ width: "14%" }}>Bill Date</th>
-                    <th className="text-center p-2" style={{ width: "14%" }}>Bill Number</th>
-                    <th className="text-center p-2" style={{ width: "26%" }}>Item</th>
-                    <th className="text-center p-2" style={{ width: "14%" }}>Paid Date</th>
-                    <th className="text-center p-2" style={{ width: "10%" }}>Paid Amount</th>
-                    <th className="text-center p-2" style={{ width: "10%" }}>Actions</th>
+                  <tr>
+                    <th className="text-center" style={{ width: "12%" }}>Shop Name</th>
+                    <th className="text-center" style={{ width: "14%" }}>Bill Date</th>
+                    <th className="text-center" style={{ width: "14%" }}>Bill Number</th>
+                    <th className="text-center" style={{ width: "26%" }}>Item</th>
+                    <th className="text-center" style={{ width: "14%" }}>Paid Date</th>
+                    <th className="text-center" style={{ width: "10%" }}>Paid Amount</th>
+                    <th className="text-center" style={{ width: "10%" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -683,13 +683,13 @@ export function SparePartsPurchaseLedger({
                     paymentRows.map((row) => {
                       return (
                         <tr key={row.id}>
-                          <td className="p-2 text-center">{row.shopName || "-"}</td>
-                          <td className="p-2 text-center">{formatDateDDMMYY(row.billDate) || "-"}</td>
-                          <td className="p-2 text-center">{row.billNumber || "-"}</td>
-                          <td className="p-2 text-center">{row.item || "-"}</td>
-                          <td className="p-2 text-center">{formatDateDDMMYY(row.paidDate) || "-"}</td>
-                          <td className="p-2 text-center">{toCurrency(row.paidAmount)}</td>
-                          <td className="p-2 text-center">
+                          <td className="text-center">{row.shopName || "-"}</td>
+                          <td className="text-center">{formatDateDDMMYY(row.billDate) || "-"}</td>
+                          <td className="text-center">{row.billNumber || "-"}</td>
+                          <td className="text-center">{row.item || "-"}</td>
+                          <td className="text-center">{formatDateDDMMYY(row.paidDate) || "-"}</td>
+                          <td className="text-center">{toCurrency(row.paidAmount)}</td>
+                          <td className="text-center">
                             <div className="flex items-center justify-center gap-1">
                               <Button
                                 type="button"
@@ -705,7 +705,7 @@ export function SparePartsPurchaseLedger({
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                className="text-red-600 hover:text-red-800"
+                                className="text-red-600 hover:bg-red-50 hover:text-red-700"
                                 aria-label={`Delete payment for bill ${row.billNumber}`}
                                 onClick={() => handleDeletePayment(row)}
                               >
@@ -756,7 +756,7 @@ export function SparePartsPurchaseLedger({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="border border-slate-200 rounded-lg bg-white p-6 space-y-4">
+          <div className="global-form-shell space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 items-start">
               <div className="space-y-2">
                 <Label htmlFor="ret-shop-name">Shop Name *</Label>
@@ -880,7 +880,7 @@ export function SparePartsPurchaseLedger({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="border border-slate-200 rounded-lg bg-white p-6 space-y-4">
+          <div className="global-form-shell space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 items-start">
               <div className="space-y-2">
                 <Label htmlFor="pay-shop-name">Shop Name *</Label>

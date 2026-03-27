@@ -29,7 +29,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Card } from "@/components/ui/card"
 import { notify, toast } from '@/components/ui/notify'
 import { getMakes, getModels, addMakeModel, fetchMakesFromAPI, fetchModelsFromAPI } from '@/lib/vehicle-catalog'
 import { startAction, successAction, errorAction } from "@/lib/action-feedback"
@@ -1426,9 +1425,9 @@ export function NewJobCardForm() {
 
   return (
     <>
-      <Card className="rounded-3xl border bg-card p-5 md:p-6">
+      <div>
         {/* Row 1: Registration Number, Vehicle Model, Jobcard Date */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 md:gap-4">
           {/* Column 1: Registration Number */}
           <div className="space-y-3">
             <div className="relative">
@@ -1583,14 +1582,14 @@ export function NewJobCardForm() {
           </div>
         </div>
 
-        <div className="sticky-form-actions flex justify-end gap-5 pt-6">
+        <div className="flex justify-end gap-5 pt-6">
           <Button
             type="button"
             variant="outline"
             disabled={isLoading}
             size="sm"
             onClick={handleCancel}
-            className="min-w-20 bg-white hover:bg-gray-100"
+            className="min-w-20 bg-white hover:bg-gray-100 px-4 py-2 min-h-[40px]"
           >
             Cancel
           </Button>
@@ -1598,18 +1597,18 @@ export function NewJobCardForm() {
             onClick={handleSave}
             disabled={isLoading || !vehicleObj || !customerObj}
             size="sm"
-            className="min-w-24 bg-green-600 text-white hover:bg-green-700"
+            className="min-w-24 bg-green-600 text-white hover:bg-green-700 px-4 py-2 min-h-[40px]"
           >
             {isLoading ? "Saving..." : "Save"}
           </Button>
         </div>
-      </Card>
+      </div>
 
       <Dialog
         open={addVehicleCustomerModalOpen}
         onOpenChange={handleAddVehicleCustomerModalOpenChange}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-hidden">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-semibold">Add New Vehicle & Customer</DialogTitle>
             <DialogDescription>
@@ -1617,7 +1616,7 @@ export function NewJobCardForm() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="border border-slate-200 rounded-lg bg-white p-6 space-y-4">
+          <div className="global-form-shell space-y-4">
             <div className="space-y-2">
               <Label htmlFor="modal-registration">Registration Number</Label>
               <Input
@@ -1951,13 +1950,14 @@ export function NewJobCardForm() {
               variant="outline"
               onClick={() => handleAddVehicleCustomerModalOpenChange(false)}
               disabled={modalSaving}
+              className="px-4 py-2 min-h-[40px]"
             >
               Cancel
             </Button>
             <Button
               onClick={handleAddVehicleCustomerSave}
               disabled={modalSaving}
-              className="bg-blue-600 text-white hover:bg-blue-700"
+              className="px-4 py-2 min-h-[40px] bg-blue-600 text-white hover:bg-blue-700"
             >
               {modalSaving ? "Saving..." : "Save"}
             </Button>

@@ -1,25 +1,25 @@
 import { NextRequest, NextResponse } from "next/server"
-import { saveDeviceToken } from "@/services/firebaseNotificationService"
+import { saveNotificationDevice } from "@/services/notificationService"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const technicianId = Number(body.technicianId)
-    const token = String(body.token || "").trim()
-    const deviceType = String(body.deviceType || "web").trim() || "web"
+    const employeeId = Number(body.employeeId ?? body.technicianId)
+    const rawPlayerId = body.oneSignalPlayerId ?? body.token ?? ""
+    const oneSignalPlayerId = String(rawPlayerId).trim()
 
-    if (!Number.isInteger(technicianId) || !token) {
+    if (!Number.isInteger(employeeId) || !oneSignalPlayerId) {
       return NextResponse.json(
-        { error: "technicianId and token are required" },
+        { error: "employeeId and oneSignalPlayerId are required" },
         { status: 400 }
       )
     }
 
-    const deviceToken = await saveDeviceToken(technicianId, token, deviceType)
+    const deviceToken = await saveNotificationDevice(employeeId, oneSignalPlayerId)
 
     return NextResponse.json({
       success: true,
-      message: "Device token registered successfully",
+      message: "OneSignal device registered successfully",
       deviceToken,
     })
   } catch (error: any) {

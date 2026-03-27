@@ -535,7 +535,7 @@ export function AccountingMasterForm() {
 
           <div className="flex flex-col items-end gap-2 col-start-1 lg:col-start-5">
             <Label>Action</Label>
-            <Button type="button" variant="ghost" size="icon" onClick={clearFilters} className="text-red-600 hover:text-red-800" aria-label="Clear Filters">
+            <Button type="button" variant="ghost" size="icon" onClick={clearFilters} className="text-red-600 hover:bg-red-50 hover:text-red-700" aria-label="Clear Filters">
               <RotateCcw className="h-5 w-5" />
             </Button>
           </div>
@@ -633,7 +633,7 @@ export function AccountingMasterForm() {
                           onClick={() => handleDelete(row)}
                           disabled={row.source !== "ledger"}
                           aria-label="Delete"
-                          className="text-red-600 hover:text-red-800"
+                          className="text-red-600 hover:bg-red-50 hover:text-red-700"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -651,7 +651,7 @@ export function AccountingMasterForm() {
         <Button
           type="button"
           onClick={handleAddNew}
-          className="flex-1 justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent"
+          className="flex-1 justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-4 py-2 min-h-[40px]"
           variant="ghost"
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -673,7 +673,7 @@ export function AccountingMasterForm() {
             <DialogTitle className="text-2xl font-semibold">Add New Ledger Entry</DialogTitle>
           </DialogHeader>
 
-          <div className="border border-slate-200 rounded-lg bg-white p-6 space-y-4">
+          <div className="global-form-shell space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label>Transaction Type</Label>
@@ -754,10 +754,10 @@ export function AccountingMasterForm() {
           </div>
 
           <DialogFooter className="flex gap-5 justify-end pt-4">
-            <Button type="button" variant="outline" onClick={resetForm}>
+            <Button type="button" variant="outline" onClick={resetForm} className="px-4 py-2 min-h-[40px]">
               Clear
             </Button>
-            <Button onClick={handleSave} disabled={isSaving} className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Button onClick={handleSave} disabled={isSaving} className="px-4 py-2 min-h-[40px] bg-blue-600 hover:bg-blue-700 text-white">
               <Check className="h-4 w-4 mr-2" />
               {isSaving ? "Saving..." : "Save Transaction"}
             </Button>
@@ -782,7 +782,7 @@ export function AccountingMasterForm() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="border border-slate-200 rounded-lg bg-white p-6 space-y-4">
+          <div className="global-form-shell space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Transaction Type</Label>
@@ -871,10 +871,11 @@ export function AccountingMasterForm() {
                 resetEditForm()
                 setTransactionModalMode("add")
               }}
+              className="px-4 py-2 min-h-[40px]"
             >
               {transactionModalMode === "edit" ? "Cancel" : "Clear"}
             </Button>
-            <Button type="button" onClick={handleEditSave} disabled={isEditSaving}>
+            <Button type="button" onClick={handleEditSave} disabled={isEditSaving} className="px-4 py-2 min-h-[40px]">
               {isEditSaving
                 ? (transactionModalMode === "edit" ? "Updating..." : "Saving...")
                 : (transactionModalMode === "edit" ? "Update Transaction" : "Save Transaction")}

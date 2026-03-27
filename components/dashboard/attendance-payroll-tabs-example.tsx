@@ -207,7 +207,6 @@ export default function AttendancePayrollTabs() {
       <FolderTabs 
         items={tabItems} 
         defaultValue="attendance"
-        accentClass="bg-blue-600" // Inactive tab color scheme
       />
     </div>
   )

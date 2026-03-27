@@ -3,8 +3,8 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 import { formatTextByField } from '@/lib/utils'
 
-const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(
-  ({ className, type, onBlur, onChange, ...props }, ref) => {
+const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'> & { noFormatting?: boolean }>(
+  ({ className, type, onBlur, onChange, noFormatting, ...props }, ref) => {
     const isNumber = type === 'number'
     const generatedId = React.useId()
     const resolvedId = (props as any).id ?? ((props as any).name ? `${(props as any).name}-${generatedId}` : `input-${generatedId}`)
@@ -21,7 +21,7 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(
       // Apply text case formatting on blur for text inputs (not number, date, etc)
       // Check for type === 'text' OR type === undefined (default is text)
       const isTextInput = type === 'text' || type === undefined || type === ''
-      if (isTextInput && !((props as any)?.noFormatting) && e.currentTarget.value) {
+      if (isTextInput && !noFormatting && e.currentTarget.value) {
         const fieldName = (props as any)?.name
         const formatted = formatTextByField(e.currentTarget.value, fieldName)
         if (formatted !== e.currentTarget.value) {
@@ -36,7 +36,7 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(
         }
       }
       onBlur?.(e)
-    }, [type, onChange, onBlur, props])
+    }, [type, onChange, onBlur, noFormatting, props])
 
     return (
       <input
@@ -44,7 +44,7 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(
         type={inputType}
         autoComplete="off"
         className={cn(
-          'flex h-10 w-full rounded-sm border border-border/90 bg-muted/30 px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60 md:text-sm',
+          'flex h-10 w-full rounded-md border border-border/90 bg-muted/30 px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground/90 focus-visible:outline-none focus-visible:border-ring focus-visible:ring-0 disabled:cursor-not-allowed disabled:opacity-60 md:text-sm',
           isNumber && 'no-spinner',
           className,
         )}

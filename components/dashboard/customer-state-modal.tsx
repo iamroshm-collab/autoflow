@@ -50,15 +50,34 @@ export function CustomerStateModal({
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    const fetchStates = async () => {
+    const fetchAll = async () => {
       try {
-        const response = await fetch("/api/settings/states")
-        const data = await response.json()
-        
-        if (Array.isArray(data)) {
-          setStates(data)
-        } else if (data.states && Array.isArray(data.states)) {
-          setStates(data.states)
+        const [statesRes, shopRes] = await Promise.all([
+          fetch("/api/settings/states"),
+          fetch("/api/settings/shop"),
+        ])
+        const statesData = await statesRes.json()
+        const shopData = await shopRes.json()
+
+        const loadedStates: State[] = Array.isArray(statesData)
+          ? statesData
+          : statesData.states && Array.isArray(statesData.states)
+            ? statesData.states
+            : []
+        setStates(loadedStates)
+
+        if (currentStateId) {
+          setSelectedStateId(currentStateId)
+        } else {
+          const shopCode = String(shopData?.stateId ?? "")
+          if (shopCode) {
+            const shopState = loadedStates.find(
+              (s) => s.stateCode === shopCode || s.stateId === shopCode
+            )
+            if (shopState) {
+              setSelectedStateId(shopState.stateId)
+            }
+          }
         }
       } catch (error) {
         console.error("Error fetching states:", error)
@@ -67,8 +86,7 @@ export function CustomerStateModal({
     }
 
     if (open) {
-      fetchStates()
-      setSelectedStateId(currentStateId || "")
+      fetchAll()
     }
   }, [open, currentStateId])
 

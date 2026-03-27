@@ -85,7 +85,7 @@ export function ShopAutocomplete({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [q, open])
+  }, [q, open, fetchUrl])
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {

@@ -71,6 +71,7 @@ export async function GET(
       include: {
         products: {
           orderBy: [{ productId: "asc" }],
+          take: 500,
         },
       },
     })
@@ -183,6 +184,7 @@ export async function PUT(
         include: {
           products: {
             orderBy: [{ productId: "asc" }],
+            take: 500,
           },
         },
       })
@@ -229,6 +231,7 @@ export async function DELETE(
           },
         },
       },
+      take: 500,
     })
 
     const referencedProducts = supplierProducts.filter(

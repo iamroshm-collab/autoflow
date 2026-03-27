@@ -10,6 +10,7 @@ import { notify } from "@/components/ui/notify"
 import { startAction, successAction, errorAction } from "@/lib/action-feedback"
 import { parseJsonResponse } from "@/lib/http"
 import { getMobileValidationMessage, normalizeMobileNumber } from "@/lib/mobile-validation"
+import { composeAddress, parseAddress } from "@/lib/address-utils"
 import { Plus, Trash2, Save, X, Pencil } from "lucide-react"
 // Use the same Pencil icon as supplier actions for consistency
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
@@ -23,6 +24,11 @@ interface SparePartShop {
   gstin: string
   stateId: string
   state?: State | null
+  addressLine1?: string
+  addressLine2?: string
+  city?: string
+  district?: string
+  postalCode?: string
 }
 
 interface State {
@@ -38,18 +44,29 @@ interface ApiState {
   stateCode?: string | null
 }
 
+interface ShopSettingsResponse {
+  stateId?: string | null
+}
+
 const emptyShop: Omit<SparePartShop, "id"> = {
   shopName: "",
   address: "",
+  addressLine1: "",
+  addressLine2: "",
+  city: "",
+  district: "",
+  postalCode: "",
   mobile: "",
   pan: "",
   gstin: "",
   stateId: "",
 }
 
-export default function SparePartShopsForm() {
+export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCornerClass?: string }) {
   const [shops, setShops] = useState<SparePartShop[]>([])
   const [states, setStates] = useState<State[]>([])
+  const [shopStateKey, setShopStateKey] = useState("")
+  const [defaultShopStateId, setDefaultShopStateId] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isFetching, setIsFetching] = useState(true)
   const [isAdding, setIsAdding] = useState(false)
@@ -71,9 +88,38 @@ export default function SparePartShopsForm() {
   const editStateOptionRefs = useRef<(HTMLButtonElement | null)[]>([])
 
   useEffect(() => {
-    loadShops()
-    loadStates()
+    Promise.all([
+      loadShops(),
+      loadStates(),
+      loadShopSettings(),
+    ])
   }, [])
+
+  useEffect(() => {
+    if (!shopStateKey || states.length === 0) return
+    const matchingState = states.find((state) => state.id === shopStateKey || state.stateCode === shopStateKey)
+    setDefaultShopStateId(matchingState?.id || "")
+  }, [shopStateKey, states])
+
+  useEffect(() => {
+    if (!defaultShopStateId) return
+
+    if (isAdding && !addForm.stateId) {
+      setAddForm((prev) => ({ ...prev, stateId: defaultShopStateId }))
+      if (!addStateFilter) {
+        const defaultStateName = states.find((state) => state.id === defaultShopStateId)?.stateName || ""
+        setAddStateFilter(defaultStateName)
+      }
+    }
+
+    if (isEditingModal && editingShopId && !editForm.stateId) {
+      setEditForm((prev) => ({ ...prev, stateId: defaultShopStateId }))
+      if (!editStateFilter) {
+        const defaultStateName = states.find((state) => state.id === defaultShopStateId)?.stateName || ""
+        setEditStateFilter(defaultStateName)
+      }
+    }
+  }, [defaultShopStateId, isAdding, isEditingModal, editingShopId, addForm.stateId, editForm.stateId, addStateFilter, editStateFilter, states])
 
   // Scroll selected item into view for add dropdown
   useEffect(() => {
@@ -130,7 +176,7 @@ export default function SparePartShopsForm() {
   const loadShops = async () => {
     try {
       setIsFetching(true)
-      const response = await fetch("/api/settings/spare-part-shops")
+      const response = await fetch("/api/settings/spare-part-shops", { cache: 'force-cache' })
       const data = await parseJsonResponse<SparePartShop[]>(response, "Failed to load spare part shops")
 
       setShops(data)
@@ -144,7 +190,7 @@ export default function SparePartShopsForm() {
 
   const loadStates = async () => {
     try {
-      const response = await fetch("/api/settings/states")
+      const response = await fetch("/api/settings/states", { cache: 'force-cache' })
       const data = await parseJsonResponse<ApiState[]>(response, "Failed to load states")
       
       const formattedStates = data.map((s) => ({
@@ -156,6 +202,16 @@ export default function SparePartShopsForm() {
       setStates(formattedStates)
     } catch (error) {
       console.error("Error loading states:", error)
+    }
+  }
+
+  const loadShopSettings = async () => {
+    try {
+      const response = await fetch("/api/settings/shop", { cache: 'force-cache' })
+      const data = await parseJsonResponse<ShopSettingsResponse>(response, "Failed to load shop settings")
+      setShopStateKey(String(data?.stateId ?? ""))
+    } catch (error) {
+      console.error("Error loading shop settings:", error)
     }
   }
 
@@ -189,9 +245,19 @@ export default function SparePartShopsForm() {
     return state ? state.id : ""
   }
 
+  const getFreshShopForm = () => ({
+    ...emptyShop,
+    stateId: defaultShopStateId,
+  })
+
   const handleAdd = async () => {
     if (!addForm.shopName.trim()) {
       errorAction("Shop name is required")
+      return
+    }
+
+    if (!addForm.stateId.trim()) {
+      errorAction("State selection is required")
       return
     }
 
@@ -208,13 +274,28 @@ export default function SparePartShopsForm() {
       const response = await fetch("/api/settings/spare-part-shops", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...addForm, mobile: normalizeMobileNumber(addForm.mobile) }),
+        body: JSON.stringify({
+          ...addForm,
+          address: composeAddress(
+            {
+              line1: addForm.addressLine1,
+              line2: addForm.addressLine2,
+              city: addForm.city,
+              district: addForm.district,
+              postalCode: addForm.postalCode,
+            },
+            { includeState: false }
+          ),
+          mobile: normalizeMobileNumber(addForm.mobile),
+        }),
       })
 
       await parseJsonResponse<SparePartShop>(response, "Failed to add shop")
 
       successAction("Spare part shop added successfully")
-      setAddForm(emptyShop)
+      setAddForm(getFreshShopForm())
+      setAddStateFilter(getStateName(defaultShopStateId))
+      setShowAddStateDropdown(false)
       setIsAdding(false)
       await loadShops()
     } catch (error) {
@@ -228,6 +309,11 @@ export default function SparePartShopsForm() {
   const handleUpdate = async () => {
     if (!editForm.shopName.trim()) {
       errorAction("Shop name is required")
+      return
+    }
+
+    if (!editForm.stateId.trim()) {
+      errorAction("State selection is required")
       return
     }
 
@@ -246,7 +332,21 @@ export default function SparePartShopsForm() {
       const response = await fetch("/api/settings/spare-part-shops", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: editingShopId, ...editForm, mobile: normalizeMobileNumber(editForm.mobile) }),
+        body: JSON.stringify({
+          id: editingShopId,
+          ...editForm,
+          address: composeAddress(
+            {
+              line1: editForm.addressLine1,
+              line2: editForm.addressLine2,
+              city: editForm.city,
+              district: editForm.district,
+              postalCode: editForm.postalCode,
+            },
+            { includeState: false }
+          ),
+          mobile: normalizeMobileNumber(editForm.mobile),
+        }),
       })
 
       await parseJsonResponse<SparePartShop>(response, "Failed to update shop")
@@ -292,16 +392,23 @@ export default function SparePartShopsForm() {
   }
 
   const startEdit = (shop: SparePartShop) => {
+    const parsedAddress = parseAddress(shop.address)
+    const resolvedStateId = shop.stateId || defaultShopStateId
     setEditingShopId(shop.id)
     setEditForm({
       shopName: shop.shopName,
       address: shop.address || "",
+      addressLine1: parsedAddress.line1 ?? undefined,
+      addressLine2: parsedAddress.line2 ?? undefined,
+      city: parsedAddress.city ?? undefined,
+      district: parsedAddress.district ?? undefined,
+      postalCode: parsedAddress.postalCode ?? undefined,
       mobile: shop.mobile || "",
       pan: shop.pan || "",
       gstin: shop.gstin || "",
-      stateId: shop.stateId || "",
+      stateId: resolvedStateId,
     })
-    setEditStateFilter(getStateName(shop.stateId || ""))
+    setEditStateFilter(getStateName(resolvedStateId))
     setShowEditStateDropdown(false)
     setIsEditingModal(true)
   }
@@ -316,8 +423,8 @@ export default function SparePartShopsForm() {
 
   const cancelAdd = () => {
     setIsAdding(false)
-    setAddForm(emptyShop)
-    setAddStateFilter("")
+    setAddForm(getFreshShopForm())
+    setAddStateFilter(getStateName(defaultShopStateId))
     setShowAddStateDropdown(false)
   }
 
@@ -332,29 +439,29 @@ export default function SparePartShopsForm() {
   }
 
   return (
-    <div className="space-y-4">
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Spare Part Shops</h3>
-        </div>
+    <div className="h-full min-h-0">
+      <Card className={`global-settings-panel ${panelCornerClass}`}>
 
         <Dialog open={isAdding} onOpenChange={(open) => { 
           setIsAdding(open)
           if (!open) {
-            setAddForm(emptyShop)
-            setAddStateFilter("")
+            setAddForm(getFreshShopForm())
+            setAddStateFilter(getStateName(defaultShopStateId))
+            setShowAddStateDropdown(false)
+          } else {
+            setAddForm(getFreshShopForm())
+            setAddStateFilter(getStateName(defaultShopStateId))
             setShowAddStateDropdown(false)
           }
         }}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-visible flex flex-col">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Add New Shop</DialogTitle>
+              <DialogTitle className="text-2xl font-semibold">Add New Shop</DialogTitle>
               <DialogDescription>Enter the spare part shop details to create a new shop record.</DialogDescription>
             </DialogHeader>
 
-            <div className="overflow-visible flex-1">
-              <div className="border border-slate-200 rounded-lg bg-white p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 items-start">
+            <div className="border border-slate-200 rounded-lg bg-white p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
               <div className="space-y-2">
                 <Label htmlFor="add-shopName">Shop Name *</Label>
                 <Input
@@ -386,6 +493,7 @@ export default function SparePartShopsForm() {
                     value={addStateFilter}
                     onChange={(e) => {
                       setAddStateFilter(e.target.value)
+                      setAddForm((prev) => ({ ...prev, stateId: "" }))
                       setShowAddStateDropdown(true)
                       setAddStateSelectedIndex(-1)
                     }}
@@ -497,22 +605,57 @@ export default function SparePartShopsForm() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="add-stateId">State Code</Label>
+                <Label htmlFor="add-stateCode">State Code</Label>
                 <Input
-                  id="add-stateId"
+                  id="add-stateCode"
                   value={getStateCode(addForm.stateId)}
                   disabled
                   className="bg-slate-50 text-slate-600"
-                  placeholder="Automatically populated"
+                  placeholder="Auto populated"
                 />
               </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="add-address">Address</Label>
+              <div className="space-y-2">
+                <Label htmlFor="add-address-line-1">Address Line 1</Label>
                 <Input
-                  id="add-address"
-                  name="address"
-                  value={addForm.address}
-                  onChange={(e) => setAddForm({ ...addForm, address: e.target.value })}
+                  id="add-address-line-1"
+                  value={addForm.addressLine1 || ""}
+                  onChange={(e) => setAddForm({ ...addForm, addressLine1: e.target.value })}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-address-line-2">Address Line 2</Label>
+                <Input
+                  id="add-address-line-2"
+                  value={addForm.addressLine2 || ""}
+                  onChange={(e) => setAddForm({ ...addForm, addressLine2: e.target.value })}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-city">City</Label>
+                <Input
+                  id="add-city"
+                  value={addForm.city || ""}
+                  onChange={(e) => setAddForm({ ...addForm, city: e.target.value })}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-district">District</Label>
+                <Input
+                  id="add-district"
+                  value={addForm.district || ""}
+                  onChange={(e) => setAddForm({ ...addForm, district: e.target.value })}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="add-postal">Postal Code</Label>
+                <Input
+                  id="add-postal"
+                  value={addForm.postalCode || ""}
+                  onChange={(e) => setAddForm({ ...addForm, postalCode: e.target.value })}
                   disabled={isLoading}
                 />
               </div>
@@ -535,15 +678,14 @@ export default function SparePartShopsForm() {
                 />
               </div>
             </div>
-          </div>
             </div>
 
             <DialogFooter className="flex gap-4 justify-end mt-4">
-              <Button onClick={cancelAdd} disabled={isLoading} variant="outline" className="bg-white hover:bg-gray-100">
+              <Button onClick={cancelAdd} disabled={isLoading} variant="outline" className="px-4 py-2 min-h-[40px] bg-white hover:bg-gray-100">
                 <X className="h-4 w-4" />
                 Cancel
               </Button>
-              <Button onClick={handleAdd} disabled={isLoading} className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700">
+              <Button onClick={handleAdd} disabled={isLoading} className="px-4 py-2 min-h-[40px] flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700">
                 <Save className="h-4 w-4" />
                 Save
               </Button>
@@ -555,15 +697,14 @@ export default function SparePartShopsForm() {
         <Dialog open={isEditingModal} onOpenChange={(open) => {
           if (!open) cancelEdit()
         }}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-visible flex flex-col">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit Shop</DialogTitle>
+              <DialogTitle className="text-2xl font-semibold">Edit Shop</DialogTitle>
               <DialogDescription>Update the spare part shop details.</DialogDescription>
             </DialogHeader>
 
-            <div className="overflow-visible flex-1">
-              <div className="border border-slate-200 rounded-lg bg-white p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 items-start">
+            <div className="border border-slate-200 rounded-lg bg-white p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
               <div className="space-y-2">
                 <Label htmlFor="edit-shopName">Shop Name *</Label>
                 <Input
@@ -595,6 +736,7 @@ export default function SparePartShopsForm() {
                     value={editStateFilter}
                     onChange={(e) => {
                       setEditStateFilter(e.target.value)
+                      setEditForm((prev) => ({ ...prev, stateId: "" }))
                       setShowEditStateDropdown(true)
                       setEditStateSelectedIndex(-1)
                     }}
@@ -706,22 +848,57 @@ export default function SparePartShopsForm() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-stateId">State Code</Label>
+                <Label htmlFor="edit-stateCode">State Code</Label>
                 <Input
-                  id="edit-stateId"
+                  id="edit-stateCode"
                   value={getStateCode(editForm.stateId)}
                   disabled
                   className="bg-slate-50 text-slate-600"
-                  placeholder="Automatically populated"
+                  placeholder="Auto populated"
                 />
               </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="edit-address">Address</Label>
+              <div className="space-y-2">
+                <Label htmlFor="edit-address-line-1">Address Line 1</Label>
                 <Input
-                  id="edit-address"
-                  name="address"
-                  value={editForm.address}
-                  onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                  id="edit-address-line-1"
+                  value={editForm.addressLine1 || ""}
+                  onChange={(e) => setEditForm({ ...editForm, addressLine1: e.target.value })}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-address-line-2">Address Line 2</Label>
+                <Input
+                  id="edit-address-line-2"
+                  value={editForm.addressLine2 || ""}
+                  onChange={(e) => setEditForm({ ...editForm, addressLine2: e.target.value })}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-city">City</Label>
+                <Input
+                  id="edit-city"
+                  value={editForm.city || ""}
+                  onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-district">District</Label>
+                <Input
+                  id="edit-district"
+                  value={editForm.district || ""}
+                  onChange={(e) => setEditForm({ ...editForm, district: e.target.value })}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-postal">Postal Code</Label>
+                <Input
+                  id="edit-postal"
+                  value={editForm.postalCode || ""}
+                  onChange={(e) => setEditForm({ ...editForm, postalCode: e.target.value })}
                   disabled={isLoading}
                 />
               </div>
@@ -744,15 +921,14 @@ export default function SparePartShopsForm() {
                 />
               </div>
             </div>
-          </div>
             </div>
 
             <DialogFooter className="flex gap-4 justify-end mt-4">
-              <Button onClick={cancelEdit} disabled={isLoading} variant="outline" className="bg-white hover:bg-gray-100">
+              <Button onClick={cancelEdit} disabled={isLoading} variant="outline" className="px-4 py-2 min-h-[40px] bg-white hover:bg-gray-100">
                 <X className="h-4 w-4" />
                 Cancel
               </Button>
-              <Button onClick={handleUpdate} disabled={isLoading} className="flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700">
+              <Button onClick={handleUpdate} disabled={isLoading} className="px-4 py-2 min-h-[40px] flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700">
                 <Save className="h-4 w-4" />
                 Save
               </Button>
@@ -760,14 +936,14 @@ export default function SparePartShopsForm() {
           </DialogContent>
         </Dialog>
 
-        <div className="space-y-3">
+        <div className="global-list-form-content">
           {shops.length === 0 ? (
             <div className="text-center p-6 text-muted-foreground">No spare part shops found. Click "Add Shop" to create one.</div>
           ) : (
             <>
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <div className="border-b bg-muted/30">
-                  <div className="flex items-center justify-between py-3 px-2">
+              <div className="global-list-viewport">
+                <div className="global-list-sticky-header bg-muted/30">
+                  <div className="global-spare-shops-header flex items-center justify-between">
                     <div className="flex-1 flex gap-4">
                       <div className="min-w-[220px] text-center">
                         <Label className="text-sm font-semibold">Shop Name</Label>
@@ -795,7 +971,7 @@ export default function SparePartShopsForm() {
                 </div>
                 {shops.map((shop) => (
                 <div key={shop.id} className="border-b last:border-b-0">
-                  <div className="flex items-center justify-between py-3 px-2">
+                  <div className="global-spare-shops-row flex items-center justify-between">
                     <div className="flex-1 flex gap-4 items-center">
                       <div className="min-w-[220px] text-center">
                         <div className="text-sm text-slate-700">{shop.shopName || "—"}</div>
@@ -806,8 +982,11 @@ export default function SparePartShopsForm() {
                       </div>
 
                       <div className="min-w-[160px] text-center">
-                        <div className="text-sm font-medium text-slate-700">{shop.state?.stateName || getStateDisplay(shop.stateId).name || "—"}</div>
-                        <div className="text-xs text-muted-foreground">{shop.state?.stateCode || getStateDisplay(shop.stateId).code}</div>
+                        <div className="text-sm font-medium text-slate-700">{shop.state?.stateName || (() => {
+                          const state = states.find(s => s.id === shop.stateId || s.stateCode === shop.stateId)
+                          return state?.stateName || "—"
+                        })()}</div>
+                        <div className="text-xs text-muted-foreground">{shop.state?.stateCode || getStateCode(shop.stateId) || "—"}</div>
                       </div>
 
                       <div className="min-w-[100px] text-center">
@@ -837,7 +1016,7 @@ export default function SparePartShopsForm() {
 
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button onClick={() => handleDelete(shop.id)} disabled={isLoading} variant="ghost" size="icon" className="text-red-600 hover:text-red-800" aria-label={`Delete ${shop.shopName}`}>
+                              <Button onClick={() => handleDelete(shop.id)} disabled={isLoading} variant="ghost" size="icon" className="text-red-600 hover:bg-red-50 hover:text-red-700" aria-label={`Delete ${shop.shopName}`}>
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
@@ -854,12 +1033,12 @@ export default function SparePartShopsForm() {
           )}
         </div>
 
-        {/* Add Shop Button - Sticky footer */}
-        <div className="sticky-form-actions flex justify-center mt-4">
+        {/* Add Shop Button - Fixed footer row */}
+        <div className="flex shrink-0 justify-center">
           {!isAdding && (
             <Button
               onClick={() => setIsAdding(true)}
-              className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
+              className="global-bottom-btn-add"
               variant="ghost"
             >
               <Plus className="h-4 w-4 mr-2" />

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getCurrentUserFromRequest } from "@/lib/auth-session"
 import {
   calculateWorkedMinutes,
   deriveNextAttendanceAction,
@@ -91,11 +92,95 @@ const formatTimeHHMM = (value?: Date | null) => {
   return `${hours}:${minutes}`
 }
 
+const parseOptionalInt = (value: string | null) => {
+  if (value == null || value === "") {
+    return null
+  }
+
+  const parsed = Number(value)
+  return Number.isInteger(parsed) ? parsed : null
+}
+
+const getScopedEmployeeId = async (request: NextRequest, requestedEmployeeId?: number | null) => {
+  const currentUser = await getCurrentUserFromRequest(request)
+  if (!currentUser) {
+    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) }
+  }
+
+  const role = String(currentUser.role || "").toLowerCase()
+  if (role !== "technician") {
+    return {
+      employeeId: Number.isInteger(requestedEmployeeId) ? Number(requestedEmployeeId) : null,
+      role,
+    }
+  }
+
+  if (!Number.isInteger(currentUser.employeeRefId)) {
+    return {
+      error: NextResponse.json({ error: "Technician account is not linked to an employee" }, { status: 403 }),
+    }
+  }
+
+  const ownEmployeeId = Number(currentUser.employeeRefId)
+  if (Number.isInteger(requestedEmployeeId) && Number(requestedEmployeeId) !== ownEmployeeId) {
+    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) }
+  }
+
+  return { employeeId: ownEmployeeId, role }
+}
+
 // GET - Fetch attendance records for a specific date
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const date = searchParams.get("date")
+    const month = parseOptionalInt(searchParams.get("month"))
+    const year = parseOptionalInt(searchParams.get("year"))
+    const requestedEmployeeId = parseOptionalInt(searchParams.get("employeeId"))
+
+    const scoped = await getScopedEmployeeId(request, requestedEmployeeId)
+    if ("error" in scoped) {
+      return scoped.error
+    }
+
+    const scopedEmployeeId = scoped.employeeId
+
+    if (month != null && year != null && Number.isInteger(scopedEmployeeId)) {
+      const employeeId = Number(scopedEmployeeId)
+      const monthStart = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0))
+      const monthEnd = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0))
+
+      const records = await prisma.attendancePayroll.findMany({
+        where: {
+          employeeId,
+          attendanceDate: {
+            gte: monthStart,
+            lt: monthEnd,
+          },
+        },
+        select: {
+          attendanceDate: true,
+          attendance: true,
+          workedMinutes: true,
+          checkInAt: true,
+          checkOutAt: true,
+        },
+        orderBy: {
+          attendanceDate: "asc",
+        },
+      })
+
+      const normalized = records.map((record) => ({
+        date: new Intl.DateTimeFormat("en-CA", { timeZone: INDIA_TIMEZONE }).format(record.attendanceDate),
+        attendance: normalizeAttendanceCode(record.attendance),
+        workedMinutes: record.workedMinutes,
+        workedDuration: formatWorkedDuration(record.workedMinutes),
+        checkInAt: record.checkInAt,
+        checkOutAt: record.checkOutAt,
+      }))
+
+      return NextResponse.json({ employeeId, month, year, records: normalized })
+    }
 
     if (!date) {
       return NextResponse.json({ error: "Date parameter required" }, { status: 400 })
@@ -111,6 +196,7 @@ export async function GET(request: NextRequest) {
       where: {
         isArchived: false,
         isAttendanceEligible: true,
+        ...(Number.isInteger(scopedEmployeeId) ? { employeeId: Number(scopedEmployeeId) } : {}),
       },
       select: {
         employeeId: true,
@@ -132,6 +218,7 @@ export async function GET(request: NextRequest) {
           gte: dayRange.start,
           lt: dayRange.end,
         },
+        ...(Number.isInteger(scopedEmployeeId) ? { employeeId: Number(scopedEmployeeId) } : {}),
       },
       include: {
         employee: {
@@ -182,6 +269,15 @@ export async function GET(request: NextRequest) {
 // POST - Create or update attendance record
 export async function POST(request: NextRequest) {
   try {
+    const scoped = await getScopedEmployeeId(request)
+    if ("error" in scoped) {
+      return scoped.error
+    }
+
+    if (scoped.role === "technician") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
     const body = await request.json()
     const { employeeId, attendanceDate, attendance } = body
     const normalizedAttendance = normalizeAttendanceCode(attendance)
@@ -249,6 +345,15 @@ export async function POST(request: NextRequest) {
 // PUT - Bulk update attendance
 export async function PUT(request: NextRequest) {
   try {
+    const scoped = await getScopedEmployeeId(request)
+    if ("error" in scoped) {
+      return scoped.error
+    }
+
+    if (scoped.role === "technician") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
     const body = await request.json()
     const { attendanceRecords } = body
 
@@ -312,6 +417,15 @@ export async function PUT(request: NextRequest) {
 // PATCH - Update a single attendance row (admin use)
 export async function PATCH(request: NextRequest) {
   try {
+    const scoped = await getScopedEmployeeId(request)
+    if ("error" in scoped) {
+      return scoped.error
+    }
+
+    if (scoped.role === "technician") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
     const body = await request.json()
     const attendanceId = Number(body.attendanceId)
     const attendanceDate = String(body.attendanceDate || "").trim()
@@ -406,6 +520,15 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Delete a single attendance row (admin use)
 export async function DELETE(request: NextRequest) {
   try {
+    const scoped = await getScopedEmployeeId(request)
+    if ("error" in scoped) {
+      return scoped.error
+    }
+
+    if (scoped.role === "technician") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
     const { searchParams } = new URL(request.url)
     const attendanceId = Number(searchParams.get("attendanceId"))
 

@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { notify } from '@/components/ui/notify'
 import { toProperCase } from "@/lib/utils"
 import { getMobileValidationMessage, normalizeMobileNumber } from "@/lib/mobile-validation"
+import { composeAddress } from "@/lib/address-utils"
 import { ChevronDown } from "lucide-react"
 
 interface State {
@@ -40,18 +41,21 @@ export function AddCustomerModal({
   const [states, setStates] = useState<State[]>([])
   const [showStateDropdown, setShowStateDropdown] = useState(false)
   const [stateFilter, setStateFilter] = useState("")
+  const [shopStateKey, setShopStateKey] = useState("")
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [formData, setFormData] = useState({
     mobileNo: mobileNumber,
     name: "",
     email: "",
-    address: "",
+    addressLine1: "",
+    addressLine2: "",
     city: "",
+    district: "",
     state: "",
     pincode: "",
   })
 
-  // Fetch states on component mount
+  // Fetch states and shop settings on component mount
   useEffect(() => {
     const fetchStates = async () => {
       try {
@@ -62,7 +66,17 @@ export function AddCustomerModal({
         console.error("Error fetching states:", error)
       }
     }
+    const fetchShopSettings = async () => {
+      try {
+        const response = await fetch("/api/settings/shop")
+        const data = await response.json()
+        setShopStateKey(String(data?.stateId ?? ""))
+      } catch (error) {
+        console.error("Error fetching shop settings:", error)
+      }
+    }
     fetchStates()
+    fetchShopSettings()
   }, [])
 
   // Handle click outside dropdown
@@ -80,18 +94,21 @@ export function AddCustomerModal({
     }
   }, [showStateDropdown])
 
-  // Update mobile number when prop changes (especially when modal opens)
+  // Update mobile number when prop changes and apply shop-state default when modal opens
   useEffect(() => {
-    console.log("Mobile number prop updated:", mobileNumber)
     setFormData((prev) => ({
       ...prev,
       mobileNo: mobileNumber,
     }))
     if (open) {
-      setStateFilter("")
+      const defaultState = shopStateKey
+        ? states.find((s) => s.id === shopStateKey || s.stateCode === shopStateKey)
+        : null
+      setFormData((prev) => ({ ...prev, state: defaultState?.id || "" }))
+      setStateFilter(defaultState?.stateName || "")
       setShowStateDropdown(false)
     }
-  }, [mobileNumber, open])
+  }, [mobileNumber, open, shopStateKey, states])
 
   const getStateName = (stateId: string) => {
     const state = states.find(s => s.id === stateId || s.stateCode === stateId)
@@ -146,7 +163,16 @@ export function AddCustomerModal({
         mobileNo: normalizeMobileNumber(formData.mobileNo),
         name: toProperCase(formData.name.trim()),
         email: formData.email.trim(),
-        address: formData.address.trim(),
+        address: composeAddress(
+          {
+            line1: formData.addressLine1,
+            line2: formData.addressLine2,
+            city: formData.city,
+            district: formData.district,
+            postalCode: formData.pincode,
+          },
+          { includeState: false }
+        ),
         city: formData.city ? toProperCase(formData.city.trim()) : "",
         stateId: formData.state,
         pincode: formData.pincode.trim(),
@@ -181,8 +207,10 @@ export function AddCustomerModal({
         mobileNo: "",
         name: "",
         email: "",
-        address: "",
+        addressLine1: "",
+        addressLine2: "",
         city: "",
+        district: "",
         state: "",
         pincode: "",
       })
@@ -247,19 +275,32 @@ export function AddCustomerModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="address" className="font-semibold">
-              Address
+            <Label htmlFor="addressLine1" className="font-semibold">
+              Address Line 1 (Apartment, Suite, Unit, Building, Floor)
             </Label>
             <Input
-              id="address"
-              name="address"
-              value={formData.address}
+              id="addressLine1"
+              name="addressLine1"
+              value={formData.addressLine1}
               onChange={handleInputChange}
               disabled={isLoading}
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-2">
+            <Label htmlFor="addressLine2" className="font-semibold">
+              Address Line 2 (Street Address)
+            </Label>
+            <Input
+              id="addressLine2"
+              name="addressLine2"
+              value={formData.addressLine2}
+              onChange={handleInputChange}
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
             <div className="space-y-2">
               <Label htmlFor="city" className="font-semibold">
                 City
@@ -268,6 +309,18 @@ export function AddCustomerModal({
                 id="city"
                 name="city"
                 value={formData.city}
+                onChange={handleInputChange}
+                disabled={isLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="district" className="font-semibold">
+                District
+              </Label>
+              <Input
+                id="district"
+                name="district"
+                value={formData.district}
                 onChange={handleInputChange}
                 disabled={isLoading}
               />

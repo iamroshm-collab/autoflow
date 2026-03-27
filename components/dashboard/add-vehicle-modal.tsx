@@ -231,7 +231,7 @@ export function AddVehicleModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div className="space-y-2 relative">
               <Label htmlFor="make" className="font-semibold">
                 Make <span className="text-red-500">*</span>
@@ -495,7 +495,7 @@ export function AddVehicleModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div className="space-y-2">
               <Label htmlFor="year" className="font-semibold">Year</Label>
               <Input
@@ -528,10 +528,11 @@ export function AddVehicleModal({
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={isLoading}
+              className="px-4 py-2 min-h-[40px]"
             >
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={isLoading}>
+            <Button onClick={handleSubmit} disabled={isLoading} className="px-4 py-2 min-h-[40px]">
               {isLoading ? "Creating..." : "Add Vehicle"}
             </Button>
           </DialogFooter>

@@ -219,6 +219,8 @@ model Employee {
   empName               String
   idNumber              String
   mobile                String
+  phoneNumber           String?
+  whatsappId            String?
   address               String?
   designation           String?
   salaryPerday          Float                  @default(0)
@@ -230,6 +232,9 @@ model Employee {
   facePhotoUpdatedAt    DateTime?
   isAttendanceEligible  Boolean                @default(true)
   isTechnician          Boolean                @default(false)
+  registeredDeviceId    String?
+  registeredDeviceIp    String?
+  deviceRegisteredAt    DateTime?
   isArchived            Boolean                @default(false)
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
@@ -239,9 +244,14 @@ model Employee {
   monthlyPayrolls       MonthlyPayroll[]
   technicianAllocations TechnicianAllocation[]
   deviceTokens          DeviceToken[]
+  notificationDevices   NotificationDevice[]
+  appUser               AppUser?
+  adminAuthProfile      AdminAuthProfile?   @relation("AdminAuthProfileEmployee")
 
   @@index([empName])
   @@index([mobile])
+  @@index([phoneNumber])
+  @@index([whatsappId])
   @@index([isTechnician])
   @@index([isArchived])
 }
@@ -731,5 +741,153 @@ model DeviceToken {
 
   @@index([employeeId])
   @@map("DeviceTokens")
+}
+
+model AppUser {
+  id             String         @id @default(cuid())
+  name           String
+  email          String?
+  passwordHash   String?
+  mobile         String?        @unique
+  phoneNumber    String?        @unique
+  whatsappId     String?        @unique
+  role           String
+  address        String?
+  idNumber       String?
+  designation    String?
+  employeeRefId  Int?           @unique
+  emailVerificationStatus String @default("pending")
+  approvalStatus String         @default("pending")
+  approvedById   String?
+  approvedAt     DateTime?
+  requestedDeviceId String?
+  requestedDeviceIp String?
+  pendingDeviceId String?
+  pendingDeviceIp String?
+  approvedDeviceId String?
+  approvedDeviceIp String?
+  deviceApprovalStatus String   @default("none")
+  lastLoginAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  sessions       AppSession[]
+  whatsappOtps   WhatsappOtp[]
+  notifications       AppNotification[]    @relation("NotificationTargetUser")
+  employee            Employee?            @relation(fields: [employeeRefId], references: [employeeId], onDelete: SetNull)
+  adminAuthProfile    AdminAuthProfile?    @relation("AdminAuthProfileAppUser")
+  adminTrustedDevices AdminTrustedDevice[] @relation("AdminTrustedDevices")
+
+  @@index([role])
+  @@index([approvalStatus])
+  @@index([deviceApprovalStatus])
+  @@index([mobile])
+  @@index([phoneNumber])
+  @@index([whatsappId])
+}
+
+model AppSession {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      AppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model WhatsappOtp {
+  id         String   @id @default(cuid())
+  employeeId String
+  mobile     String
+  otpHash    String
+  purpose    String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+  employee   AppUser  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([mobile, purpose, expiresAt])
+  @@index([expiresAt])
+  @@map("whatsapp_otps")
+}
+
+model NotificationDevice {
+  id               String   @id @default(cuid())
+  employeeId       Int
+  oneSignalPlayerId String  @unique
+  createdAt        DateTime @default(now())
+  employee         Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("notification_devices")
+}
+
+model AppNotification {
+  id          String    @id @default(cuid())
+  title       String
+  body        String
+  type        String    @default("info")
+  targetRole  String?
+  targetUserId String?
+  targetForm  String?
+  url         String?
+  isRead      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  targetUser  AppUser?  @relation("NotificationTargetUser", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  @@index([targetRole])
+  @@index([targetUserId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model AdminAuthProfile {
+  id           String              @id @default(cuid())
+  appUserId    String              @unique
+  employeeId   Int?                @unique
+  isActive     Boolean             @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  appUser      AppUser             @relation("AdminAuthProfileAppUser", fields: [appUserId], references: [id], onDelete: Cascade)
+  employee     Employee?           @relation("AdminAuthProfileEmployee", fields: [employeeId], references: [employeeId], onDelete: SetNull)
+
+  @@map("admin_auth_profiles")
+}
+
+model AdminTrustedDevice {
+  id              String   @id @default(cuid())
+  appUserId       String
+  deviceId        String
+  deviceIp        String?
+  firstVerifiedAt DateTime @default(now())
+  lastUsedAt      DateTime @default(now())
+  isActive        Boolean  @default(true)
+  appUser         AppUser  @relation("AdminTrustedDevices", fields: [appUserId], references: [id], onDelete: Cascade)
+
+  @@unique([appUserId, deviceId])
+  @@index([appUserId])
+  @@index([deviceId])
+  @@map("admin_trusted_devices")
+}
+
+model WhatsappMessage {
+  id          String   @id @default(cuid())
+  waMessageId String?  @unique
+  whatsappId  String
+  phoneNumber String?
+  senderName  String?
+  content     String
+  messageType String   @default("text")
+  status      String   @default("received")
+  receivedAt  DateTime @default(now())
+
+  @@index([whatsappId])
+  @@index([phoneNumber])
+  @@index([receivedAt])
+  @@map("whatsapp_messages")
 }
 

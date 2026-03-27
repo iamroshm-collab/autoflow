@@ -1,19 +1,19 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import Image from "next/image"
 import { toast } from '@/components/ui/notify'
 import { successAction, errorAction } from "@/lib/action-feedback"
 import { getMobileValidationMessage, normalizeMobileNumber } from "@/lib/mobile-validation"
 import { Pencil, Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { DatePickerInput } from "@/components/ui/date-picker-input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatDateDDMMYY } from "@/lib/utils"
+import { composeAddress, parseAddress } from "@/lib/address-utils"
 
 interface Employee {
   employeeId: number
@@ -38,7 +38,12 @@ interface EmployeeFormState {
   empName: string
   idNumber: string
   mobile: string
-  address: string
+  addressLine1: string
+  addressLine2: string
+  city: string
+  district: string
+  state: string
+  postalCode: string
   designation: string
   salaryPerday: string
   startDate: string
@@ -48,13 +53,19 @@ interface EmployeeFormState {
   facePhotoUrl: string
   isAttendanceEligible: boolean
   isTechnician: boolean
+  deregisterDevice: boolean
 }
 
 const defaultForm: EmployeeFormState = {
   empName: "",
   idNumber: "",
   mobile: "",
-  address: "",
+  addressLine1: "",
+  addressLine2: "",
+  city: "",
+  district: "",
+  state: "",
+  postalCode: "",
   designation: "",
   salaryPerday: "",
   startDate: "",
@@ -64,6 +75,7 @@ const defaultForm: EmployeeFormState = {
   facePhotoUrl: "",
   isAttendanceEligible: true,
   isTechnician: false,
+  deregisterDevice: false,
 }
 
 const toDateInput = (value: string | null) => {
@@ -89,6 +101,7 @@ export function EmployeeMasterForm({
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [modalSuccessMessage, setModalSuccessMessage] = useState("")
   const [fetchError, setFetchError] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement | null>(null)
   const isAdminDesignation = form.designation.trim().toLowerCase().includes("admin")
@@ -180,12 +193,18 @@ export function EmployeeMasterForm({
   }, [form.isAttendanceEligible, isAdminDesignation])
 
   const loadEmployeeIntoForm = (employee: Employee) => {
+    const parsedAddress = parseAddress(employee.address)
     setEditingEmployeeId(employee.employeeId)
     setForm({
       empName: employee.empName || "",
       idNumber: employee.idNumber || "",
       mobile: employee.mobile || "",
-      address: employee.address || "",
+      addressLine1: parsedAddress.line1 || "",
+      addressLine2: parsedAddress.line2 || "",
+      city: parsedAddress.city || "",
+      district: parsedAddress.district || "",
+      state: parsedAddress.state || "",
+      postalCode: parsedAddress.postalCode || "",
       designation: employee.designation || "",
       salaryPerday: String(employee.salaryPerday || 0),
       startDate: toDateInput(employee.startDate),
@@ -195,25 +214,29 @@ export function EmployeeMasterForm({
       facePhotoUrl: employee.facePhotoUrl || "",
       isAttendanceEligible: employee.isAttendanceEligible !== false,
       isTechnician: Boolean(employee.isTechnician),
+      deregisterDevice: false,
     })
     setIsModalOpen(true)
+    setModalSuccessMessage("")
   }
 
-  const handleAddNew = () => {
+  const handleAddNew = useCallback(() => {
     setEditingEmployeeId(null)
     setForm(defaultForm)
+    setModalSuccessMessage("")
     setIsModalOpen(true)
-  }
+  }, [defaultForm])
 
-  const handleModalOpenChange = (open: boolean) => {
+  const handleModalOpenChange = useCallback((open: boolean) => {
     setIsModalOpen(open)
     if (!open) {
       setEditingEmployeeId(null)
       setForm(defaultForm)
+      setModalSuccessMessage("")
     }
-  }
+  }, [defaultForm])
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!form.empName.trim() || !form.idNumber.trim() || !form.mobile.trim()) {
       toast.error("EmpName, IDNumber, and Mobile are required")
       return
@@ -231,7 +254,14 @@ export function EmployeeMasterForm({
         empName: form.empName.trim(),
         idNumber: form.idNumber.trim(),
         mobile: normalizeMobileNumber(form.mobile),
-        address: form.address.trim(),
+        address: composeAddress({
+          line1: form.addressLine1,
+          line2: form.addressLine2,
+          city: form.city,
+          district: form.district,
+          state: form.state,
+          postalCode: form.postalCode,
+        }),
         designation: form.designation.trim(),
         salaryPerday: Number(form.salaryPerday || 0),
         startDate: form.startDate || null,
@@ -241,6 +271,7 @@ export function EmployeeMasterForm({
         facePhotoUrl: form.facePhotoUrl || null,
         isAttendanceEligible: form.isAttendanceEligible,
         isTechnician: form.isTechnician,
+        deregisterDevice: form.deregisterDevice,
       }
 
       const url = editingEmployeeId ? `/api/employees/${editingEmployeeId}` : "/api/employees"
@@ -263,11 +294,17 @@ export function EmployeeMasterForm({
       if (data?.employeeId) {
         const updated = data as Employee
         setEditingEmployeeId(updated.employeeId)
+        const parsedAddress = parseAddress(updated.address)
         setForm({
           empName: updated.empName || "",
           idNumber: updated.idNumber || "",
           mobile: updated.mobile || "",
-          address: updated.address || "",
+          addressLine1: parsedAddress.line1 || "",
+          addressLine2: parsedAddress.line2 || "",
+          city: parsedAddress.city || "",
+          district: parsedAddress.district || "",
+          state: parsedAddress.state || "",
+          postalCode: parsedAddress.postalCode || "",
           designation: updated.designation || "",
           salaryPerday: String(updated.salaryPerday || 0),
           startDate: toDateInput(updated.startDate),
@@ -277,18 +314,24 @@ export function EmployeeMasterForm({
           facePhotoUrl: updated.facePhotoUrl || "",
           isAttendanceEligible: updated.isAttendanceEligible !== false,
           isTechnician: Boolean(updated.isTechnician),
+          deregisterDevice: false,
         })
       }
 
-      setIsModalOpen(false)
-      setEditingEmployeeId(null)
-      setForm(defaultForm)
+      if (editingEmployeeId) {
+        setModalSuccessMessage("Employee details updated")
+      } else {
+        setIsModalOpen(false)
+        setEditingEmployeeId(null)
+        setForm(defaultForm)
+        setModalSuccessMessage("")
+      }
     } catch (error) {
       errorAction(error instanceof Error ? error.message : "Failed to save employee")
     } finally {
       setIsSaving(false)
     }
-  }
+  }, [form, editingEmployeeId, loadEmployees, defaultForm])
 
   const handleArchive = async () => {
     if (!editingEmployeeId) return
@@ -308,6 +351,7 @@ export function EmployeeMasterForm({
       setIsModalOpen(false)
       setEditingEmployeeId(null)
       setForm(defaultForm)
+      setModalSuccessMessage("")
       await loadEmployees()
     } catch (error) {
       errorAction(error instanceof Error ? error.message : "Failed to archive employee")
@@ -316,7 +360,7 @@ export function EmployeeMasterForm({
     }
   }
 
-  const handleDeleteFromList = async (employeeId: number) => {
+  const handleDeleteFromList = useCallback(async (employeeId: number) => {
     setIsSaving(true)
     try {
       const response = await fetch(`/api/employees/${employeeId}`, {
@@ -332,6 +376,7 @@ export function EmployeeMasterForm({
       if (editingEmployeeId === employeeId) {
         setEditingEmployeeId(null)
         setForm(defaultForm)
+        setModalSuccessMessage("")
         setIsModalOpen(false)
       }
       await loadEmployees()
@@ -340,7 +385,7 @@ export function EmployeeMasterForm({
     } finally {
       setIsSaving(false)
     }
-  }
+  }, [editingEmployeeId, loadEmployees])
 
   const handlePhotoUpload = async (file: File) => {
     const formData = new FormData()
@@ -369,7 +414,7 @@ export function EmployeeMasterForm({
 
   return (
     <div className="space-y-4">
-      <Card className="p-4 md:p-5">
+      <div>
         <div className="flex items-center justify-between gap-2 mb-4">
           <h2 className="text-base font-semibold">Employee List</h2>
         </div>
@@ -451,17 +496,17 @@ export function EmployeeMasterForm({
             type="button"
             onClick={handleAddNew}
             disabled={isSaving}
-            className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
+            className="global-bottom-btn-add"
             variant="ghost"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Employee
           </Button>
         </div>
-      </Card>
+      </div>
 
       <Dialog open={isModalOpen} onOpenChange={handleModalOpenChange}>
-        <DialogContent className="max-w-3xl lg:max-w-5xl max-h-[98vh] overflow-hidden">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-semibold">
               {editingEmployeeId ? "Edit Employee" : "Add New Employee"}
@@ -472,7 +517,15 @@ export function EmployeeMasterForm({
           </DialogHeader>
 
           <div className="border border-slate-200 rounded-lg bg-white p-4 space-y-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-1 items-start">
+            {modalSuccessMessage ? (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                {modalSuccessMessage}
+              </div>
+            ) : null}
+            <div
+              className="grid gap-3 mt-1 items-start"
+              style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}
+            >
               <div className="space-y-2">
                 <Label htmlFor="employee-emp-name">Emp Name</Label>
                 <Input
@@ -505,25 +558,80 @@ export function EmployeeMasterForm({
                 />
               </div>
 
-              <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                <Label htmlFor="employee-address">Address</Label>
-                <Textarea
-                  id="employee-address"
-                  value={form.address}
-                  onChange={(event) => setForm((prev) => ({ ...prev, address: event.target.value }))}
-                  rows={3}
+              <div className="space-y-2">
+                <Label htmlFor="employee-address-line-1">Address Line 1 (Apartment, Suite, Unit)</Label>
+                <Input
+                  id="employee-address-line-1"
+                  value={form.addressLine1}
+                  onChange={(event) => setForm((prev) => ({ ...prev, addressLine1: event.target.value }))}
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="employee-address-line-2">Address Line 2 (Street Address)</Label>
+                <Input
+                  id="employee-address-line-2"
+                  value={form.addressLine2}
+                  onChange={(event) => setForm((prev) => ({ ...prev, addressLine2: event.target.value }))}
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="employee-city">City</Label>
+                <Input
+                  id="employee-city"
+                  value={form.city}
+                  onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))}
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="employee-state">State</Label>
+                <Input
+                  id="employee-state"
+                  value={form.state}
+                  onChange={(event) => setForm((prev) => ({ ...prev, state: event.target.value }))}
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="employee-postal-code">Postal Code</Label>
+                <Input
+                  id="employee-postal-code"
+                  value={form.postalCode}
+                  onChange={(event) => setForm((prev) => ({ ...prev, postalCode: event.target.value }))}
                   autoComplete="off"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="employee-designation">Designation</Label>
-                <Input
+                <select
                   id="employee-designation"
                   value={form.designation}
                   onChange={(event) => setForm((prev) => ({ ...prev, designation: event.target.value }))}
-                  autoComplete="off"
-                />
+                  className="flex h-10 w-full rounded-sm border border-border/90 bg-muted/30 px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60 md:text-sm"
+                >
+                  <option value="">Select Designation</option>
+                  <option value="Mechanic">Mechanic</option>
+                  <option value="Electrician">Electrician</option>
+                  <option value="Accountant">Accountant</option>
+                  <option value="Supervisor">Supervisor</option>
+                  <option value="Manager">Manager</option>
+                  <option value="AC Technician">AC Technician</option>
+                  <option value="Denter">Denter</option>
+                  <option value="Painter">Painter</option>
+                  <option value="Patch Worker">Patch Worker</option>
+                  <option value="Welder">Welder</option>
+                  <option value="Helper">Helper</option>
+                  <option value="Driver">Driver</option>
+                  <option value="Office Boy">Office Boy</option>
+                  <option value="Receptionist">Receptionist</option>
+                </select>
               </div>
 
               <div className="space-y-2">
@@ -549,7 +657,7 @@ export function EmployeeMasterForm({
                 />
               </div>
 
-              <div className="md:col-span-2 lg:col-span-3">
+              <div className="md:col-span-2 lg:col-span-4">
                 <input
                   ref={photoInputRef}
                   type="file"
@@ -566,13 +674,14 @@ export function EmployeeMasterForm({
                 <div className="flex items-start justify-between gap-4 pt-2">
                   <div className="flex flex-col items-start gap-1 shrink-0" style={{ width: "2.75cm" }}>
                     <div
-                      className="rounded-md border overflow-hidden bg-slate-50 w-full"
+                      className="rounded-md border overflow-hidden bg-slate-50 w-full relative"
                       style={{ height: "3cm" }}
                     >
-                      <img
+                      <Image
                         src={form.facePhotoUrl || "/dummy-profile.svg"}
                         alt="Employee face"
-                        className={form.facePhotoUrl ? "h-full w-full object-cover" : "h-full w-full object-contain p-4"}
+                        fill
+                        className={form.facePhotoUrl ? "object-cover" : "object-contain p-4"}
                       />
                     </div>
                     <Button
@@ -596,6 +705,7 @@ export function EmployeeMasterForm({
                         onCheckedChange={(checked) =>
                           setForm((prev) => ({ ...prev, isTechnician: checked === true }))
                         }
+                        className="w-4 h-4 aspect-square"
                       />
                       <Label htmlFor="employee-is-technician">Mark this employee as Technician</Label>
                     </div>
@@ -608,9 +718,25 @@ export function EmployeeMasterForm({
                         onCheckedChange={(checked) =>
                           setForm((prev) => ({ ...prev, isAttendanceEligible: checked === true }))
                         }
+                        className="w-4 h-4 aspect-square"
                       />
                       <Label htmlFor="employee-attendance-eligible">
                         Allow this employee to use mobile attendance
+                      </Label>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="employee-deregister-device"
+                        checked={form.deregisterDevice}
+                        disabled={!editingEmployeeId}
+                        onCheckedChange={(checked) =>
+                          setForm((prev) => ({ ...prev, deregisterDevice: checked === true }))
+                        }
+                        className="w-4 h-4 aspect-square"
+                      />
+                      <Label htmlFor="employee-deregister-device">
+                        De-register device
                       </Label>
                     </div>
 
@@ -631,6 +757,7 @@ export function EmployeeMasterForm({
                 variant="outline"
                 onClick={() => handleModalOpenChange(false)}
                 disabled={isSaving}
+                className="px-4 py-2 min-h-[40px]"
               >
                 Cancel
               </Button>
@@ -638,7 +765,7 @@ export function EmployeeMasterForm({
                 type="button"
                 onClick={handleSave}
                 disabled={isSaving}
-                className="bg-blue-600 text-white hover:bg-blue-700"
+                className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 min-h-[40px]"
               >
                 {isSaving ? "Saving..." : editingEmployeeId ? "Update" : "Save"}
               </Button>
@@ -648,6 +775,7 @@ export function EmployeeMasterForm({
                   variant="destructive"
                   onClick={handleArchive}
                   disabled={isSaving}
+                  className="px-4 py-2 min-h-[40px]"
                 >
                   Archive Employee
                 </Button>

@@ -88,8 +88,6 @@ export async function POST(request: NextRequest) {
     model = toProperCase(model.trim())
     color = color ? toProperCase(color.trim()) : null
 
-    console.log("[VEHICLES_POST] Received data:", { registrationNumber, make, model, year, color, lastCustomerId })
-
     // Check if vehicle already exists
     const existingVehicle = await prisma.vehicle.findUnique({
       where: { registrationNumber },
@@ -185,7 +183,6 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    console.log("[VEHICLES_POST] Vehicle created successfully:", newVehicle)
     return NextResponse.json(newVehicle, { status: 201 })
   } catch (error) {
     console.error("[VEHICLES_POST]", error)

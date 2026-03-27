@@ -150,9 +150,16 @@ const formatDate = (dateStr?: string | null) => {
 
 const normalizeText = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "")
 
-export default function MaintenanceTracker() {
+export default function MaintenanceTracker({
+  externalSearch,
+  onExternalSearchChange,
+}: {
+  externalSearch?: string
+  onExternalSearchChange?: (value: string) => void
+} = {}) {
   const [jobcards, setJobcards] = useState<DeliveredJobCard[]>([])
   const [searchTerm, setSearchTerm] = useState("")
+  const effectiveSearchTerm = externalSearch !== undefined ? externalSearch : searchTerm
   const [isLoading, setIsLoading] = useState(true)
   const [selectedRecord, setSelectedRecord] = useState<MaintenanceRecord | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -164,7 +171,7 @@ export default function MaintenanceTracker() {
     const fetchData = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch("/api/maintenance/tracker")
+        const response = await fetch("/api/maintenance/tracker", { next: { revalidate: 60 } })
         if (!response.ok) throw new Error("Failed to fetch maintenance data")
 
         const data = await response.json()
@@ -225,7 +232,7 @@ export default function MaintenanceTracker() {
 
   // Get filtered vehicles and customers for dropdown based on search term
   const dropdownVehicles = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase()
+    const query = effectiveSearchTerm.trim().toLowerCase()
     if (!query) return []
 
     const resultsMap = new Map<string, VehicleSearchResult>()
@@ -259,17 +266,22 @@ export default function MaintenanceTracker() {
     })
     
     return Array.from(resultsMap.values())
-  }, [jobcards, searchTerm])
+  }, [jobcards, effectiveSearchTerm])
 
   function handleSelectVehicle(result: VehicleSearchResult) {
-    setSearchTerm(`${result.registrationNumber} ${result.customerName}`)
+    const combined = `${result.registrationNumber} ${result.customerName}`
+    if (externalSearch !== undefined && onExternalSearchChange) {
+      onExternalSearchChange(combined)
+    } else {
+      setSearchTerm(combined)
+    }
     setShowDropdown(false)
     setHighlightIndex(0)
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (!showDropdown) {
-      if (e.key === "ArrowDown" && searchTerm.trim().length > 0) {
+      if (e.key === "ArrowDown" && effectiveSearchTerm.trim().length > 0) {
         setShowDropdown(true)
         setHighlightIndex(0)
       }
@@ -277,7 +289,7 @@ export default function MaintenanceTracker() {
     }
 
     // Get the appropriate list to navigate
-    const items = searchTerm.trim().length > 0 ? dropdownVehicles : uniqueVehiclesByDelivery
+    const items = effectiveSearchTerm.trim().length > 0 ? dropdownVehicles : uniqueVehiclesByDelivery
     
     if (items.length === 0) return
 
@@ -289,13 +301,17 @@ export default function MaintenanceTracker() {
       setHighlightIndex((i) => Math.max(i - 1, 0))
     } else if (e.key === "Enter") {
       e.preventDefault()
-      if (searchTerm.trim().length > 0) {
+      if (effectiveSearchTerm.trim().length > 0) {
         const vehicle = dropdownVehicles[highlightIndex]
         if (vehicle) handleSelectVehicle(vehicle)
       } else {
         const vehicle = uniqueVehiclesByDelivery[highlightIndex]
         if (vehicle) {
-          setSearchTerm(vehicle.registrationNumber)
+          if (externalSearch !== undefined && onExternalSearchChange) {
+            onExternalSearchChange(vehicle.registrationNumber)
+          } else {
+            setSearchTerm(vehicle.registrationNumber)
+          }
           setShowDropdown(false)
           setHighlightIndex(0)
         }
@@ -306,7 +322,7 @@ export default function MaintenanceTracker() {
   }
 
   const filteredJobcards = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase()
+    const query = effectiveSearchTerm.trim().toLowerCase()
     if (!query) return jobcards
 
     const tokens = query.split(/\s+/).filter(Boolean)
@@ -346,7 +362,7 @@ export default function MaintenanceTracker() {
       })))
     }
     return filtered
-  }, [jobcards, searchTerm])
+  }, [jobcards, effectiveSearchTerm])
 
   const records = useMemo(() => filterMaintenanceVehicles(filteredJobcards), [filteredJobcards])
 
@@ -497,7 +513,7 @@ export default function MaintenanceTracker() {
   }
 
   const MaintenanceTable = ({ data, showPaymentStatus = false, showBothStatuses = false }: { data: MaintenanceRecord[], showPaymentStatus?: boolean, showBothStatuses?: boolean }) => (
-    <div className="bg-white rounded-lg border border-border p-6">
+    <div className="global-form-shell">
       <div className="overflow-x-auto border rounded-lg bg-white">
         <Table>
         <TableHeader>
@@ -648,6 +664,7 @@ export default function MaintenanceTracker() {
 
   return (
     <div className="space-y-6">
+      {externalSearch === undefined && (
       <div className="flex justify-end -mt-[3.5rem] mb-6">
         <div className="relative w-96" ref={containerRef}>
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -738,6 +755,7 @@ export default function MaintenanceTracker() {
               )}
         </div>
       </div>
+      )}
 
       <Tabs defaultValue="all" className="w-full">
           <TabsList>

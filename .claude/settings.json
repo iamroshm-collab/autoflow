@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/c/Users/Thakkudu/Desktop/new-garage-app/**)",
+      "Bash(grep -r placeholder /c/Users/Thakkudu/Desktop/new-garage-app/components /c/Users/Thakkudu/Desktop/new-garage-app/app --include=*.tsx)",
+      "Read(//c/Users/Thakkudu/Desktop/new-garage-app/**)",
+      "Bash(for file:*)",
+      "Bash(do echo:*)",
+      "Bash(__NEW_LINE_7457f5b172d97707__ grep:*)",
+      "Bash(head -5 grep -n \"btn\\\\|Save\\\\|Button\" \"c:/Users/Thakkudu/Desktop/new-garage-app/components/dashboard/new-job-card-form.tsx\")"
+    ]
+  }
+}

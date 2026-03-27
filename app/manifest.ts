@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next"
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "AutoFlow Technician",
-    short_name: "Tech",
-    description: "Technician job console for AutoFlow garage management",
-    start_url: "/tech",
+    name: "AutoFlow",
+    short_name: "AutoFlow",
+    description: "Garage management system for service tracking and billing",
+    start_url: "/",
     display: "standalone",
     background_color: "#f8fafc",
     theme_color: "#0f172a",
@@ -15,7 +15,7 @@ export default function manifest(): MetadataRoute.Manifest {
         src: "/tech-icon.svg",
         sizes: "any",
         type: "image/svg+xml",
-        purpose: "any maskable",
+        purpose: "maskable",
       },
     ],
   }

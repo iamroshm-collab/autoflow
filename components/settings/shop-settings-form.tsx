@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { notify } from "@/components/ui/notify"
 import { startAction, successAction, errorAction } from "@/lib/action-feedback"
 import { parseJsonResponse } from "@/lib/http"
+import { composeAddress, parseAddress } from "@/lib/address-utils"
 import { LocateFixed, Save } from "lucide-react"
 
 interface State {
@@ -57,7 +58,11 @@ const initialFormData: ShopSettingsData = {
   attendanceRadiusMeters: "20",
 }
 
-export default function ShopSettingsForm() {
+interface ShopSettingsFormProps {
+  panelCornerClass?: string
+}
+
+export default function ShopSettingsForm({ panelCornerClass = "" }: ShopSettingsFormProps) {
   const [formData, setFormData] = useState<ShopSettingsData>(initialFormData)
   const [isLoading, setIsLoading] = useState(false)
   const [isFetching, setIsFetching] = useState(true)
@@ -67,13 +72,35 @@ export default function ShopSettingsForm() {
   const [stateFilter, setStateFilter] = useState("")
   const [showStateDropdown, setShowStateDropdown] = useState(false)
   const [stateSelectedIndex, setStateSelectedIndex] = useState(-1)
+  const [addressFields, setAddressFields] = useState({
+    addressLine1: "",
+    addressLine2: "",
+    city: "",
+    district: "",
+    postalCode: "",
+  })
 
   const stateListRef = useRef<HTMLDivElement | null>(null)
   const stateOptionRefs = useRef<(HTMLButtonElement | null)[]>([])
 
+  // Stable refs so custom event listeners never go stale
+  const handleSaveRef = useRef<() => Promise<void>>(async () => {})
+  const loadSettingsRef = useRef<() => Promise<void>>(async () => {})
+
   useEffect(() => {
     loadStates()
     loadSettings()
+  }, [])
+
+  useEffect(() => {
+    const onSave = () => handleSaveRef.current()
+    const onReset = () => loadSettingsRef.current()
+    window.addEventListener("shopSettings:save", onSave)
+    window.addEventListener("shopSettings:reset", onReset)
+    return () => {
+      window.removeEventListener("shopSettings:save", onSave)
+      window.removeEventListener("shopSettings:reset", onReset)
+    }
   }, [])
 
   useEffect(() => {
@@ -115,7 +142,7 @@ export default function ShopSettingsForm() {
 
   const loadStates = async () => {
     try {
-      const response = await fetch("/api/settings/states")
+      const response = await fetch("/api/settings/states", { cache: 'force-cache' })
       const data = await parseJsonResponse<any[]>(response, "Failed to load states")
       if (Array.isArray(data)) {
         const formattedStates = data.map((s) => ({
@@ -133,7 +160,7 @@ export default function ShopSettingsForm() {
   const loadSettings = async () => {
     try {
       setIsFetching(true)
-      const response = await fetch("/api/settings/shop")
+      const response = await fetch("/api/settings/shop", { cache: 'force-cache' })
       const data = await parseJsonResponse<Partial<ShopSettingsData>>(response, "Failed to load settings")
 
       // Ensure no null values - convert to empty strings
@@ -158,6 +185,14 @@ export default function ShopSettingsForm() {
         attendanceRadiusMeters: String(data.attendanceRadiusMeters ?? "20"),
       }
       setFormData(sanitizedData)
+      const parsedAddress = parseAddress(sanitizedData.address)
+      setAddressFields({
+        addressLine1: parsedAddress.line1 ?? "",
+        addressLine2: parsedAddress.line2 ?? "",
+        city: parsedAddress.city || sanitizedData.city,
+        district: parsedAddress.district ?? "",
+        postalCode: parsedAddress.postalCode || sanitizedData.pincode,
+      })
     } catch (error) {
       console.error("Error loading settings:", error)
       errorAction(error instanceof Error ? error.message : "Failed to load settings")
@@ -176,12 +211,28 @@ export default function ShopSettingsForm() {
       setIsLoading(true)
       startAction("Saving shop settings...")
 
+      const payload: ShopSettingsData = {
+        ...formData,
+        address: composeAddress(
+          {
+            line1: addressFields.addressLine1,
+            line2: addressFields.addressLine2,
+            city: addressFields.city,
+            district: addressFields.district,
+            postalCode: addressFields.postalCode,
+          },
+          { includeState: false }
+        ),
+        city: addressFields.city,
+        pincode: addressFields.postalCode,
+      }
+
       const response = await fetch("/api/settings/shop", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       })
 
       const data = await parseJsonResponse<Partial<ShopSettingsData>>(response, "Failed to save settings")
@@ -208,6 +259,14 @@ export default function ShopSettingsForm() {
         attendanceRadiusMeters: String(data.attendanceRadiusMeters ?? "20"),
       }
       setFormData(sanitizedData)
+      const parsedAddress = parseAddress(sanitizedData.address)
+      setAddressFields({
+        addressLine1: parsedAddress.line1 ?? "",
+        addressLine2: parsedAddress.line2 ?? "",
+        city: parsedAddress.city || sanitizedData.city,
+        district: parsedAddress.district ?? "",
+        postalCode: parsedAddress.postalCode || sanitizedData.pincode,
+      })
       successAction("Shop settings saved successfully")
     } catch (error) {
       console.error("Error saving settings:", error)
@@ -265,6 +324,9 @@ export default function ShopSettingsForm() {
     }
   }
 
+  handleSaveRef.current = handleSave
+  loadSettingsRef.current = loadSettings
+
   if (isFetching) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -274,19 +336,10 @@ export default function ShopSettingsForm() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="border border-slate-200 rounded-lg bg-white p-6">
-        <div>
-          <h3 className="text-lg font-semibold">Shop Settings</h3>
-          <p className="text-muted-foreground text-sm mt-1">
-            Configure your shop details that will appear on invoices and documents
-          </p>
-          <p className="text-muted-foreground text-sm mt-1">
-            Set the garage latitude and longitude for mobile attendance geo-fencing.
-          </p>
-        </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="h-full min-h-0">
+      <div className={`global-settings-panel border border-slate-200 bg-white ${panelCornerClass}`}>
+        <div className="global-settings-content lock-desktop">
+          <div className="global-settings-grid">
         {/* Shop Name */}
         <div>
           <Label htmlFor="shopName" className="text-sm font-medium">
@@ -299,23 +352,35 @@ export default function ShopSettingsForm() {
             onChange={(e) => handleChange("shopName", e.target.value)}
             disabled={isLoading}
             placeholder="Enter shop name"
-            className="mt-1.5"
+            className="global-settings-field"
           />
         </div>
 
-        {/* Address */}
-        <div className="md:col-span-2">
-          <Label htmlFor="address" className="text-sm font-medium">
-            Address
+        <div>
+          <Label htmlFor="addressLine1" className="text-sm font-medium">
+            Address Line 1
           </Label>
           <Input
-            id="address"
-            name="address"
-            value={formData.address}
-            onChange={(e) => handleChange("address", e.target.value)}
+            id="addressLine1"
+            value={addressFields.addressLine1}
+            onChange={(e) => setAddressFields((prev) => ({ ...prev, addressLine1: e.target.value }))}
             disabled={isLoading}
-            placeholder="Enter shop address"
-            className="mt-1.5"
+            placeholder="Apartment, Suite, Unit, Building"
+            className="global-settings-field"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="addressLine2" className="text-sm font-medium">
+            Address Line 2
+          </Label>
+          <Input
+            id="addressLine2"
+            value={addressFields.addressLine2}
+            onChange={(e) => setAddressFields((prev) => ({ ...prev, addressLine2: e.target.value }))}
+            disabled={isLoading}
+            placeholder="Street address"
+            className="global-settings-field"
           />
         </div>
 
@@ -327,11 +392,25 @@ export default function ShopSettingsForm() {
           <Input
             id="city"
             name="city"
-            value={formData.city}
-            onChange={(e) => handleChange("city", e.target.value)}
+            value={addressFields.city}
+            onChange={(e) => setAddressFields((prev) => ({ ...prev, city: e.target.value }))}
             disabled={isLoading}
             placeholder="Enter city"
-            className="mt-1.5"
+            className="global-settings-field"
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="district" className="text-sm font-medium">
+            District
+          </Label>
+          <Input
+            id="district"
+            value={addressFields.district}
+            onChange={(e) => setAddressFields((prev) => ({ ...prev, district: e.target.value }))}
+            disabled={isLoading}
+            placeholder="Enter district"
+            className="global-settings-field"
           />
         </div>
 
@@ -343,55 +422,12 @@ export default function ShopSettingsForm() {
           <Input
             id="pincode"
             name="pincode"
-            value={formData.pincode}
-            onChange={(e) => handleChange("pincode", e.target.value)}
+            value={addressFields.postalCode}
+            onChange={(e) => setAddressFields((prev) => ({ ...prev, postalCode: e.target.value }))}
             disabled={isLoading}
             placeholder="Enter pincode"
-            className="mt-1.5"
+            className="global-settings-field"
           />
-        </div>
-
-        <div>
-          <Label htmlFor="garageLatitude" className="text-sm font-medium">
-            Garage Latitude
-          </Label>
-          <Input
-            id="garageLatitude"
-            name="garageLatitude"
-            value={formData.garageLatitude}
-            onChange={(e) => handleChange("garageLatitude", e.target.value)}
-            disabled={isLoading}
-            placeholder="12.9715987"
-            className="mt-1.5"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="garageLongitude" className="text-sm font-medium">
-            Garage Longitude
-          </Label>
-          <Input
-            id="garageLongitude"
-            name="garageLongitude"
-            value={formData.garageLongitude}
-            onChange={(e) => handleChange("garageLongitude", e.target.value)}
-            disabled={isLoading}
-            placeholder="77.594566"
-            className="mt-1.5"
-          />
-        </div>
-
-        <div className="md:col-span-3 flex justify-start">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={useCurrentLocation}
-            disabled={isLoading || isFetchingLocation}
-            className="mt-1.5 gap-2"
-          >
-            <LocateFixed className="h-4 w-4" />
-            {isFetchingLocation ? "Capturing Location..." : "Use Current Location"}
-          </Button>
         </div>
 
         <div>
@@ -407,8 +443,42 @@ export default function ShopSettingsForm() {
             onChange={(e) => handleChange("attendanceRadiusMeters", e.target.value)}
             disabled={isLoading}
             placeholder="20"
-            className="mt-1.5"
+            className="global-settings-field"
           />
+        </div>
+
+        <div>
+          <Label className="text-sm font-medium">Geo Location</Label>
+          <div className="global-settings-geo-row">
+            <Input
+              id="garageLatitude"
+              name="garageLatitude"
+              value={formData.garageLatitude}
+              onChange={(e) => handleChange("garageLatitude", e.target.value)}
+              disabled={isLoading}
+              placeholder="Latitude"
+              className="global-settings-geo-input"
+            />
+            <Input
+              id="garageLongitude"
+              name="garageLongitude"
+              value={formData.garageLongitude}
+              onChange={(e) => handleChange("garageLongitude", e.target.value)}
+              disabled={isLoading}
+              placeholder="Longitude"
+              className="global-settings-geo-input"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={useCurrentLocation}
+              disabled={isLoading || isFetchingLocation}
+              className="global-settings-geo-btn text-sky-600 hover:bg-sky-100 hover:text-sky-700"
+              title="Use Current Location"
+            >
+              <LocateFixed className={`h-4 w-4 ${isFetchingLocation ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
         </div>
 
         {/* State Name */}
@@ -472,7 +542,7 @@ export default function ShopSettingsForm() {
               }}
               disabled={isLoading}
               autoComplete="off"
-              className="mt-1.5"
+              className="global-settings-field"
             />
             {showStateDropdown && (
               <div
@@ -537,7 +607,7 @@ export default function ShopSettingsForm() {
             value={formData.stateId}
             disabled={true}
             placeholder="Auto-populated"
-            className="mt-1.5 bg-slate-50"
+            className="global-settings-field bg-slate-50"
           />
         </div>
         <div>
@@ -551,7 +621,7 @@ export default function ShopSettingsForm() {
             onChange={(e) => handleChange("phone1", e.target.value)}
             disabled={isLoading}
             placeholder="Enter primary phone"
-            className="mt-1.5"
+            className="global-settings-field"
           />
         </div>
 
@@ -567,12 +637,12 @@ export default function ShopSettingsForm() {
             onChange={(e) => handleChange("phone2", e.target.value)}
             disabled={isLoading}
             placeholder="Enter secondary phone"
-            className="mt-1.5"
+            className="global-settings-field"
           />
         </div>
 
         {/* Email */}
-        <div className="md:col-span-2">
+        <div>
           <Label htmlFor="email" className="text-sm font-medium">
             Email
           </Label>
@@ -584,7 +654,7 @@ export default function ShopSettingsForm() {
             onChange={(e) => handleChange("email", e.target.value)}
             disabled={isLoading}
             placeholder="Enter email address"
-            className="mt-1.5"
+            className="global-settings-field"
           />
         </div>
 
@@ -597,11 +667,11 @@ export default function ShopSettingsForm() {
             id="upiId"
             name="upiId"
             value={formData.upiId}
-            onChange={(e) => handleChange("upiId", e.target.value)}
+            onChange={(e) => handleChange("upiId", e.target.value.toLowerCase())}
             disabled={isLoading}
             placeholder="Enter UPI ID (e.g., garage@upi)"
             autoComplete="off"
-            className="mt-1.5"
+            className="global-settings-field"
           />
         </div>
 
@@ -617,7 +687,7 @@ export default function ShopSettingsForm() {
             onChange={(e) => handleChange("gstin", e.target.value)}
             disabled={isLoading}
             placeholder="Enter GSTIN"
-            className="mt-1.5"
+            className="global-settings-field"
           />
         </div>
 
@@ -633,7 +703,7 @@ export default function ShopSettingsForm() {
             onChange={(e) => handleChange("pan", e.target.value)}
             disabled={isLoading}
             placeholder="Enter PAN"
-            className="mt-1.5"
+            className="global-settings-field"
           />
         </div>
 
@@ -649,31 +719,11 @@ export default function ShopSettingsForm() {
             onChange={(e) => handleChange("website", e.target.value)}
             disabled={isLoading}
             placeholder="Enter website URL"
-            className="mt-1.5"
+            className="global-settings-field"
           />
         </div>
-      </div>
-
-      <div className="sticky-form-actions flex justify-end gap-5 pt-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={loadSettings}
-          disabled={isLoading || isFetching}
-          className="bg-white hover:bg-gray-100"
-        >
-          Reset
-        </Button>
-        <Button
-          type="button"
-          onClick={handleSave}
-          disabled={isLoading || isFetching}
-          className="gap-2 bg-blue-600 text-white hover:bg-blue-700"
-        >
-          <Save className="h-4 w-4" />
-          Save Settings
-        </Button>
-      </div>
+          </div>
+        </div>
       </div>
     </div>
   )

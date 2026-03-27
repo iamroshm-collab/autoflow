@@ -145,7 +145,7 @@ export default function PurchaseEntryForm() {
 
   const fetchSuppliers = async () => {
     try {
-      const response = await fetch("/api/inventory/suppliers")
+      const response = await fetch("/api/inventory/suppliers", { cache: 'force-cache' })
       const data = await response.json()
       setSuppliers(Array.isArray(data) ? data : [])
     } catch {
@@ -155,7 +155,7 @@ export default function PurchaseEntryForm() {
 
   const fetchProducts = async (supplierId: number) => {
     try {
-      const response = await fetch(`/api/inventory/products?supplierId=${supplierId}`)
+      const response = await fetch(`/api/inventory/products?supplierId=${supplierId}`, { cache: 'force-cache' })
       const data = await response.json()
       setProducts(Array.isArray(data) ? data : [])
     } catch {
@@ -173,7 +173,7 @@ export default function PurchaseEntryForm() {
 
   const loadPurchaseById = async (id: number): Promise<PurchaseRecord | null> => {
     try {
-      const response = await fetch(`/api/purchases?id=${id}`)
+      const response = await fetch(`/api/purchases?id=${id}`, { next: { revalidate: 60 } })
       const data = await response.json()
       if (!response.ok) {
         throw new Error(data?.error || "Failed to load purchase")
@@ -551,10 +551,10 @@ export default function PurchaseEntryForm() {
             <thead className="bg-slate-100/80">
               <tr>
                 <th className="text-left font-medium px-3 py-2" style={{ width: "42%" }}>Product</th>
-                <th className="text-left font-medium px-3 py-2" style={{ width: "9%" }}>Qty</th>
-                <th className="text-left font-medium px-3 py-2" style={{ width: "15%" }}>Unit Price</th>
+                <th className="text-center font-medium px-3 py-2" style={{ width: "9%" }}>Qty</th>
+                <th className="text-center font-medium px-3 py-2" style={{ width: "15%" }}>Unit Price</th>
                 <th className="text-center font-medium px-3 py-2" style={{ width: "11%" }}>Edit Unit Price</th>
-                <th className="text-left font-medium px-3 py-2" style={{ width: "14%" }}>Total</th>
+                <th className="text-center font-medium px-3 py-2" style={{ width: "14%" }}>Total</th>
                 <th className="text-center font-medium px-3 py-2" style={{ width: "9%" }}>Action</th>
               </tr>
             </thead>
@@ -568,7 +568,7 @@ export default function PurchaseEntryForm() {
               ) : (
                 tableRows.map((row) => (
                   <tr key={row.id} className="border-t">
-                    <td className="p-2">
+                    <td className="p-2 text-left">
                       <select
                         value={row.productId ?? ""}
                         onChange={(event) =>
@@ -584,7 +584,7 @@ export default function PurchaseEntryForm() {
                         ))}
                       </select>
                     </td>
-                    <td className="p-2">
+                    <td className="p-2 text-center">
                       <Input
                         type="number"
                         min={0}
@@ -592,7 +592,7 @@ export default function PurchaseEntryForm() {
                         onChange={(event) => updateRow(row.id, { quantity: Number(event.target.value || 0) })}
                       />
                     </td>
-                    <td className="p-2">
+                    <td className="p-2 text-center">
                       <Input
                         type="number"
                         min={0}
@@ -612,7 +612,7 @@ export default function PurchaseEntryForm() {
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </td>
-                    <td className="p-2">
+                    <td className="p-2 text-center">
                       <Input readOnly value={rowTotal(row).toFixed(2)} className="bg-slate-100" />
                     </td>
                     <td className="p-2">
@@ -650,20 +650,20 @@ export default function PurchaseEntryForm() {
           <Button
             type="button"
             onClick={() => setIsNewPurchaseModalOpen(true)}
-            className="flex-1 justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent"
+            className="flex-1 justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-4 py-2 min-h-[40px]"
             variant="ghost"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Purchase
           </Button>
-          <Button type="button" variant="destructive" onClick={clearForm}>
+          <Button type="button" variant="destructive" onClick={clearForm} className="px-4 py-2 min-h-[40px]">
             Delete
           </Button>
           <Button
             type="button"
             onClick={() => void savePurchase()}
             disabled={isSaving || tableRows.length === 0}
-            className="bg-blue-600 text-white hover:bg-blue-700"
+            className="px-4 py-2 min-h-[40px] bg-blue-600 text-white hover:bg-blue-700"
           >
             <Save className="h-4 w-4 mr-2" />
             {isSaving ? "Saving..." : "Save"}
@@ -805,7 +805,7 @@ export default function PurchaseEntryForm() {
                   <Button
                     type="button"
                     onClick={addProductRow}
-                    className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent"
+                    className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-4 py-2 min-h-[40px]"
                     variant="ghost"
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -823,17 +823,18 @@ export default function PurchaseEntryForm() {
                   setIsNewPurchaseModalOpen(false)
                   setIsHeaderPrepared(false)
                 }}
+                className="px-4 py-2 min-h-[40px]"
               >
                 Cancel
               </Button>
               {!isHeaderPrepared ? (
-                <Button type="button" onClick={handleCreatePurchaseHeader}>
+                <Button type="button" onClick={handleCreatePurchaseHeader} className="px-4 py-2 min-h-[40px]">
                   Save Header
                 </Button>
               ) : (
                 <Button
                   type="button"
-                  className="bg-blue-600 text-white hover:bg-blue-700"
+                  className="px-4 py-2 min-h-[40px] bg-blue-600 text-white hover:bg-blue-700"
                   onClick={async () => {
                     const ok = await savePurchase()
                     if (ok) {
@@ -865,7 +866,7 @@ export default function PurchaseEntryForm() {
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Enter bill number"
               />
-              <Button type="button" onClick={() => void searchPurchases(searchQuery)} disabled={isSearching}>
+              <Button type="button" onClick={() => void searchPurchases(searchQuery)} disabled={isSearching} className="px-4 py-2 min-h-[40px]">
                 {isSearching ? "Searching..." : "Search"}
               </Button>
             </div>
@@ -897,10 +898,10 @@ export default function PurchaseEntryForm() {
                         <td className="px-3 py-2">{Array.isArray(result.purchaseDetails) ? result.purchaseDetails.length : 0}</td>
                         <td className="px-3 py-2">
                           <div className="flex gap-2">
-                            <Button type="button" variant="outline" onClick={() => void loadPurchaseToMain(result)}>
+                            <Button type="button" variant="outline" onClick={() => void loadPurchaseToMain(result)} className="px-4 py-2 min-h-[40px]">
                               Load
                             </Button>
-                            <Button type="button" onClick={() => void openEditForPurchase(result)}>
+                            <Button type="button" onClick={() => void openEditForPurchase(result)} className="px-4 py-2 min-h-[40px]">
                               Edit
                             </Button>
                           </div>
@@ -1033,7 +1034,7 @@ export default function PurchaseEntryForm() {
                 Add Product
               </Button>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 min-h-[40px]">
                   Cancel
                 </Button>
                 <Button
@@ -1043,6 +1044,7 @@ export default function PurchaseEntryForm() {
                     if (ok) setIsEditModalOpen(false)
                   }}
                   disabled={isSaving}
+                  className="px-4 py-2 min-h-[40px]"
                 >
                   {isSaving ? "Saving..." : "Save"}
                 </Button>
@@ -1071,10 +1073,10 @@ export default function PurchaseEntryForm() {
           </div>
 
           <DialogFooter className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setIsPriceModalOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => setIsPriceModalOpen(false)} className="px-4 py-2 min-h-[40px]">
               Cancel
             </Button>
-            <Button type="button" onClick={() => void submitPriceChange()}>
+            <Button type="button" onClick={() => void submitPriceChange()} className="px-4 py-2 min-h-[40px]">
               Save Price
             </Button>
           </DialogFooter>

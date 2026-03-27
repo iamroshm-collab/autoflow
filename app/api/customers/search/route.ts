@@ -5,8 +5,15 @@ export async function GET(request: NextRequest) {
   try {
     const query = request.nextUrl.searchParams.get("query")?.trim() || ""
 
-    if (!query) {
+    if (!query || query.length < 2) {
       return NextResponse.json([])
+    }
+
+    if (query.length > 100) {
+      return NextResponse.json(
+        { error: "Search query too long (max 100 characters)" },
+        { status: 400 }
+      )
     }
 
     const [customersByText, vehiclesByRegistration] = await Promise.all([

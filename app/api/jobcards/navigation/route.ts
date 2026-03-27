@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
       orderBy: {
         updatedAt: "desc",
       },
+      take: 2000,
     })
 
     // Filter out records with excluded vehicle status (case-insensitive)

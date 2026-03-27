@@ -1,13 +1,16 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import {
-  registerTechnicianPushToken,
-  setupTechnicianPushForegroundListener,
-} from "@/lib/firebase-web-push"
+  requestPushPermissionAndRegister,
+  setupForegroundPushListener,
+} from "@/lib/onesignal-web"
+
+export const dynamic = 'force-dynamic'
 
 type AllocationStatus = "assigned" | "accepted" | "in_progress" | "completed"
 
@@ -49,7 +52,11 @@ function formatDateTime(value?: string | null) {
   return date.toLocaleString()
 }
 
-export default function TechnicianPage() {
+function TechnicianPageContent() {
+  const searchParams = useSearchParams()
+  const linkedJobId = searchParams.get("jobId")?.trim() || ""
+  const linkedAllocationId = searchParams.get("allocationId")?.trim() || ""
+  const technicianIdFromQuery = searchParams.get("technicianId")?.trim() || ""
   const isSecureContextClient = typeof window !== "undefined" ? window.isSecureContext : true
   const [technicianIdInput, setTechnicianIdInput] = useState("")
   const [activeTechnicianId, setActiveTechnicianId] = useState<number | null>(null)
@@ -66,6 +73,16 @@ export default function TechnicianPage() {
   const hasInitializedAllocationsRef = useRef(false)
 
   useEffect(() => {
+    if (technicianIdFromQuery) {
+      const parsedFromQuery = Number(technicianIdFromQuery)
+      if (Number.isInteger(parsedFromQuery) && parsedFromQuery > 0) {
+        window.localStorage.setItem(TECHNICIAN_STORAGE_KEY, String(parsedFromQuery))
+        setActiveTechnicianId(parsedFromQuery)
+        setTechnicianIdInput(String(parsedFromQuery))
+        return
+      }
+    }
+
     const stored =
       window.localStorage.getItem(TECHNICIAN_STORAGE_KEY) ||
       window.localStorage.getItem("technician_employee_id")
@@ -75,7 +92,7 @@ export default function TechnicianPage() {
     window.localStorage.setItem(TECHNICIAN_STORAGE_KEY, String(parsed))
     setActiveTechnicianId(parsed)
     setTechnicianIdInput(String(parsed))
-  }, [])
+  }, [technicianIdFromQuery])
 
   async function loadJobs(technicianId: number, includeCompleted: boolean) {
     setLoadingJobs(true)
@@ -102,20 +119,22 @@ export default function TechnicianPage() {
 
   useEffect(() => {
     if (!activeTechnicianId) return
-    void loadJobs(activeTechnicianId, showAllJobs)
-  }, [activeTechnicianId, showAllJobs])
+    const includeCompleted = showAllJobs || Boolean(linkedAllocationId) || Boolean(linkedJobId)
+    void loadJobs(activeTechnicianId, includeCompleted)
+  }, [activeTechnicianId, linkedAllocationId, linkedJobId, showAllJobs])
 
   useEffect(() => {
     if (!activeTechnicianId) return
 
     const intervalId = window.setInterval(() => {
-      void loadJobs(activeTechnicianId, showAllJobs)
+      const includeCompleted = showAllJobs || Boolean(linkedAllocationId) || Boolean(linkedJobId)
+      void loadJobs(activeTechnicianId, includeCompleted)
     }, 15000)
 
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [activeTechnicianId, showAllJobs])
+  }, [activeTechnicianId, linkedAllocationId, linkedJobId, showAllJobs])
 
   useEffect(() => {
     if (!activeTechnicianId) return
@@ -158,10 +177,42 @@ export default function TechnicianPage() {
 
   useEffect(() => {
     if (!activeTechnicianId) return
+    if (!isSecureContextClient) return
+
+    const permission = typeof Notification !== "undefined" ? Notification.permission : "default"
+    if (permission === "denied") {
+      return
+    }
+
+    let cancelled = false
+
+    const register = async () => {
+      try {
+        await requestPushPermissionAndRegister(activeTechnicianId)
+        if (cancelled) return
+        window.localStorage.setItem(`${TECHNICIAN_PUSH_ENABLED_PREFIX}${activeTechnicianId}`, "1")
+        setNotificationsEnabled(true)
+        setTokenMessage("Notifications enabled for this device.")
+      } catch (error: any) {
+        if (cancelled) return
+        setNotificationsEnabled(false)
+        setTokenMessage(error?.message || "Unable to enable notifications automatically")
+      }
+    }
+
+    void register()
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeTechnicianId, isSecureContextClient])
+
+  useEffect(() => {
+    if (!activeTechnicianId) return
 
     let unsubscribe: (() => void) | null = null
 
-    void setupTechnicianPushForegroundListener()
+    void setupForegroundPushListener()
       .then((fn) => {
         if (typeof fn === "function") {
           unsubscribe = fn
@@ -180,11 +231,21 @@ export default function TechnicianPage() {
 
   const sortedAllocations = useMemo(() => {
     return [...allocations].sort((a, b) => {
+      if (linkedAllocationId) {
+        if (a.id === linkedAllocationId && b.id !== linkedAllocationId) return -1
+        if (b.id === linkedAllocationId && a.id !== linkedAllocationId) return 1
+      }
+
+      if (linkedJobId) {
+        if (a.jobCard?.id === linkedJobId && b.jobCard?.id !== linkedJobId) return -1
+        if (b.jobCard?.id === linkedJobId && a.jobCard?.id !== linkedJobId) return 1
+      }
+
       const aTime = new Date(a.assignedAt).getTime()
       const bTime = new Date(b.assignedAt).getTime()
       return bTime - aTime
     })
-  }, [allocations])
+  }, [allocations, linkedAllocationId, linkedJobId])
 
   async function activateTechnicianSession() {
     const parsed = Number(technicianIdInput)
@@ -199,7 +260,7 @@ export default function TechnicianPage() {
     try {
       setTokenSaving(true)
       setTokenMessage(null)
-      await registerTechnicianPushToken(parsed)
+      await requestPushPermissionAndRegister(parsed)
       window.localStorage.setItem(`${TECHNICIAN_PUSH_ENABLED_PREFIX}${parsed}`, "1")
       setNotificationsEnabled(true)
       setTokenMessage("Setup complete. Notifications enabled for this device.")
@@ -239,7 +300,8 @@ export default function TechnicianPage() {
       }
 
       if (activeTechnicianId) {
-        await loadJobs(activeTechnicianId, showAllJobs)
+        const includeCompleted = showAllJobs || Boolean(linkedAllocationId) || Boolean(linkedJobId)
+        await loadJobs(activeTechnicianId, includeCompleted)
       }
     } catch (error: any) {
       setJobsError(error?.message || `Failed to ${action} job`)
@@ -257,7 +319,7 @@ export default function TechnicianPage() {
     setTokenSaving(true)
     setTokenMessage(null)
     try {
-      await registerTechnicianPushToken(activeTechnicianId)
+      await requestPushPermissionAndRegister(activeTechnicianId)
       window.localStorage.setItem(`${TECHNICIAN_PUSH_ENABLED_PREFIX}${activeTechnicianId}`, "1")
       setNotificationsEnabled(true)
       setTokenMessage("Notifications enabled and device token saved successfully.")
@@ -369,8 +431,15 @@ export default function TechnicianPage() {
                 .join(" ")
               const isBusy = actionLoadingId === allocation.id
 
+              const isLinkedTask =
+                (Boolean(linkedAllocationId) && allocation.id === linkedAllocationId) ||
+                (Boolean(linkedJobId) && allocation.jobCard?.id === linkedJobId)
+
               return (
-                <div key={allocation.id} className="rounded-md border bg-white p-3">
+                <div
+                  key={allocation.id}
+                  className={`rounded-md border bg-white p-3 ${isLinkedTask ? "border-blue-500 ring-2 ring-blue-100" : ""}`}
+                >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-semibold">
                       {registration}
@@ -384,6 +453,7 @@ export default function TechnicianPage() {
                   <p className="mt-1 text-xs text-muted-foreground">JobCard: {allocation.jobCard?.jobCardNumber || allocation.jobCard?.id}</p>
                   <p className="mt-1 text-xs text-muted-foreground">Task: {allocation.taskAssigned?.trim() || "-"}</p>
                   <p className="mt-1 text-xs text-muted-foreground">Assigned: {formatDateTime(allocation.assignedAt)}</p>
+                  {isLinkedTask ? <p className="mt-1 text-xs font-medium text-blue-700">Opened from task link</p> : null}
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     {allocation.status === "assigned" ? (
@@ -412,5 +482,13 @@ export default function TechnicianPage() {
         ) : null}
       </div>
     </main>
+  )
+}
+
+export default function TechnicianPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+      <TechnicianPageContent />
+    </Suspense>
   )
 }

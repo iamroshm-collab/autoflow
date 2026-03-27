@@ -3,8 +3,6 @@ import { prisma } from "@/lib/prisma"
 
 export async function GET() {
   try {
-    console.log("[EXTERNAL_SHOP_GET] Starting fetch...")
-    
     const externalShopJobs = await prisma.jobCard.findMany({
       where: {
         externalShop: true,
@@ -18,8 +16,6 @@ export async function GET() {
       },
       take: 10,
     })
-    
-    console.log("[EXTERNAL_SHOP_GET] Found jobs:", externalShopJobs.length)
 
     const formattedJobs = externalShopJobs.map((job) => ({
       id: job.id,

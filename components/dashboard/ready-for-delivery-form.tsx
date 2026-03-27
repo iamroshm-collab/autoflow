@@ -22,7 +22,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Card } from "@/components/ui/card"
 import { notify } from '@/components/ui/notify'
 import { startAction, successAction, errorAction } from "@/lib/action-feedback"
 import { Printer, Trash2, Plus } from "lucide-react"
@@ -320,6 +319,7 @@ const emptyForm: UpdateFormData = {
 }
 
 interface ReadyForDeliveryFormProps {
+  activeSubform?: "main-form" | "spare-parts-purchase" | "spare-part-return" | "service-description" | "technician-allocation" | "financial-transactions"
   selectedJobCardId?: string
   searchInputRef?: React.RefObject<HTMLInputElement | null>
   searchValue?: string
@@ -331,6 +331,7 @@ interface ReadyForDeliveryFormProps {
 }
 
 export function ReadyForDeliveryForm({
+  activeSubform = "main-form",
   selectedJobCardId,
   searchInputRef,
   searchValue,
@@ -1881,14 +1882,33 @@ export function ReadyForDeliveryForm({
     }
   }, [openTechnicianDropdownRowId])
 
+  useEffect(() => {
+    const onSave = () => {
+      void handleSave()
+    }
+
+    const onDelete = () => {
+      setDeleteDialogOpen(true)
+    }
+
+    window.addEventListener("readyForDelivery:save", onSave)
+    window.addEventListener("readyForDelivery:delete", onDelete)
+
+    return () => {
+      window.removeEventListener("readyForDelivery:save", onSave)
+      window.removeEventListener("readyForDelivery:delete", onDelete)
+    }
+  }, [handleSave])
+
   return (
     <>
       {dropdownElement}
       {technicianDropdownElement}
-      <div className="grid gap-6">
+      <div className="grid h-full min-h-0 gap-3 md:gap-6">
       {/* 5-Column x 3-Row Form Layout */}
-      <Card className="p-4 md:p-6">
-        <div className="grid grid-cols-5 gap-4">
+      {activeSubform === "main-form" && (
+      <div className="global-main-form-content p-3 md:p-4 lg:p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
           {/* Row 1 */}
           <div className="grid gap-2">
             <Label htmlFor="fileNo">File No</Label>
@@ -2137,22 +2157,23 @@ export function ReadyForDeliveryForm({
             />
           </div>
         </div>
-      </Card>
+      </div>
+      )}
 
-      <Card className="p-4 md:p-6">
-        <h3 className="text-base font-semibold mb-4">Spare Parts Purchase</h3>
-        <div className="overflow-x-hidden border rounded-md">
-          <table className="w-full text-xs table-fixed">
-            <thead className="bg-muted/50">
+      {activeSubform === "spare-parts-purchase" && (
+      <div className="global-subform-table-content flex min-h-0 flex-col">
+        <div className="form-table-wrapper">
+          <table className="w-full table-fixed">
+            <thead className="sticky top-0 z-20">
               <tr>
-                <th className="text-center p-1.5 w-[16%]">Shop Name</th>
-                <th className="text-center p-1.5 w-[8.4%]">Bill Date</th>
-                <th className="text-center p-1.5 w-[12%]">Bill Number</th>
-                <th className="text-center p-1.5 w-[28.4%]">Item</th>
-                <th className="text-center p-1.5 w-[9%]">Amount</th>
-                <th className="text-center p-1.5 w-[9%]">Paid</th>
-                <th className="text-center p-1.5 w-[9%]">Paid Date</th>
-                <th className="text-center p-1.5 w-[6%]">Action</th>
+                <th className="text-center" style={{ width: "16%" }}>Shop Name</th>
+                <th className="text-center" style={{ width: "8.4%" }}>Bill Date</th>
+                <th className="text-center" style={{ width: "12%" }}>Bill Number</th>
+                <th className="text-center" style={{ width: "28.4%" }}>Item</th>
+                <th className="text-center" style={{ width: "9%" }}>Amount</th>
+                <th className="text-center" style={{ width: "9%" }}>Paid</th>
+                <th className="text-center" style={{ width: "9%" }}>Paid Date</th>
+                <th className="text-center" style={{ width: "6%" }}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -2165,7 +2186,7 @@ export function ReadyForDeliveryForm({
               ) : (
                 spareParts.map((row) => (
                   <tr key={row.id} className="border-t [&>td]:align-middle">
-                    <td className="p-1">
+                    <td>
                       <ShopAutocomplete
                         placeholder="Search shop"
                         value={row.shopName ?? ""}
@@ -2173,10 +2194,10 @@ export function ReadyForDeliveryForm({
                         onChange={(value) => handleSparePartChange(row.id, "shopName", value)}
                         renderInPortal
                         disabled={isLoading}
-                        inputClassName="h-10 w-full px-3 py-2 text-sm text-center border rounded-md"
+                        inputClassName="w-full text-center"
                       />
                     </td>
-                    <td className="p-1">
+                    <td>
                       <DatePickerInput
                         value={row.billDate ?? ""}
                         onChange={(value) => handleSparePartChange(row.id, "billDate", value)}
@@ -2185,7 +2206,7 @@ export function ReadyForDeliveryForm({
                         format="dd-mm-yy"
                       />
                     </td>
-                    <td className="p-1">
+                    <td>
                       <Input
                         name="billNumber"
                         ref={(el) => {
@@ -2195,10 +2216,10 @@ export function ReadyForDeliveryForm({
                         onChange={(e) => handleSparePartChange(row.id, "billNumber", e.target.value)}
                         onFocus={() => handleSparePartRowFocus(row.id)}
                         disabled={isLoading}
-                        className="h-10 w-full px-2 text-sm text-center"
+                        className="w-full text-center"
                       />
                     </td>
-                    <td className="p-1">
+                    <td>
                       <Input
                         name="item"
                         ref={(el) => {
@@ -2208,10 +2229,10 @@ export function ReadyForDeliveryForm({
                         onChange={(e) => handleSparePartChange(row.id, "item", e.target.value)}
                         onFocus={() => handleSparePartRowFocus(row.id)}
                         disabled={isLoading}
-                        className="h-10 w-full px-1.5 text-sm text-center"
+                        className="w-full text-center"
                       />
                     </td>
-                    <td className="p-1">
+                    <td>
                       <Input
                         type="number"
                         ref={(el) => {
@@ -2223,10 +2244,10 @@ export function ReadyForDeliveryForm({
                         }
                         onFocus={() => handleSparePartRowFocus(row.id)}
                         disabled={isLoading}
-                        className="h-10 w-full px-2 text-sm text-center"
+                        className="w-full text-center"
                       />
                     </td>
-                    <td className="p-1">
+                    <td>
                       <Input
                         type="number"
                         value={row.paid ?? 0}
@@ -2235,10 +2256,10 @@ export function ReadyForDeliveryForm({
                         }
                         onFocus={() => handleSparePartRowFocus(row.id)}
                         disabled={isLoading}
-                        className="h-10 w-full px-2 text-sm text-center"
+                        className="w-full text-center"
                       />
                     </td>
-                    <td className="p-1">
+                    <td>
                       <DatePickerInput
                         value={row.paidDate ?? ""}
                         onChange={(value) => handleSparePartChange(row.id, "paidDate", value)}
@@ -2247,7 +2268,7 @@ export function ReadyForDeliveryForm({
                         format="dd-mm-yy"
                       />
                     </td>
-                    <td className="p-1 text-center">
+                    <td className="text-center">
                       <Button
                         type="button"
                         variant="ghost"
@@ -2269,7 +2290,7 @@ export function ReadyForDeliveryForm({
                           })
                         }
                         disabled={isLoading}
-                        className="text-red-600 hover:text-red-800"
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
                         aria-label="Remove spare part row"
                         title="Remove"
                       >
@@ -2282,29 +2303,30 @@ export function ReadyForDeliveryForm({
             </tbody>
           </table>
         </div>
-        <div className="mt-4">
+        <div className="shrink-0">
           <Button
             type="button"
             onClick={() => addSparePartRow()}
-            className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
+            className="global-bottom-btn-add px-4 py-2 min-h-[40px]"
             variant="ghost"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Spare Part
           </Button>
         </div>
-      </Card>
+      </div>
+      )}
 
-      <Card className="p-4 md:p-6">
-        <h3 className="text-base font-semibold mb-4">Spare Part Return</h3>
-        <div className="overflow-x-auto border rounded-md">
+      {activeSubform === "spare-part-return" && (
+      <div className="global-subform-table-content flex min-h-0 flex-col">
+        <div className="form-table-wrapper">
           <table className="w-full text-xs table-fixed">
-            <thead className="bg-muted/50">
+            <thead className="sticky top-0 z-20">
               <tr>
-                <th className="text-center p-1.5 w-[40%]">Bill Number</th>
-                <th className="text-center p-1.5 w-[26%]">Return Date (dd-mm-yy)</th>
-                <th className="text-center p-1.5 w-[26%]">Return Amount</th>
-                <th className="text-center p-1.5 w-[8%]">Action</th>
+                <th className="text-center" style={{ width: "40%" }}>Bill Number</th>
+                <th className="text-center" style={{ width: "26%" }}>Return Date (dd-mm-yy)</th>
+                <th className="text-center" style={{ width: "26%" }}>Return Amount</th>
+                <th className="text-center" style={{ width: "8%" }}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -2317,7 +2339,7 @@ export function ReadyForDeliveryForm({
               ) : (
                 sparePartReturns.map((row) => (
                 <tr key={row.id} className="border-t [&>td]:align-middle">
-                  <td className="p-1">
+                  <td>
                     <Select
                       value={row.billNumber}
                       onValueChange={(value) =>
@@ -2340,7 +2362,7 @@ export function ReadyForDeliveryForm({
                       </SelectContent>
                     </Select>
                   </td>
-                  <td className="p-1">
+                  <td>
                     <DatePickerInput
                       value={row.returnDate}
                       onChange={(value) =>
@@ -2351,7 +2373,7 @@ export function ReadyForDeliveryForm({
                       format="dd-mm-yy"
                     />
                   </td>
-                  <td className="p-1">
+                  <td>
                     <Input
                       type="number"
                       value={row.returnAmount}
@@ -2367,7 +2389,7 @@ export function ReadyForDeliveryForm({
                       className="h-10 w-full px-2 text-sm text-center"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="text-center">
                     <Button
                       type="button"
                       variant="ghost"
@@ -2379,7 +2401,7 @@ export function ReadyForDeliveryForm({
                         })
                       }
                       disabled={isLoading}
-                      className="text-red-600 hover:text-red-800"
+                      className="text-red-600 hover:bg-red-50 hover:text-red-700"
                       aria-label="Remove return row"
                       title="Remove"
                     >
@@ -2392,58 +2414,27 @@ export function ReadyForDeliveryForm({
             </tbody>
           </table>
         </div>
-        <div className="mt-4">
+        <div className="shrink-0">
           <Button
             type="button"
             onClick={() => addSparePartReturnRow()}
-            className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
+            className="global-bottom-btn-add px-4 py-2 min-h-[40px]"
             variant="ghost"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Spare Part Return
           </Button>
         </div>
-      </Card>
+      </div>
+      )}
 
-      <Card className="p-4 md:p-6">
-        <div className="flex items-start justify-between mb-4">
-          <h3 className="text-base font-semibold">Service Description</h3>
-          <div className="flex items-center gap-2">
-            <Label className="text-sm">Taxable</Label>
-            <Checkbox
-              checked={!!formData.taxable}
-              onCheckedChange={(v) => {
-                const isTaxable = Boolean(v);
-                setFormData((prev) => ({ ...prev, taxable: isTaxable }));
-                
-                // When toggling ON, show customer state form
-                if (isTaxable) {
-                  setShowCustomerStateForm(true)
-                } else {
-                  // When toggling OFF, clear all tax-related data from service rows
-                  services.forEach((service) => {
-                    updateServiceRow(service.id, {
-                      cgstRate: 0,
-                      cgstAmount: 0,
-                      sgstRate: 0,
-                      sgstAmount: 0,
-                      igstRate: 0,
-                      igstAmount: 0,
-                      stateId: undefined,
-                      totalAmount: service.amount,
-                    } as Partial<ServiceRow>);
-                  });
-                }
-              }}
-              aria-label="Taxable"
-            />
-          </div>
-        </div>
-
+      {activeSubform === "service-description" && (
+      <div className="global-subform-table-content flex min-h-0 flex-col">
         {/* Customer State Sub-form */}
         {formData.taxable && showCustomerStateForm && (
-          <div className="border rounded-md p-4 mb-4 bg-blue-50">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="shrink-0 px-4 pb-3">
+            <div className="border rounded-md p-4 bg-blue-50">
+              <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="stateName">State Name</Label>
                 <Select
@@ -2486,10 +2477,11 @@ export function ReadyForDeliveryForm({
                 Save State
               </Button>
             </div>
+            </div>
           </div>
         )}
         
-        <div className="overflow-x-auto border rounded-md">
+        <div className="form-table-wrapper">
           <table className="w-full text-xs table-fixed">
             <thead className="bg-muted/50">
               <tr>
@@ -2524,7 +2516,7 @@ export function ReadyForDeliveryForm({
               ) : (
                 services.map((row) => (
                   <tr key={row.id} className="border-t [&>td]:align-middle">
-                    <td className="p-1">
+                    <td>
                       <Input
                         name="description"
                         ref={(el) => {
@@ -2537,7 +2529,7 @@ export function ReadyForDeliveryForm({
                         className="h-10 px-2 text-sm text-center"
                       />
                     </td>
-                    <td className="p-1">
+                    <td>
                       <Input
                         name="unit"
                         value={row.unit ?? ""}
@@ -2547,7 +2539,7 @@ export function ReadyForDeliveryForm({
                         className="h-10 px-2 text-sm text-center"
                       />
                     </td>
-                    <td className="p-1">
+                    <td>
                       <Input
                         type="number"
                         value={row.quantity ?? 0}
@@ -2559,7 +2551,7 @@ export function ReadyForDeliveryForm({
                         className="h-10 px-2 text-sm text-center"
                       />
                     </td>
-                    <td className="p-1">
+                    <td>
                       <Input
                         type="number"
                         ref={(el) => {
@@ -2575,7 +2567,7 @@ export function ReadyForDeliveryForm({
                       />
                     </td>
                     {formData.taxable && (
-                      <td className="p-1">
+                      <td>
                         <Input
                           type="number"
                           value={Number(row.totalAmount || 0).toFixed(2)}
@@ -2588,7 +2580,7 @@ export function ReadyForDeliveryForm({
                     {formData.taxable && (
                       <>
                         {customerStateId && shopStateId && customerStateId !== shopStateId ? (
-                          <td className="p-1">
+                          <td>
                             <Input
                               type="number"
                               value={row.igstRate ?? 0}
@@ -2602,7 +2594,7 @@ export function ReadyForDeliveryForm({
                           </td>
                         ) : (
                           <>
-                            <td className="p-1">
+                            <td>
                               <Input
                                 type="number"
                                 value={row.cgstRate ?? 0}
@@ -2614,7 +2606,7 @@ export function ReadyForDeliveryForm({
                                 className="h-10 px-2 text-sm text-center"
                               />
                             </td>
-                            <td className="p-1">
+                            <td>
                               <Input
                                 type="number"
                                 value={row.sgstRate ?? 0}
@@ -2626,7 +2618,7 @@ export function ReadyForDeliveryForm({
                             </td>
                           </>
                         )}
-                        <td className="p-1">
+                        <td>
                           <Input
                             value={row.stateId ?? ""}
                             onChange={(e) =>
@@ -2639,7 +2631,7 @@ export function ReadyForDeliveryForm({
                         </td>
                       </>
                     )}
-                    <td className="p-1 text-center">
+                    <td className="text-center">
                       <Button
                         type="button"
                         variant="ghost"
@@ -2651,7 +2643,7 @@ export function ReadyForDeliveryForm({
                           })
                         }
                         disabled={isLoading}
-                        className="text-red-600 hover:text-red-800"
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
                         aria-label="Remove service row"
                         title="Remove"
                       >
@@ -2664,30 +2656,31 @@ export function ReadyForDeliveryForm({
             </tbody>
           </table>
         </div>
-        <div className="mt-4">
+        <div className="shrink-0">
           <Button
             type="button"
             onClick={() => addServiceRow()}
-            className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
+            className="global-bottom-btn-add px-4 py-2 min-h-[40px]"
             variant="ghost"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Service
           </Button>
         </div>
-      </Card>
+      </div>
+      )}
 
-      <Card className="p-4 md:p-6">
-        <h3 className="text-base font-semibold mb-4">Technician Allocation</h3>
-        <div className="overflow-x-auto border rounded-md">
+      {activeSubform === "technician-allocation" && (
+      <div className="global-subform-table-content flex min-h-0 flex-col">
+        <div className="form-table-wrapper">
           <table className="w-full text-xs table-fixed">
-            <thead className="bg-muted/50">
+            <thead className="sticky top-0 z-20">
               <tr>
-                <th className="text-center p-1.5 w-[22%]">Employee Name</th>
-                <th className="text-center p-1.5 w-[20%]">Type of Work</th>
-                <th className="text-center p-1.5 w-[34%]">Task Assigned</th>
-                <th className="text-center p-1.5 w-[18%]">Earning</th>
-                <th className="text-center p-1.5 w-[6%]">Action</th>
+                <th className="text-center" style={{ width: "22%" }}>Employee Name</th>
+                <th className="text-center" style={{ width: "20%" }}>Type of Work</th>
+                <th className="text-center" style={{ width: "34%" }}>Task Assigned</th>
+                <th className="text-center" style={{ width: "18%" }}>Earning</th>
+                <th className="text-center" style={{ width: "6%" }}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -2700,7 +2693,7 @@ export function ReadyForDeliveryForm({
               ) : (
                 technicians.map((row) => (
                   <tr key={row.id} className="border-t [&>td]:align-middle">
-                    <td className="p-1">
+                    <td>
                       <Input
                         ref={(el) => {
                           if (el) technicianRefsMap.current.set(`${row.id}-employeeName`, el)
@@ -2714,7 +2707,7 @@ export function ReadyForDeliveryForm({
                         placeholder="Select employee"
                       />
                     </td>
-                    <td className="p-1">
+                    <td>
                       <Select
                         value={row.workType || "Mechanical"}
                         onValueChange={(value) =>
@@ -2734,7 +2727,7 @@ export function ReadyForDeliveryForm({
                         </SelectContent>
                       </Select>
                     </td>
-                    <td className="p-1">
+                    <td>
                       <Input
                         ref={(el) => {
                           if (el) technicianRefsMap.current.set(`${row.id}-taskAssigned`, el)
@@ -2746,7 +2739,7 @@ export function ReadyForDeliveryForm({
                         className="h-10 px-2 text-sm text-center"
                       />
                     </td>
-                    <td className="p-1">
+                    <td>
                       <Input
                         type="number"
                         ref={(el) => {
@@ -2761,7 +2754,7 @@ export function ReadyForDeliveryForm({
                         className="h-10 px-2 text-sm text-center"
                       />
                     </td>
-                    <td className="p-1 text-center">
+                    <td className="text-center">
                       <Button
                         type="button"
                         variant="ghost"
@@ -2773,7 +2766,7 @@ export function ReadyForDeliveryForm({
                           })
                         }
                         disabled={isLoading}
-                        className="text-red-600 hover:text-red-800"
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
                         aria-label="Remove technician row"
                         title="Remove"
                       >
@@ -2786,33 +2779,34 @@ export function ReadyForDeliveryForm({
             </tbody>
           </table>
         </div>
-        <div className="mt-4">
+        <div className="shrink-0">
           <Button
             type="button"
             onClick={() => addTechnicianRow()}
-            className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
+            className="global-bottom-btn-add px-4 py-2 min-h-[40px]"
             variant="ghost"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Technician
           </Button>
         </div>
-      </Card>
+      </div>
+      )}
 
       {/* Financial Transaction Sub-form */}
-      <Card className="p-4 md:p-6">
-        <h3 className="text-base font-semibold mb-4">Financial Transactions</h3>
-        <div className="overflow-x-auto border rounded-md">
+      {activeSubform === "financial-transactions" && (
+      <div className="global-subform-table-content flex min-h-0 flex-col">
+        <div className="form-table-wrapper">
           <table className="w-full text-xs table-fixed">
-            <thead className="bg-muted/50">
+            <thead className="sticky top-0 z-20">
               <tr>
-                <th className="text-center p-1.5 w-[15%]">Type</th>
-                <th className="text-center p-1.5 w-[10%]">Date</th>
-                <th className="text-center p-1.5 w-[15%]">Payment Type</th>
-                <th className="text-center p-1.5 w-[15%]">Apply To</th>
-                <th className="text-center p-1.5 w-[10%]">Amount</th>
-                <th className="text-center p-1.5 w-[30%]">Description</th>
-                <th className="text-center p-1.5 w-[8%]">Action</th>
+                <th className="text-center" style={{ width: "15%" }}>Type</th>
+                <th className="text-center" style={{ width: "10%" }}>Date</th>
+                <th className="text-center" style={{ width: "15%" }}>Payment Type</th>
+                <th className="text-center" style={{ width: "15%" }}>Apply To</th>
+                <th className="text-center" style={{ width: "10%" }}>Amount</th>
+                <th className="text-center" style={{ width: "30%" }}>Description</th>
+                <th className="text-center" style={{ width: "8%" }}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -2825,7 +2819,7 @@ export function ReadyForDeliveryForm({
               ) : (
                 financialTransactions.map((row) => (
                 <tr key={row.id} className="border-t">
-                  <td className="p-1">
+                  <td>
                     <Select
                       value={row.transactionType}
                       onValueChange={(value) =>
@@ -2842,7 +2836,7 @@ export function ReadyForDeliveryForm({
                       </SelectContent>
                     </Select>
                   </td>
-                  <td className="p-1">
+                  <td>
                     <DatePickerInput
                       value={row.transactionDate ?? ""}
                       onChange={(value) =>
@@ -2853,7 +2847,7 @@ export function ReadyForDeliveryForm({
                       format="dd-mm-yy"
                     />
                   </td>
-                  <td className="p-1">
+                  <td>
                     <Select
                       value={row.paymentType}
                       onValueChange={(value) =>
@@ -2871,7 +2865,7 @@ export function ReadyForDeliveryForm({
                       </SelectContent>
                     </Select>
                   </td>
-                  <td className="p-1">
+                  <td>
                     <Select
                       value={row.applyTo}
                       onValueChange={(value) =>
@@ -2888,7 +2882,7 @@ export function ReadyForDeliveryForm({
                       </SelectContent>
                     </Select>
                   </td>
-                  <td className="p-1">
+                  <td>
                     <Input
                       type="number"
                       placeholder="0.00"
@@ -2921,7 +2915,7 @@ export function ReadyForDeliveryForm({
                       size="icon"
                       onClick={() => removeFinancialTransactionRow(row.id)}
                       disabled={isLoading}
-                      className="text-red-600 hover:text-red-800"
+                      className="text-red-600 hover:bg-red-50 hover:text-red-700"
                       aria-label="Remove transaction row"
                       title="Remove"
                     >
@@ -2934,35 +2928,19 @@ export function ReadyForDeliveryForm({
             </tbody>
           </table>
         </div>
-        <div className="mt-4">
+        <div className="shrink-0">
           <Button
             type="button"
             onClick={() => addFinancialTransactionRow()}
-            className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
+            className="global-bottom-btn-add px-4 py-2 min-h-[40px]"
             variant="ghost"
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Financial Transaction
           </Button>
         </div>
-      </Card>
-
-      <div className="sticky-form-actions flex flex-wrap justify-end gap-5">
-        <Button
-          onClick={handleSave}
-          disabled={isLoading || !formData.jobCardId}
-          className="bg-green-600 text-white hover:bg-green-700"
-        >
-          {isLoading ? "Saving..." : "Save"}
-        </Button>
-        <Button
-          variant="destructive"
-          onClick={() => setDeleteDialogOpen(true)}
-          disabled={isLoading || !formData.jobCardId}
-        >
-          Delete
-        </Button>
       </div>
+      )}
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

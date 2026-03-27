@@ -6,6 +6,7 @@ import { MetricCards } from "./metric-cards"
 import { ServiceOverviewChart } from "./service-overview-chart"
 import { JobCardStatusChart } from "./job-card-status-chart"
 import { RecentJobCards } from "./recent-job-cards"
+import { type UserRole } from "@/lib/access-control"
 
 type DashboardSummary = {
   metrics: {
@@ -39,10 +40,12 @@ const EMPTY_SUMMARY: DashboardSummary = {
 
 interface DashboardContentProps {
   onNavigate?: (id: string) => void
+  role?: UserRole
 }
 
-export const DashboardContent = memo(function DashboardContent({ onNavigate }: DashboardContentProps) {
+export const DashboardContent = memo(function DashboardContent({ onNavigate, role = "admin" }: DashboardContentProps) {
   const [summary, setSummary] = useState<DashboardSummary>(EMPTY_SUMMARY)
+  const hideTechnicianOnlyCards = role === "technician"
 
   useEffect(() => {
     let isMounted = true
@@ -84,9 +87,9 @@ export const DashboardContent = memo(function DashboardContent({ onNavigate }: D
   }, [])
 
   return (
-    <div className="flex flex-col gap-6">
-      <MetricCards metrics={summary.metrics} />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="flex flex-col gap-[1mm]">
+      <MetricCards metrics={summary.metrics} role={role} hidePendingBilling={hideTechnicianOnlyCards} />
+      <div className="grid grid-cols-1 gap-[1mm] lg:grid-cols-3">
         <div className="lg:col-span-2 h-full">
           <ServiceOverviewChart data={summary.serviceOverview} />
         </div>
@@ -94,9 +97,11 @@ export const DashboardContent = memo(function DashboardContent({ onNavigate }: D
           <JobCardStatusChart data={summary.statusBreakdown} />
         </div>
       </div>
-      <div>
-        <RecentJobCards jobs={summary.recentJobCards} />
-      </div>
+      {!hideTechnicianOnlyCards ? (
+        <div>
+          <RecentJobCards jobs={summary.recentJobCards} />
+        </div>
+      ) : null}
     </div>
   )
 })

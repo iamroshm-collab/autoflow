@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: [{ productName: "asc" }],
+      take: 1000,
     })
 
     const productIds = products.map((item: any) => item.productId)

@@ -14,6 +14,7 @@ import {
   getAttendanceFaceVerificationMode,
   verifyAttendanceEvidence,
 } from "@/lib/attendance-face-verification"
+import { getCurrentUserFromRequest } from "@/lib/auth-session"
 
 async function getEligibleEmployee(employeeId: number) {
   return prisma.employee.findFirst({
@@ -35,9 +36,59 @@ async function getEligibleEmployee(employeeId: number) {
 
 export async function GET(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUserFromRequest(request)
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const isAdminLikeRole = currentUser.role === "admin" || currentUser.role === "manager"
     const employeeIdParam = request.nextUrl.searchParams.get("employeeId")
 
     if (!employeeIdParam) {
+      if (!isAdminLikeRole) {
+        if (!Number.isInteger(currentUser.employeeRefId)) {
+          return NextResponse.json({ error: "Employee mapping is missing for this account" }, { status: 400 })
+        }
+
+        const selfEmployeeId = Number(currentUser.employeeRefId)
+        const [employee, shopSettings, lastRecord, todayRecord] = await Promise.all([
+          getEligibleEmployee(selfEmployeeId),
+          prisma.shopSettings.findFirst({ orderBy: { createdAt: "asc" } }),
+          prisma.attendancePayroll.findFirst({
+            where: { employeeId: selfEmployeeId },
+            orderBy: [{ attendanceDate: "desc" }, { attendanceId: "desc" }],
+          }),
+          prisma.attendancePayroll.findFirst({
+            where: {
+              employeeId: selfEmployeeId,
+              attendanceDate: {
+                gte: toDayStart(new Date()),
+                lt: toNextDay(new Date()),
+              },
+            },
+          }),
+        ])
+
+        if (!employee || isAdminLikeDesignation(employee.designation)) {
+          return NextResponse.json({ error: "Employee is not eligible for attendance" }, { status: 404 })
+        }
+
+        const nextAction = deriveNextAttendanceAction(lastRecord)
+        return NextResponse.json({
+          employee,
+          nextAction,
+          todayRecord: todayRecord
+            ? {
+                ...todayRecord,
+                workedDuration: formatWorkedDuration(todayRecord.workedMinutes),
+              }
+            : null,
+          garageLocationConfigured: Boolean(shopSettings?.garageLatitude != null && shopSettings?.garageLongitude != null),
+          attendanceRadiusMeters: shopSettings?.attendanceRadiusMeters || 20,
+          faceVerificationMode: getAttendanceFaceVerificationMode(),
+        })
+      }
+
       const employees = await prisma.employee.findMany({
         where: {
           isArchived: false,
@@ -61,6 +112,16 @@ export async function GET(request: NextRequest) {
     const employeeId = Number(employeeIdParam)
     if (!Number.isInteger(employeeId)) {
       return NextResponse.json({ error: "Valid employeeId is required" }, { status: 400 })
+    }
+
+    if (!isAdminLikeRole) {
+      if (!Number.isInteger(currentUser.employeeRefId)) {
+        return NextResponse.json({ error: "Employee mapping is missing for this account" }, { status: 400 })
+      }
+
+      if (Number(currentUser.employeeRefId) !== employeeId) {
+        return NextResponse.json({ error: "You can only access your own attendance" }, { status: 403 })
+      }
     }
 
     const [employee, shopSettings, lastRecord, todayRecord] = await Promise.all([
@@ -107,6 +168,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUserFromRequest(request)
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const isAdminLikeRole = currentUser.role === "admin" || currentUser.role === "manager"
     const body = await request.json()
     const employeeId = Number(body.employeeId)
     const action = String(body.action || "").toUpperCase()
@@ -117,6 +184,16 @@ export async function POST(request: NextRequest) {
 
     if (!Number.isInteger(employeeId) || !["IN", "OUT"].includes(action)) {
       return NextResponse.json({ error: "Valid employeeId and action are required" }, { status: 400 })
+    }
+
+    if (!isAdminLikeRole) {
+      if (!Number.isInteger(currentUser.employeeRefId)) {
+        return NextResponse.json({ error: "Employee mapping is missing for this account" }, { status: 400 })
+      }
+
+      if (Number(currentUser.employeeRefId) !== employeeId) {
+        return NextResponse.json({ error: "You can only mark your own attendance" }, { status: 403 })
+      }
     }
 
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {

@@ -59,8 +59,12 @@ const toast: ToastFunction = ((arg: string | React.ReactNode | LegacyToastPayloa
     return sonnerToast(String(arg))
   }
   // payload object
-  const { title, description } = buildMessageFromPayload(arg)
-  const variant = (arg && arg.variant) || ''
+  const result = buildMessageFromPayload(arg as LegacyToastPayload)
+  if (typeof result === 'string') {
+    return sonnerToast(result)
+  }
+  const { title, description } = result
+  const variant = ((arg as LegacyToastPayload) && (arg as LegacyToastPayload).variant) || ''
   if (variant === 'destructive' || variant === 'error')
     return sonnerToast.error(renderMessage(<XCircle className="h-5 w-5" />, title, description, 'danger'))
   if (variant === 'success')

@@ -337,7 +337,7 @@ export async function generateSalarySlipPdf(data: SimpleSlipData) {
     let url: string | null = null
     try {
       if (typeof doc.output === "function") {
-        url = doc.output("bloburl") as string
+        url = (doc.output("bloburl") as unknown) as string
       }
     } catch (err) {
       console.warn("[generateSalarySlipPdf] doc.output('bloburl') failed:", err)

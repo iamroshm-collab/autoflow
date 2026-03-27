@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getCurrentUserFromRequest } from "@/lib/auth-session"
 
 // GET - Fetch adjustments with optional employee filter
 export async function GET(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUserFromRequest(request)
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const employeeId = searchParams.get("employeeId")
     const month = searchParams.get("month")
@@ -12,7 +18,19 @@ export async function GET(request: NextRequest) {
 
     const where: any = {}
 
-    if (employeeId) {
+    const role = String(currentUser.role || "").toLowerCase()
+    if (role === "technician") {
+      if (!Number.isInteger(currentUser.employeeRefId)) {
+        return NextResponse.json({ error: "Technician account is not linked to an employee" }, { status: 403 })
+      }
+
+      const ownEmployeeId = Number(currentUser.employeeRefId)
+      if (employeeId && parseInt(employeeId) !== ownEmployeeId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+
+      where.employeeId = ownEmployeeId
+    } else if (employeeId) {
       where.employeeId = parseInt(employeeId)
     }
 
@@ -60,6 +78,15 @@ export async function GET(request: NextRequest) {
 // POST - Create a new adjustment
 export async function POST(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUserFromRequest(request)
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (String(currentUser.role || "").toLowerCase() === "technician") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
     const body = await request.json()
     const { employeeId, adjustmentType, amount, adjustmentDate, remarks } = body
 
@@ -107,6 +134,15 @@ export async function POST(request: NextRequest) {
 // PUT - Update an adjustment
 export async function PUT(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUserFromRequest(request)
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (String(currentUser.role || "").toLowerCase() === "technician") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
     const body = await request.json()
     const { adjustmentId, adjustmentType, amount, adjustmentDate, remarks } = body
 
@@ -145,6 +181,15 @@ export async function PUT(request: NextRequest) {
 // DELETE - Delete an adjustment
 export async function DELETE(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUserFromRequest(request)
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (String(currentUser.role || "").toLowerCase() === "technician") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
     const { searchParams } = new URL(request.url)
     const adjustmentId = searchParams.get("adjustmentId")
 

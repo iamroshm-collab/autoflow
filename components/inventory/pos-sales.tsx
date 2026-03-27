@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
@@ -51,20 +51,74 @@ interface Product {
   igstRate?: number
   balanceStock: number
   productDescription?: string
+  stock?: number
+  product?: string
+}
+
+interface CustomerOption {
+  customerId?: string
+  customerName?: string
+  id?: string
+  name?: string
+  mobileNo?: string
+  mobile?: string
+  stateId?: string | number | null
+  state?: string | null
+}
+
+interface SaleApiDetail {
+  saleDetailsId?: number
+  productId: number
+  product: string
+  productDescription?: string
+  hsn?: string
+  qnty?: number
+  salePrice?: number
+  sgstRate?: number
+  cgstRate?: number
+  igstRate?: number
+  discount?: number
+  returnQnty?: number
+  returnDate?: string | null
+  amount?: number
+  discountAmount?: number
+  sgstAmount?: number
+  cgstAmount?: number
+  igstAmount?: number
+  totalAmount?: number
+}
+
+interface SaleApiRecord {
+  saleId?: number
+  billNumber?: string
+  billDate?: string
+  createdAt?: string
+  customer?: string
+  mobileNo?: string
+  stateCode?: string | null
+  stateName?: string | null
+  saleDetails?: SaleApiDetail[]
+}
+
+interface SummaryStats {
+  todaysSales: number
+  totalCustomers: number
+  returns: number
+  totalRevenue: number
 }
 
 export function POSSalesForm() {
-  const [customers, setCustomers] = useState<any[]>([])
-  const [products, setProducts] = useState<any[]>([])
+  const [customers, setCustomers] = useState<CustomerOption[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [customerSearch, setCustomerSearch] = useState('')
-  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null)
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption | null>(null)
   const [billDate, setBillDate] = useState(formatDateDDMMYY(getTodayISODateInIndia()))
   const [billNumber, setBillNumber] = useState('')
 
   const [lineItems, setLineItems] = useState<SaleLineItem[]>([])
   const [deletedDetailIds, setDeletedDetailIds] = useState<number[]>([])
   // product search removed: product selection happens via table cell picker
-  const [purchaseProducts, setPurchaseProducts] = useState<any[]>([])
+  const [purchaseProducts, setPurchaseProducts] = useState<Product[]>([])
   const [pickerState, setPickerState] = useState<{ open: boolean; anchorId: string | null; highlight: number }>({ open: false, anchorId: null, highlight: 0 })
   const pickerRef = useRef<HTMLDivElement | null>(null)
   const [pickerFilter, setPickerFilter] = useState<string>('')
@@ -130,7 +184,6 @@ export function POSSalesForm() {
     setProductModalAnchor(anchor)
     setProductModalFilter(filter)
     setProductModalHighlight(0)
-    try { console.debug('[pos-sales] openProductModal', anchor, filter) } catch {}
     setProductModalOpen(true)
   }
 
@@ -141,27 +194,30 @@ export function POSSalesForm() {
       setPickerPos({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX, width: rect.width })
       setPickerState({ open: true, anchorId, highlight: 0 })
       setPickerFilter(initialFilter)
-    } catch (e) {
-      try { console.debug('[pos-sales] openPickerFor error', e) } catch {}
+    } catch {
     }
   }
 
   async function fetchLatestPurchaseProducts() {
     try {
-      const res = await fetch('/api/products')
+      const res = await fetch('/api/products', { cache: 'force-cache' })
       if (!res.ok) return
       const data = await res.json()
       if (!Array.isArray(data)) return
-      const normalized = data.map((p: any) => ({
-        productId: p.productId,
-        productName: p.productName || p.product || '',
+      const normalized: Product[] = data.map((p: Record<string, unknown>) => ({
+        productId: Number(p.productId || 0),
+        productName: String(p.productName || p.product || ''),
         purchasePrice: Number(p.purchasePrice || 0),
         salePrice: Number(p.salePrice || p.purchasePrice || 0),
-        hsn: p.hsnCode || p.hsn || '',
+        hsnCode: String(p.hsnCode || p.hsn || ''),
+        unit: String(p.unit || ''),
         sgstRate: Number(p.sgstRate || p.sgst_rate || 0),
         cgstRate: Number(p.cgstRate || p.cgst_rate || 0),
         igstRate: Number(p.igstRate || p.igst_rate || 0),
         balanceStock: Number(p.balanceStock || p.stock || 0),
+        productDescription: String(p.productDescription || ''),
+        product: String(p.product || ''),
+        stock: Number(p.stock || 0),
       }))
       setPurchaseProducts(normalized)
     } catch (err) {
@@ -172,18 +228,21 @@ export function POSSalesForm() {
   const ensurePurchaseProducts = () => {
     if (purchaseProducts.length === 0) {
       // provide immediate mock options so picker shows instantly
-      const mock: any[] = []
+      const mock: Product[] = []
       for (let i = 1; i <= 20; i++) {
         mock.push({
           productId: 1000 + i,
           productName: `Test Product ${i}`,
           purchasePrice: Number((50 + i).toFixed(2)),
           salePrice: Number((60 + i).toFixed(2)),
-          hsn: `HSN${i}`,
+          hsnCode: `HSN${i}`,
+          unit: 'Pcs',
           sgstRate: 0,
           cgstRate: 0,
           igstRate: 0,
           balanceStock: 100,
+          stock: 100,
+          productDescription: '',
         })
       }
       setPurchaseProducts(mock)
@@ -191,17 +250,6 @@ export function POSSalesForm() {
       fetchLatestPurchaseProducts()
     }
   }
-
-  useEffect(() => {
-    try {
-      // runtime debug: trace picker state and data
-      // remove or silence these logs after diagnosis
-      // eslint-disable-next-line no-console
-      console.debug('[pos-sales] pickerState', pickerState, 'pickerPos', pickerPos, 'products', purchaseProducts.length)
-    } catch (e) {
-      // ignore
-    }
-  }, [pickerState, pickerPos, purchaseProducts.length])
 
   // Picker keyboard handling
   useEffect(() => {
@@ -287,15 +335,11 @@ export function POSSalesForm() {
     try { if (el) (el as HTMLElement).focus() } catch {}
   }, [productModalHighlight, productModalOpen])
 
-  useEffect(() => {
-    try { console.debug('[pos-sales] productModalOpen', productModalOpen, 'anchor', productModalAnchor) } catch {}
-  }, [productModalOpen, productModalAnchor])
-
   // Load customers for suggestions
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/customers')
+        const res = await fetch('/api/customers', { cache: 'force-cache' })
         if (!res.ok) return
         const rows = await res.json()
         if (Array.isArray(rows)) setCustomers(rows)
@@ -308,7 +352,7 @@ export function POSSalesForm() {
 
   
 
-  const selectProduct = (prod: any, anchorId: string | null) => {
+  const selectProduct = (prod: Product, anchorId: string | null) => {
     if (!ensureSaleRowAccess()) {
       setPickerState({ open: false, anchorId: null, highlight: 0 })
       return
@@ -317,12 +361,12 @@ export function POSSalesForm() {
     const productObj: Product = {
       productId: prod.productId,
       productName: prod.productName,
-      hsnCode: prod.hsn || prod.hsnCode || '',
+      hsnCode: prod.hsnCode || '',
       unit: prod.unit || '',
       salePrice: prod.salePrice || prod.purchasePrice || 0,
       purchasePrice: prod.purchasePrice || 0,
-      sgstRate: Number(prod.sgstRate || prod.sgst_rate || 0),
-      cgstRate: Number(prod.cgstRate || prod.cgst_rate || 0),
+      sgstRate: Number(prod.sgstRate || 0),
+      cgstRate: Number(prod.cgstRate || 0),
       balanceStock: Number(prod.balanceStock || 0),
     }
 
@@ -336,16 +380,16 @@ export function POSSalesForm() {
         }, 50)
       }
     } else {
-      // replace existing line item product — use updateLineItem to recalc totals
+      // replace existing line item product - use updateLineItem to recalc totals
       updateLineItem(anchorId, {
         productId: productObj.productId,
         product: productObj.productName,
-        description: prod.productDescription || prod.description || undefined,
+        description: productObj.productDescription || undefined,
         hsn: productObj.hsnCode,
         salePrice: productObj.salePrice,
         sgstRate: productObj.sgstRate,
         cgstRate: productObj.cgstRate,
-        igstRate: Number(prod.igstRate || prod.igst_rate || 0),
+        igstRate: productObj.igstRate || 0,
       } as Partial<SaleLineItem>)
     }
 
@@ -361,24 +405,24 @@ export function POSSalesForm() {
   // search modal for loading existing sale by bill
   const [showSearchModal, setShowSearchModal] = useState(false)
   const [searchBillQuery, setSearchBillQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searchResults, setSearchResults] = useState<SaleApiRecord[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [searchHighlight, setSearchHighlight] = useState(0)
   const [saleId, setSaleId] = useState<number | null>(null)
 
   // inline bill search
   const [saleBillInput, setSaleBillInput] = useState('')
-  const [saleBillAllResults, setSaleBillAllResults] = useState<any[]>([])
+  const [saleBillAllResults, setSaleBillAllResults] = useState<SaleApiRecord[]>([])
   const [isSaleBillOpen, setIsSaleBillOpen] = useState(false)
   const [isSaleBillLoading, setIsSaleBillLoading] = useState(false)
   const [saleBillHighlight, setSaleBillHighlight] = useState(0)
   const saleBillRef = useRef<HTMLDivElement | null>(null)
-  const [summary, setSummary] = useState<any>({ todaysSales: 0, totalCustomers: 0, returns: 0, totalRevenue: 0 })
+  const [summary, setSummary] = useState<SummaryStats>({ todaysSales: 0, totalCustomers: 0, returns: 0, totalRevenue: 0 })
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [customerMobile, setCustomerMobile] = useState<string>(selectedCustomer?.mobileNo || '')
 
   // modal edit state
-  const [modalEditingSale, setModalEditingSale] = useState<any | null>(null)
+  const [modalEditingSale, setModalEditingSale] = useState<SaleApiRecord | null>(null)
   const [modalEditingLines, setModalEditingLines] = useState<SaleLineItem[]>([])
   const [modalSaving, setModalSaving] = useState(false)
 
@@ -474,10 +518,10 @@ export function POSSalesForm() {
     return () => el.removeEventListener('focusin', onFocusIn)
   }, [customerSearch, customerMobile, billDate, customerStateCode, isHeaderPrepared])
   const checkStockWarning = (productId: number, qnty: number, itemId: string) => {
-    let product = products.find((p) => p.productId === productId)
+    let product: Product | undefined = products.find((p) => p.productId === productId)
     if (!product) {
       // fallback to purchaseProducts if main products list not loaded
-      product = purchaseProducts.find((p) => p.productId === productId) as any
+      product = purchaseProducts.find((p) => p.productId === productId)
     }
     const existingQnty = lineItems
       .filter((item) => item.productId === productId && item.id !== itemId)
@@ -600,8 +644,8 @@ export function POSSalesForm() {
     const item = lineItems.find((it) => it.id === id)
     if (!item) return
     // if editing an existing saved sale and this line exists in DB, track its detail id for deletion
-    if (saleId && (item as any).saleDetailsId) {
-      const sid = Number((item as any).saleDetailsId)
+    if (saleId && item.saleDetailsId) {
+      const sid = Number(item.saleDetailsId)
       if (!Number.isNaN(sid)) setDeletedDetailIds((prev) => Array.from(new Set([...prev, sid])))
     }
     setLineItems((prev) => prev.filter((item) => item.id !== id))
@@ -645,7 +689,7 @@ export function POSSalesForm() {
       return
     }
 
-    // Check stock warnings — show product-specific toasts and focus first offending qty
+    // Check stock warnings - show product-specific toasts and focus first offending qty
     const offendingIds = Object.keys(stockWarnings || {})
     if (offendingIds.length > 0) {
       // show toast for each offending row (avoid spamming via stockToastShownRef)
@@ -654,7 +698,7 @@ export function POSSalesForm() {
         const item = lineItems.find((li) => li.id === id)
         if (!item) continue
         try {
-          const res = checkStockWarning(item.productId, item.qnty, id) as any
+          const res = checkStockWarning(item.productId, item.qnty, id)
           const isWarn = !!res && res.isWarning
           const available = res && res.available
           if (isWarn) {
@@ -722,7 +766,7 @@ export function POSSalesForm() {
 
       const data = await response.json()
       const savedDetails = Array.isArray(data.saleDetails) ? data.saleDetails : []
-      const mappedLines: SaleLineItem[] = savedDetails.map((d: any) => ({
+      const mappedLines: SaleLineItem[] = savedDetails.map((d: SaleApiDetail) => ({
         id: String(d.saleDetailsId) || String(Math.random()).slice(2),
         saleDetailsId: d.saleDetailsId,
         productId: d.productId,
@@ -801,10 +845,10 @@ export function POSSalesForm() {
     setIsSearching(true)
     try {
       // always fetch all so suffix / partial bill numbers work client-side
-      const res = await fetch('/api/sales')
+      const res = await fetch('/api/sales', { next: { revalidate: 60 } })
       const data = await res.json()
       const rows = Array.isArray(data) ? data : []
-      const sorted = [...rows].sort((a: any, b: any) => {
+      const sorted = [...rows].sort((a: SaleApiRecord, b: SaleApiRecord) => {
         const ad = new Date(a.billDate || a.createdAt || 0).getTime()
         const bd = new Date(b.billDate || b.createdAt || 0).getTime()
         if (ad === bd) return (b.saleId || 0) - (a.saleId || 0)
@@ -822,7 +866,7 @@ export function POSSalesForm() {
     }
   }
 
-  const loadSale = (sale: any) => {
+  const loadSale = (sale: SaleApiRecord) => {
     if (!sale) return
     setSaleId(sale.saleId || null)
     setBillNumber(sale.billNumber || '')
@@ -837,7 +881,7 @@ export function POSSalesForm() {
     setStockWarnings({})
 
     const details = Array.isArray(sale.saleDetails) ? sale.saleDetails : []
-    const mapped = details.map((d: any) => {
+    const mapped = details.map((d: SaleApiDetail) => {
       const { amount, discountAmount, sgstAmount, cgstAmount, igstAmount, totalAmount } = calculateLineTotal(
         Number(d.qnty || 0),
         Number(d.salePrice || 0),
@@ -875,10 +919,10 @@ export function POSSalesForm() {
     showSuccess('Loaded', sale.billNumber || 'Sale loaded')
   }
 
-  const modalStartEdit = (sale: any) => {
+  const modalStartEdit = (sale: SaleApiRecord) => {
     setModalEditingSale(sale)
     const details = Array.isArray(sale.saleDetails) ? sale.saleDetails : []
-    const mapped = details.map((d: any) => ({
+    const mapped = details.map((d: SaleApiDetail) => ({
       id: String(d.saleDetailsId) || String(Date.now()) + Math.random(),
       productId: d.productId,
       product: d.product,
@@ -955,7 +999,6 @@ export function POSSalesForm() {
         setModalEditingSale(null)
         setModalEditingLines([])
         setShowSearchModal(false)
-        fetchSummary()
       } else {
         const data = await res.json()
         throw new Error(data.error || 'Failed to update')
@@ -979,7 +1022,6 @@ export function POSSalesForm() {
         setModalEditingSale(null)
         setModalEditingLines([])
         setShowSearchModal(false)
-        fetchSummary()
       } else {
         const data = await res.json()
         throw new Error(data.error || 'Failed to delete')
@@ -1004,16 +1046,34 @@ export function POSSalesForm() {
   }, [unsavedChanges])
 
   // Generate professional PDF invoice using jsPDF
-  const generateInvoicePDF = async (salePayload?: any) => {
+  const generateInvoicePDF = async (salePayload?: SaleApiRecord) => {
     // prefer to use saved sale (saleId) or passed payload
-    const saleData = salePayload || (saleId ? await (await fetch(`/api/sales?id=${saleId}`)).json() : null)
+    let fetchedSaleData: SaleApiRecord | null = null
+    if (!salePayload && saleId) {
+      const response = await fetch(`/api/sales?id=${saleId}`, { next: { revalidate: 60 } })
+      let body: unknown = null
+      try {
+        body = await response.json()
+      } catch {
+        body = null
+      }
+
+      if (!response.ok) {
+        const errorMsg = typeof (body as Record<string, unknown>)?.error === 'string' ? (body as Record<string, unknown>).error : "Failed to load sale details for invoice"
+        throw new Error(String(errorMsg))
+      }
+
+      fetchedSaleData = body as SaleApiRecord
+    }
+
+    const saleData = salePayload || fetchedSaleData
     if (!saleData) {
       showWarn('No Data', 'Save the bill first to generate invoice')
       return null
     }
 
     // build invoice details
-    const { saleDetails = [], billNumber: bn, billDate: bd, customer: cust, mobileNo } = saleData as any
+    const { saleDetails = [], billNumber: bn, billDate: bd, customer: cust, mobileNo } = saleData
     const { jsPDF } = await import('jspdf')
     const autoTable = (await import('jspdf-autotable')).default
     const doc = new jsPDF({ unit: 'pt', format: 'a4' })
@@ -1030,7 +1090,7 @@ export function POSSalesForm() {
     doc.text(`Mobile: ${mobileNo || ''}`, 40, 116)
 
     // Items table
-    const tableBody = (saleDetails || []).map((d: any, i: number) => {
+    const tableBody = (saleDetails || []).map((d: SaleApiDetail, i: number) => {
       return [
         String(i + 1),
         d.product || '',
@@ -1050,7 +1110,7 @@ export function POSSalesForm() {
       styles: { fontSize: 9 }
     })
 
-    const finalY = (doc as any).lastAutoTable?.finalY || 300
+    const finalY = (doc as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY || 300
     // Totals
     doc.setFontSize(10)
     const subtotal = Number(totals.amount || 0)
@@ -1080,17 +1140,17 @@ export function POSSalesForm() {
   }
 
   const searchFilterTerm = searchBillQuery.trim().toLowerCase()
-  const saleMatchesSearch = (r: any, term: string) => {
+  const saleMatchesSearch = (r: SaleApiRecord, term: string) => {
     const bill = String(r.billNumber || '').toLowerCase()
     const customer = String(r.customer || '').toLowerCase()
     return term ? bill.includes(term) || customer.includes(term) : true
   }
-  const filteredResults = searchResults.filter((r: any) => saleMatchesSearch(r, searchFilterTerm))
+  const filteredResults = searchResults.filter((r) => saleMatchesSearch(r, searchFilterTerm))
 
   const saleBillFiltered = useMemo(() => {
     const q = saleBillInput.trim().toLowerCase()
     if (!q) return saleBillAllResults.slice(0, 50)
-    return saleBillAllResults.filter((r: any) =>
+    return saleBillAllResults.filter((r) =>
       String(r.billNumber || '').toLowerCase().includes(q) ||
       String(r.customer || '').toLowerCase().includes(q)
     )
@@ -1101,10 +1161,10 @@ export function POSSalesForm() {
     if (saleBillAllResults.length === 0) {
       setIsSaleBillLoading(true)
       try {
-        const res = await fetch('/api/sales')
+        const res = await fetch('/api/sales', { next: { revalidate: 60 } })
         const data = await res.json()
         const rows = Array.isArray(data) ? data : []
-        const sorted = [...rows].sort((a: any, b: any) => {
+        const sorted = [...rows].sort((a: SaleApiRecord, b: SaleApiRecord) => {
           const ad = new Date(a.billDate || a.createdAt || 0).getTime()
           const bd = new Date(b.billDate || b.createdAt || 0).getTime()
           if (ad === bd) return (b.saleId || 0) - (a.saleId || 0)
@@ -1282,7 +1342,7 @@ export function POSSalesForm() {
                               const v = parseFloat(e.target.value) || 0
                               updateLineItem(item.id, { qnty: v })
                               try {
-                                const res = checkStockWarning(item.productId, v, item.id) as any
+                                const res = checkStockWarning(item.productId, v, item.id)
                                 const isWarn = !!res && res.isWarning
                                 const available = res && res.available
                                 if (isWarn && !stockToastShownRef.current[item.id]) {
@@ -1299,7 +1359,7 @@ export function POSSalesForm() {
                             onBlur={(e) => {
                               const entered = Number((e.target as HTMLInputElement).value) || 0
                               try {
-                                const res = checkStockWarning(item.productId, entered, item.id) as any
+                                const res = checkStockWarning(item.productId, entered, item.id)
                                 const isWarn = !!res && res.isWarning
                                 const available = res && res.available
                                 if (isWarn) {
@@ -1348,7 +1408,7 @@ export function POSSalesForm() {
                               variant="ghost"
                               size="icon"
                               onClick={() => removeLineItem(item.id)}
-                              className="text-red-600 hover:text-red-800"
+                              className="text-red-600 hover:bg-red-50 hover:text-red-700"
                               aria-label="Delete line item"
                               title="Delete item"
                             >
@@ -1410,7 +1470,7 @@ export function POSSalesForm() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-center">
-                          <Button variant="ghost" size="sm" disabled className="h-8 text-muted-foreground">—</Button>
+                          <Button variant="ghost" size="sm" disabled className="h-8 text-muted-foreground">-</Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1584,7 +1644,7 @@ export function POSSalesForm() {
                               {customers
                                 .filter((c) => ((c.customerName || c.name || '') as string).toLowerCase().includes(String(customerSearch).toLowerCase()))
                                 .slice(0, 8)
-                                .map((c: any) => (
+                                .map((c: CustomerOption) => (
                                   <button
                                     key={c.customerId || c.id || (c.mobileNo || c.mobile)}
                                     type="button"
@@ -1601,7 +1661,7 @@ export function POSSalesForm() {
                                     }}
                                     className="dropdown-item"
                                   >
-                                    {(c.customerName || c.name)} · {(c.mobileNo || c.mobile || '')}
+                                    {(c.customerName || c.name)} - {(c.mobileNo || c.mobile || '')}
                                   </button>
                                 ))}
                             </div>

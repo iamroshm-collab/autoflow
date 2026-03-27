@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { acceptJobAllocation } from '@/services/jobAllocationService';
+import { createRoleNotifications } from '@/lib/app-notifications';
+import { sendTechnicianAcceptedNotification } from '@/services/notificationService';
 
 /**
  * POST /api/technician-jobs/[allocationId]/accept
@@ -20,6 +22,23 @@ export async function POST(
     }
 
     const allocation = await acceptJobAllocation(allocationId);
+    const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || request.nextUrl.origin;
+
+    await createRoleNotifications(["admin", "manager"], {
+      title: "Job Accepted",
+      body: `${allocation.employee?.empName || "Technician"} accepted ${allocation.jobCard?.vehicle?.registrationNumber || "a job"}`,
+      url: `/job/${allocation.jobId}`,
+      type: "job_accepted",
+    });
+
+    void sendTechnicianAcceptedNotification(serverUrl, {
+      allocationId: allocation.id,
+      jobId: allocation.jobId,
+      technicianName: allocation.employee?.empName || "Technician",
+      vehicleNumber: allocation.jobCard?.vehicle?.registrationNumber || "Unknown vehicle",
+    }).catch((error) => {
+      console.error('[TECHNICIAN_JOB_ACCEPT_NOTIFICATION]', error);
+    });
 
     return NextResponse.json({
       success: true,

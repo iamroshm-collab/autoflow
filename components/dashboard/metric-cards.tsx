@@ -68,7 +68,7 @@ export const MetricCards = memo(
       {visibleCards.map((metric) => (
         <div
           key={metric.label}
-          className="flex items-center gap-4 p-5 bg-card text-card-foreground rounded-xl shadow-sm border border-border/50 hover:shadow-md transition-shadow"
+          className="dashboard-card flex items-center gap-4 hover:shadow-md transition-shadow"
         >
           <div
             className={`flex items-center justify-center w-12 h-12 rounded-xl ${metric.iconBg}`}

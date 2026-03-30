@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { notify } from '@/components/ui/notify'
-import { startAction, successAction, errorAction } from "@/lib/action-feedback"
+import { successAction, errorAction } from "@/lib/action-feedback"
 import { Printer, Trash2, Plus } from "lucide-react"
 import { JOB_CARD_STATUSES, SERVICE_TYPES, MAINTENANCE_TYPES } from "@/lib/constants"
 import useContinuousRows from '@/components/hooks/useContinuousRows'
@@ -846,9 +846,6 @@ export function ReadyForDeliveryForm({
 
     try {
       setIsLoadingRecord(true)
-      if (!silent) {
-        startAction("Loading job card...")
-      }
       console.debug("loadJobCard:start", { jobCardId, registrationNumber: formData.registrationNumber, silent })
 
       const query = new URLSearchParams()
@@ -1907,7 +1904,7 @@ export function ReadyForDeliveryForm({
       <div className="grid h-full min-h-0 gap-3 md:gap-6">
       {/* 5-Column x 3-Row Form Layout */}
       {activeSubform === "main-form" && (
-      <div className="global-main-form-content p-3 md:p-4 lg:p-6">
+      <div className="global-main-form-content py-3 md:py-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
           {/* Row 1 */}
           <div className="grid gap-2">

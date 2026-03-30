@@ -5,14 +5,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
   Tabs,
   TabsContent,
   TabsList,
@@ -153,11 +145,16 @@ const normalizeText = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/
 export default function MaintenanceTracker({
   externalSearch,
   onExternalSearchChange,
+  activeTab: externalActiveTab,
+  onTabChange,
 }: {
   externalSearch?: string
   onExternalSearchChange?: (value: string) => void
+  activeTab?: string
+  onTabChange?: (tab: string) => void
 } = {}) {
   const [jobcards, setJobcards] = useState<DeliveredJobCard[]>([])
+  const [activeTab, setActiveTab] = useState("all")
   const [searchTerm, setSearchTerm] = useState("")
   const effectiveSearchTerm = externalSearch !== undefined ? externalSearch : searchTerm
   const [isLoading, setIsLoading] = useState(true)
@@ -512,158 +509,170 @@ export default function MaintenanceTracker({
     }
   }
 
-  const MaintenanceTable = ({ data, showPaymentStatus = false, showBothStatuses = false }: { data: MaintenanceRecord[], showPaymentStatus?: boolean, showBothStatuses?: boolean }) => (
-    <div className="global-form-shell">
-      <div className="overflow-x-auto border rounded-lg bg-white">
-        <Table>
-        <TableHeader>
-          <TableRow className="bg-muted">
-            <TableHead className="text-center">Delivery Date</TableHead>
-            <TableHead className="text-center">Customer Name</TableHead>
-            <TableHead className="text-center">Mobile Number</TableHead>
-            <TableHead className="text-center">Vehicle</TableHead>
-            {showBothStatuses ? (
-              <>
-                <TableHead className="text-center">Vehicle Status</TableHead>
-                <TableHead className="text-center">Payment Status</TableHead>
-              </>
+  const MaintenanceTable = ({
+    data,
+    showPaymentStatus = false,
+    showBothStatuses = false,
+    flattenTopLeft = false,
+  }: {
+    data: MaintenanceRecord[]
+    showPaymentStatus?: boolean
+    showBothStatuses?: boolean
+    flattenTopLeft?: boolean
+  }) => (
+    <div className={`global-main-form-content maintenance-table-shell ${flattenTopLeft ? "is-first" : ""}`}>
+      <div className="global-subform-table-content flex min-h-0 flex-col">
+        <div className="form-table-wrapper shrink-0">
+        <table className="w-full table-fixed">
+          <thead className="sticky top-0 z-20">
+            <tr>
+              <th className="text-center">Delivery Date</th>
+              <th className="text-center">Customer Name</th>
+              <th className="text-center">Mobile Number</th>
+              <th className="text-center">Vehicle</th>
+              {showBothStatuses ? (
+                <>
+                  <th className="text-center">Vehicle Status</th>
+                  <th className="text-center">Payment Status</th>
+                </>
+              ) : (
+                <th className="text-center">{showPaymentStatus ? "Payment Status" : "Vehicle Status"}</th>
+              )}
+              <th className="text-center">JobCard Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.length === 0 ? (
+              <tr>
+                <td colSpan={showBothStatuses ? 7 : 6} className="text-center py-8 text-muted-foreground">
+                  No records found
+                </td>
+              </tr>
             ) : (
-              <TableHead className="text-center">{showPaymentStatus ? "Payment Status" : "Vehicle Status"}</TableHead>
-            )}
-            <TableHead className="text-center">JobCard Details</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={showBothStatuses ? 7 : 6} className="text-center py-8 text-muted-foreground">
-                No records found
-              </TableCell>
-            </TableRow>
-          ) : (
-            data.map((record, idx) => (
-              <TableRow key={`${record.jobCard.id}-${idx}`} className="hover:bg-muted/50">
-                <TableCell className="font-medium text-sm text-center">
-                  {formatDate(record.jobCard.deliveryDate)}
-                </TableCell>
-                <TableCell className="text-sm text-center">{record.jobCard.customer.name}</TableCell>
-                <TableCell className="text-sm text-center">{record.jobCard.customer.mobileNo}</TableCell>
-                <TableCell className="text-sm text-center">
-                  {record.jobCard.vehicle.make} {record.jobCard.vehicle.model}
-                  <br />
-                  <span className="text-xs text-muted-foreground">
-                    {record.jobCard.vehicle.registrationNumber}
-                  </span>
-                </TableCell>
-                {showBothStatuses ? (
-                  <>
-                    <TableCell className="text-sm text-center">
-                      <Select
-                        value={record.jobCard.vehicleStatus || "Pending"}
-                        onValueChange={(value) =>
-                          handleVehicleStatusChange(record.jobCard.id, value)
-                        }
-                      >
-                        <div className="flex justify-center">
-                          <SelectTrigger className="h-8 text-sm w-auto">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </div>
-                        <SelectContent>
-                          <SelectItem value="Pending">Pending</SelectItem>
-                          <SelectItem value="Delivered">Delivered</SelectItem>
-                          <SelectItem value="Ready">Ready</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell className="text-sm text-center">
-                      <Select
-                        value={record.jobCard.jobcardPaymentStatus || "Partial"}
-                        onValueChange={(value) =>
-                          handlePaymentStatusChange(record.jobCard.id, value)
-                        }
-                      >
-                        <div className="flex justify-center">
-                          <SelectTrigger className="h-8 text-sm w-auto">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </div>
-                        <SelectContent>
-                          <SelectItem value="Partial">Partial</SelectItem>
-                          <SelectItem value="Completed">Completed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                  </>
-                ) : (
-                  <TableCell className="text-sm text-center">
-                    {showPaymentStatus ? (
-                      <Select
-                        value={record.jobCard.jobcardPaymentStatus || "Partial"}
-                        onValueChange={(value) =>
-                          handlePaymentStatusChange(record.jobCard.id, value)
-                        }
-                      >
-                        <div className="flex justify-center">
-                          <SelectTrigger className="h-8 text-sm w-auto">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </div>
-                        <SelectContent>
-                          <SelectItem value="Partial">Partial</SelectItem>
-                          <SelectItem value="Completed">Completed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Select
-                        value={record.jobCard.vehicleStatus || "Pending"}
-                        onValueChange={(value) =>
-                          handleVehicleStatusChange(record.jobCard.id, value)
-                        }
-                      >
-                        <div className="flex justify-center">
-                          <SelectTrigger className="h-8 text-sm w-auto">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </div>
-                        <SelectContent>
-                          <SelectItem value="Pending">Pending</SelectItem>
-                          <SelectItem value="Delivered">Delivered</SelectItem>
-                          <SelectItem value="Ready">Ready</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </TableCell>
-                )}
-                <TableCell className="text-sm text-center">
-                  {record.matchedDescriptions.length === 0 ? (
-                    <span className="text-muted-foreground">-</span>
+              data.map((record, idx) => (
+                <tr key={`${record.jobCard.id}-${idx}`} className="border-t hover:bg-muted/50 [&>td]:align-middle">
+                  <td className="font-medium text-sm text-center">
+                    {formatDate(record.jobCard.deliveryDate)}
+                  </td>
+                  <td className="text-sm text-center">{record.jobCard.customer.name}</td>
+                  <td className="text-sm text-center">{record.jobCard.customer.mobileNo}</td>
+                  <td className="text-sm text-center">
+                    {record.jobCard.vehicle.make} {record.jobCard.vehicle.model}
+                    <br />
+                    <span className="text-xs text-muted-foreground">
+                      {record.jobCard.vehicle.registrationNumber}
+                    </span>
+                  </td>
+                  {showBothStatuses ? (
+                    <>
+                      <td className="text-sm text-center">
+                        <Select
+                          value={record.jobCard.vehicleStatus || "Pending"}
+                          onValueChange={(value) =>
+                            handleVehicleStatusChange(record.jobCard.id, value)
+                          }
+                        >
+                          <div className="flex justify-center">
+                            <SelectTrigger className="h-8 w-auto border-0 bg-transparent px-2 text-sm shadow-none focus:ring-0 focus:ring-offset-0">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </div>
+                          <SelectContent>
+                            <SelectItem value="Pending">Pending</SelectItem>
+                            <SelectItem value="Delivered">Delivered</SelectItem>
+                            <SelectItem value="Ready">Ready</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="text-sm text-center">
+                        <Select
+                          value={record.jobCard.jobcardPaymentStatus || "Partial"}
+                          onValueChange={(value) =>
+                            handlePaymentStatusChange(record.jobCard.id, value)
+                          }
+                        >
+                          <div className="flex justify-center">
+                            <SelectTrigger className="h-8 w-auto border-0 bg-transparent px-2 text-sm shadow-none focus:ring-0 focus:ring-offset-0">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </div>
+                          <SelectContent>
+                            <SelectItem value="Partial">Partial</SelectItem>
+                            <SelectItem value="Completed">Completed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </td>
+                    </>
                   ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedRecord(record)
-                        setIsDialogOpen(true)
-                      }}
-                      className="gap-2"
-                    >
-                      <FileText className="h-4 w-4" />
-                      View
-                    </Button>
+                    <td className="text-sm text-center">
+                      {showPaymentStatus ? (
+                        <Select
+                          value={record.jobCard.jobcardPaymentStatus || "Partial"}
+                          onValueChange={(value) =>
+                            handlePaymentStatusChange(record.jobCard.id, value)
+                          }
+                        >
+                          <div className="flex justify-center">
+                            <SelectTrigger className="h-8 w-auto border-0 bg-transparent px-2 text-sm shadow-none focus:ring-0 focus:ring-offset-0">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </div>
+                          <SelectContent>
+                            <SelectItem value="Partial">Partial</SelectItem>
+                            <SelectItem value="Completed">Completed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Select
+                          value={record.jobCard.vehicleStatus || "Pending"}
+                          onValueChange={(value) =>
+                            handleVehicleStatusChange(record.jobCard.id, value)
+                          }
+                        >
+                          <div className="flex justify-center">
+                            <SelectTrigger className="h-8 w-auto border-0 bg-transparent px-2 text-sm shadow-none focus:ring-0 focus:ring-offset-0">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </div>
+                          <SelectContent>
+                            <SelectItem value="Pending">Pending</SelectItem>
+                            <SelectItem value="Delivered">Delivered</SelectItem>
+                            <SelectItem value="Ready">Ready</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </td>
                   )}
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+                  <td className="text-sm text-center">
+                    {record.matchedDescriptions.length === 0 ? (
+                      <span className="text-muted-foreground">-</span>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedRecord(record)
+                          setIsDialogOpen(true)
+                        }}
+                        className="h-auto gap-2 px-0 py-0 text-sky-600 hover:bg-transparent hover:text-sky-700"
+                      >
+                        <FileText className="h-4 w-4 text-sky-600" />
+                        View Estimate
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+        </div>
       </div>
     </div>
   )
 
   return (
-    <div className="space-y-6">
+    <div className={externalActiveTab !== undefined ? "" : "grid h-full min-h-0 gap-3 md:gap-6"}>
       {externalSearch === undefined && (
       <div className="flex justify-end -mt-[3.5rem] mb-6">
         <div className="relative w-96" ref={containerRef}>
@@ -757,51 +766,95 @@ export default function MaintenanceTracker({
       </div>
       )}
 
-      <Tabs defaultValue="all" className="w-full">
-          <TabsList>
-            <TabsTrigger
-              value="all"
-              className="flex items-center gap-2 [&>svg]:text-slate-500 data-[state=active]:[&>svg]:text-sky-600"
-            >
-              <Calendar className="h-4 w-4" />
-              All
-            </TabsTrigger>
-            <TabsTrigger
-              value="oil"
-              className="flex items-center gap-2 [&>svg]:text-slate-500 data-[state=active]:[&>svg]:text-sky-600"
-            >
-              <Droplets className="h-4 w-4" />
-              Oil Change
-            </TabsTrigger>
-            <TabsTrigger
-              value="filter"
-              className="flex items-center gap-2 [&>svg]:text-slate-500 data-[state=active]:[&>svg]:text-sky-600"
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-            </TabsTrigger>
-            <TabsTrigger
-              value="general"
-              className="flex items-center gap-2 [&>svg]:text-slate-500 data-[state=active]:[&>svg]:text-sky-600"
-            >
-              <Wrench className="h-4 w-4" />
-              General Maint.
-            </TabsTrigger>
-            <TabsTrigger
-              value="pending"
-              className="flex items-center gap-2 [&>svg]:text-slate-500 data-[state=active]:[&>svg]:text-sky-600"
-            >
-              <DollarSign className="h-4 w-4" />
-              Pending Payments
-            </TabsTrigger>
-          </TabsList>
+      {externalActiveTab !== undefined ? (
+        <>
+          <div className="mb-2 mobile-only-tab-select">
+            <Select value={externalActiveTab} onValueChange={(v) => onTabChange?.(v)}>
+              <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Select section" /></SelectTrigger>
+              <SelectContent className="rounded-md">
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="oil">Oil Change</SelectItem>
+                <SelectItem value="filter">Filters</SelectItem>
+                <SelectItem value="general">General Maint.</SelectItem>
+                <SelectItem value="pending">Pending Payments</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">Loading...</div>
+          ) : externalActiveTab === "all" ? (
+            <MaintenanceTable data={allRecords} showBothStatuses={true} flattenTopLeft={true} />
+          ) : externalActiveTab === "oil" ? (
+            <MaintenanceTable data={oilRecords} />
+          ) : externalActiveTab === "filter" ? (
+            <MaintenanceTable data={filterRecords} />
+          ) : externalActiveTab === "general" ? (
+            <MaintenanceTable data={generalRecords} />
+          ) : externalActiveTab === "pending" ? (
+            <MaintenanceTable data={pendingRecords} showPaymentStatus={true} />
+          ) : null}
+        </>
+      ) : (
+        <div className={`global-tabs-wrap ${activeTab === "all" ? "is-first" : "is-offset"}`}>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <div className="mb-2 mobile-only-tab-select">
+              <Select value={activeTab} onValueChange={setActiveTab}>
+                <SelectTrigger className="h-10 w-full">
+                  <SelectValue placeholder="Select section" />
+                </SelectTrigger>
+                <SelectContent className="rounded-md">
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="oil">Oil Change</SelectItem>
+                  <SelectItem value="filter">Filters</SelectItem>
+                  <SelectItem value="general">General Maint.</SelectItem>
+                  <SelectItem value="pending">Pending Payments</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="pt-6">
+            <TabsList className="global-tabs-list settings-tabs-list desktop-only-tab-strip">
+              <TabsTrigger
+                value="all"
+                className="settings-tabs-trigger"
+              >
+                <Calendar className="h-4 w-4" />
+                All
+              </TabsTrigger>
+              <TabsTrigger
+                value="oil"
+                className="settings-tabs-trigger"
+              >
+                <Droplets className="h-4 w-4" />
+                Oil Change
+              </TabsTrigger>
+              <TabsTrigger
+                value="filter"
+                className="settings-tabs-trigger"
+              >
+                <Filter className="h-4 w-4" />
+                Filters
+              </TabsTrigger>
+              <TabsTrigger
+                value="general"
+                className="settings-tabs-trigger"
+              >
+                <Wrench className="h-4 w-4" />
+                General Maint.
+              </TabsTrigger>
+              <TabsTrigger
+                value="pending"
+                className="settings-tabs-trigger"
+              >
+                <DollarSign className="h-4 w-4" />
+                Pending Payments
+              </TabsTrigger>
+            </TabsList>
+
             <TabsContent value="all" className="mt-0">
               {isLoading ? (
                 <div className="text-center py-8 text-muted-foreground">Loading...</div>
               ) : (
-                <MaintenanceTable data={allRecords} showBothStatuses={true} />
+                <MaintenanceTable data={allRecords} showBothStatuses={true} flattenTopLeft={true} />
               )}
             </TabsContent>
 
@@ -836,8 +889,9 @@ export default function MaintenanceTracker({
                 <MaintenanceTable data={pendingRecords} showPaymentStatus={true} />
               )}
             </TabsContent>
-          </div>
-        </Tabs>
+          </Tabs>
+        </div>
+      )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent

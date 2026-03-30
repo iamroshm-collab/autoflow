@@ -87,7 +87,7 @@ export const DashboardContent = memo(function DashboardContent({ onNavigate, rol
   }, [])
 
   return (
-    <div className="flex flex-col gap-[1mm]">
+    <div className="flex flex-col gap-[1mm] pb-[1mm]">
       <MetricCards metrics={summary.metrics} role={role} hidePendingBilling={hideTechnicianOnlyCards} />
       <div className="grid grid-cols-1 gap-[1mm] lg:grid-cols-3">
         <div className="lg:col-span-2 h-full">

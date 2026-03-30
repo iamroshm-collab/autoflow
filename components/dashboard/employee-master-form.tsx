@@ -415,11 +415,7 @@ export function EmployeeMasterForm({
   return (
     <div className="space-y-4">
       <div>
-        <div className="flex items-center justify-between gap-2 mb-4">
-          <h2 className="text-base font-semibold">Employee List</h2>
-        </div>
-
-        <div className="rounded-md border overflow-x-auto">
+        <div className="form-table-wrapper">
           <table className="w-full text-sm">
             <thead className="bg-slate-100/80">
               <tr>
@@ -491,7 +487,7 @@ export function EmployeeMasterForm({
           </table>
         </div>
 
-        <div className="sticky-form-actions flex justify-center mt-6">
+        <div className="floating-add-action spare-parts-add-action">
           <Button
             type="button"
             onClick={handleAddNew}

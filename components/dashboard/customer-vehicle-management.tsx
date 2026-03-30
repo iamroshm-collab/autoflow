@@ -534,12 +534,8 @@ export function CustomerVehicleManagement({ initialSearch = "" }: CustomerVehicl
 
   return (
     <div className="space-y-6">
-      <Card className="p-4 md:p-5">
-        <div className="flex items-center justify-between gap-2 mb-4">
-          <h2 className="text-base font-semibold">Customer List</h2>
-        </div>
-
-        <div className="rounded-md border overflow-x-auto">
+      <div>
+        <div className="form-table-wrapper">
           <table className="w-full text-sm">
             <thead className="bg-slate-100/80">
               <tr>
@@ -617,7 +613,7 @@ export function CustomerVehicleManagement({ initialSearch = "" }: CustomerVehicl
           </table>
         </div>
 
-        <div className="sticky-form-actions flex justify-center mt-6">
+        <div className="floating-add-action spare-parts-add-action">
           <Button
             type="button"
             onClick={handleOpenCustomerModalForAdd}
@@ -629,7 +625,7 @@ export function CustomerVehicleManagement({ initialSearch = "" }: CustomerVehicl
             Add Customer
           </Button>
         </div>
-      </Card>
+      </div>
 
       <Dialog
         open={isCustomerModalOpen}

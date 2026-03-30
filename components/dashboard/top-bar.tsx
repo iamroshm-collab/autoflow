@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react"
 import { Bell, Search, UserCircle, Menu } from "lucide-react"
 import { type UserRole } from "@/lib/access-control"
 import { Input } from "@/components/ui/input"
@@ -51,6 +51,8 @@ interface TopBarProps {
   onWhatsApp?: () => void
   onNotificationNavigate?: (targetForm: string) => void
   onToggleSidebar?: () => void
+  searchInputRef?: RefObject<HTMLInputElement | null>
+  onSearchFocusChange?: (focused: boolean) => void
 }
 
 export function TopBar({
@@ -65,6 +67,8 @@ export function TopBar({
   onWhatsApp,
   onNotificationNavigate,
   onToggleSidebar,
+  searchInputRef,
+  onSearchFocusChange,
 }: TopBarProps) {
   const [notifications, setNotifications] = useState<HeaderNotification[]>([])
   const [whatsAppUnreadCount, setWhatsAppUnreadCount] = useState(0)
@@ -119,7 +123,7 @@ export function TopBar({
   }
 
   return (
-    <header className="flex items-center gap-4 h-14 px-4 bg-white border-b border-slate-100 shrink-0">
+    <header className="w-full flex items-center gap-4 h-14 px-4 bg-white border border-slate-100 shrink-0 rounded-2xl">
       {/* Mobile menu toggle */}
       <button
         onClick={onToggleSidebar}
@@ -151,13 +155,16 @@ export function TopBar({
       ) : searchConfig ? (
         <div className="flex items-center gap-2">
           {searchConfig.suffix ?? null}
-          <div className="relative w-52">
+          <div className="relative w-[25rem]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
             <Input
+              ref={searchInputRef}
               value={searchConfig.value}
               onChange={(e) => searchConfig.onChange(e.target.value)}
+              onFocus={() => onSearchFocusChange?.(true)}
+              onBlur={() => onSearchFocusChange?.(false)}
               placeholder={searchConfig.placeholder}
-              className="h-7 pl-8 pr-3 bg-slate-50 border-slate-200 text-xs rounded-full"
+              className="global-topbar-search pl-8"
             />
           </div>
         </div>

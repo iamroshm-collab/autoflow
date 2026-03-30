@@ -23,7 +23,7 @@ export const ServiceOverviewChart = memo(function ServiceOverviewChart({ data }:
   const chartData = data && data.length > 0 ? data : fallbackData
 
   return (
-    <div className="flex h-full flex-col p-5 bg-card text-card-foreground rounded-xl shadow-sm border border-border/50">
+    <div className="dashboard-card flex h-full flex-col">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-heading font-semibold text-card-foreground">
           Service Overview

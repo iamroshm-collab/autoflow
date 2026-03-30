@@ -141,7 +141,7 @@ export const RecentJobCards = memo(function RecentJobCards({ jobs }: RecentJobCa
 
   return (
     <>
-      <div className="flex flex-col p-5 bg-card text-card-foreground rounded-xl shadow-sm border border-border/50">
+      <div className="dashboard-card flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-heading font-semibold text-card-foreground">
             Recent Job Cards

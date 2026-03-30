@@ -543,10 +543,8 @@ export function AccountingMasterForm() {
         </div>
       </Card>
 
-      <Card className="p-4 md:p-6">
-        <h2 className="text-base font-semibold mb-4">Income & Expense Ledger</h2>
-
-        <div className="overflow-x-auto border rounded-md">
+      <div>
+        <div className="form-table-wrapper">
           <table className="w-full text-sm table-fixed">
             <colgroup>
               <col style={{ width: "11%" }} />
@@ -645,18 +643,17 @@ export function AccountingMasterForm() {
             </tbody>
           </table>
         </div>
-      </Card>
-
-      <div className="sticky-form-actions flex flex-wrap items-center gap-5">
-        <Button
-          type="button"
-          onClick={handleAddNew}
-          className="flex-1 justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-4 py-2 min-h-[40px]"
-          variant="ghost"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add New
-        </Button>
+        <div className="floating-add-action spare-parts-add-action">
+          <Button
+            type="button"
+            onClick={handleAddNew}
+            className="global-bottom-btn-add"
+            variant="ghost"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add New
+          </Button>
+        </div>
       </div>
 
       <Dialog

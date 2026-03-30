@@ -503,12 +503,11 @@ export function SparePartsPurchaseLedger({
       {activeTab === "all" && (
         <div className="mt-4 space-y-6">
           <h3 className="text-base font-semibold">Ledger Records</h3>
-          <div className="border rounded-md overflow-hidden">
-            <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
-              <table className="w-full min-w-[1120px] text-sm">
-                <thead className="sticky top-0 z-20">
-                  <tr>
-                    <th className="text-center" style={{ width: "9%" }}>Type</th>
+          <div className="form-table-wrapper">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 z-20">
+                <tr>
+                  <th className="text-center" style={{ width: "9%" }}>Type</th>
                     <th className="text-center" style={{ width: "12%" }}>Shop Name</th>
                     <th className="text-center" style={{ width: "10%" }}>Bill Date</th>
                     <th className="text-center" style={{ width: "11%" }}>Bill Number</th>
@@ -558,20 +557,18 @@ export function SparePartsPurchaseLedger({
                     ))
                   )}
                 </tbody>
-              </table>
-            </div>
+            </table>
           </div>
         </div>
       )}
 
       {activeTab === "returned" && (
         <div className="mt-4 space-y-4">
-          <div className="border rounded-md overflow-hidden">
-            <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
-              <table className="w-full min-w-[1120px] text-sm">
-                <thead className="sticky top-0 z-20">
-                  <tr>
-                    <th className="text-center" style={{ width: "16%" }}>Shop Name</th>
+          <div className="form-table-wrapper">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 z-20">
+                <tr>
+                  <th className="text-center" style={{ width: "16%" }}>Shop Name</th>
                     <th className="text-center" style={{ width: "12%" }}>Bill Date</th>
                     <th className="text-center" style={{ width: "14%" }}>Bill Number</th>
                     <th className="text-center" style={{ width: "26%" }}>Item</th>
@@ -631,9 +628,8 @@ export function SparePartsPurchaseLedger({
                       )
                     })
                   )}
-                </tbody>
-              </table>
-            </div>
+              </tbody>
+            </table>
           </div>
           <div className="sticky-form-actions">
             <Button
@@ -652,12 +648,11 @@ export function SparePartsPurchaseLedger({
 
       {activeTab === "payments" && (
         <div className="mt-4 space-y-4">
-          <div className="border rounded-md overflow-hidden">
-            <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
-              <table className="w-full min-w-[1120px] text-sm">
-                <thead className="sticky top-0 z-20">
-                  <tr>
-                    <th className="text-center" style={{ width: "12%" }}>Shop Name</th>
+          <div className="form-table-wrapper">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 z-20">
+                <tr>
+                  <th className="text-center" style={{ width: "12%" }}>Shop Name</th>
                     <th className="text-center" style={{ width: "14%" }}>Bill Date</th>
                     <th className="text-center" style={{ width: "14%" }}>Bill Number</th>
                     <th className="text-center" style={{ width: "26%" }}>Item</th>
@@ -717,9 +712,8 @@ export function SparePartsPurchaseLedger({
                       )
                     })
                   )}
-                </tbody>
-              </table>
-            </div>
+              </tbody>
+            </table>
           </div>
           <div className="sticky-form-actions">
             <Button

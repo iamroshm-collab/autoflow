@@ -7,7 +7,12 @@
       "Bash(for file:*)",
       "Bash(do echo:*)",
       "Bash(__NEW_LINE_7457f5b172d97707__ grep:*)",
-      "Bash(head -5 grep -n \"btn\\\\|Save\\\\|Button\" \"c:/Users/Thakkudu/Desktop/new-garage-app/components/dashboard/new-job-card-form.tsx\")"
+      "Bash(head -5 grep -n \"btn\\\\|Save\\\\|Button\" \"c:/Users/Thakkudu/Desktop/new-garage-app/components/dashboard/new-job-card-form.tsx\")",
+      "Bash(npm install:*)",
+      "Bash(node -e \"const rw = require\\(''react-window''\\); console.log\\(Object.keys\\(rw\\)\\)\")",
+      "Bash(node -e \"const a = require\\(''''react-virtualized-auto-sizer''''\\); console.log\\(Object.keys\\(a\\)\\)\")",
+      "Bash(node -e \"const rw = require\\(''react-window''\\); const L = rw.List; console.log\\(typeof L\\)\")",
+      "Bash(node -e \"const rw = require\\(''''react-window''''\\); const L = rw.List; console.log\\(L.toString\\(\\).substring\\(0, 200\\)\\)\")"
     ]
   }
 }

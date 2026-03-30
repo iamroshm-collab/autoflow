@@ -11,6 +11,7 @@ import { JobCardTabStrip, type JobCardSubformTab } from "@/components/dashboard/
 import { useEmployeeSearch } from "@/hooks/useEmployeeSearch"
 import { canAccessMenu, type UserRole } from "@/lib/access-control"
 import { getOrCreateDeviceId } from "@/lib/device-identity"
+import { SupplierAutocomplete } from "@/components/SupplierAutocomplete"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -46,6 +47,10 @@ import {
   SlidersHorizontal,
   Banknote,
   CreditCard,
+  Calendar,
+  Droplets,
+  Filter,
+  DollarSign,
 } from "lucide-react"
 
 export const dynamic = 'force-dynamic'
@@ -201,6 +206,7 @@ function PageContent() {
   const [customerSearch, setCustomerSearch] = useState("")
   const [technicianSearch, setTechnicianSearch] = useState("")
   const [maintenanceSearch, setMaintenanceSearch] = useState("")
+  const [maintenanceTrackerTab, setMaintenanceTrackerTab] = useState<string>("all")
   const {
     employeeSearch,
     setEmployeeSearch,
@@ -220,6 +226,7 @@ function PageContent() {
   const [sparePartsTab, setSparePartsTab] = useState<"all" | "returned" | "payments">("all")
   const [attendancePayrollTab, setAttendancePayrollTab] = useState<"attendance" | "adjustments" | "payroll">("attendance")
   const [inventoryTab, setInventoryTab] = useState<"suppliers" | "products">("suppliers")
+  const inventorySupplierSelectRef = useRef<((supplier: { supplierId: number }) => void) | null>(null)
   const [inventoryPosTab, setInventoryPosTab] = useState<"purchase" | "sales" | "inventory" | "stock-movement" | "credit-notes" | "debit-notes" | "gst-report">("purchase")
   const [updateJobCardSubformTab, setUpdateJobCardSubformTab] = useState<JobCardSubformTab>("main-form")
   const [readyForDeliverySubformTab, setReadyForDeliverySubformTab] = useState<JobCardSubformTab>("main-form")
@@ -350,6 +357,7 @@ function PageContent() {
   useEffect(() => {
     if (activeItem !== "technician-task-details") setTechnicianSearch("")
     if (activeItem !== "maintenance-tracker") setMaintenanceSearch("")
+    if (activeItem !== "maintenance-tracker") setMaintenanceTrackerTab("all")
   }, [activeItem])
 
   const fetchNavigationRecords = useCallback(
@@ -502,7 +510,7 @@ function PageContent() {
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden rounded-2xl bg-background">
+      <div className="flex flex-col flex-1 min-w-0">
 
         <TopBar
           pageTitle={activeLabel}
@@ -546,7 +554,7 @@ function PageContent() {
                   value={technicianSearch}
                   onChange={(e) => setTechnicianSearch(e.target.value)}
                   placeholder="Search technician, task, vehicle..."
-                  className="h-7 pl-8 pr-3 bg-slate-50 border-slate-200 text-xs rounded-full"
+                  className="global-topbar-search pl-8"
                   autoComplete="off"
                 />
               </div>
@@ -572,7 +580,7 @@ function PageContent() {
                     if (isEmployeeSearchOpen) employeeDropdownNav.handleKeyDown(e)
                   }}
                   placeholder="Search employee..."
-                  className="h-7 pl-8 pr-3 bg-slate-50 border-slate-200 text-xs rounded-full"
+                  className="global-topbar-search pl-8"
                   aria-label="Search Employee"
                   aria-autocomplete="list"
                   aria-expanded={isEmployeeSearchOpen}
@@ -609,6 +617,12 @@ function PageContent() {
                   </div>
                 )}
               </div>
+            ) : activeItem === "inventory" && inventoryTab === "products" ? (
+              <SupplierAutocomplete
+                placeholder="Search supplier..."
+                onSelect={(s) => inventorySupplierSelectRef.current?.(s)}
+                inputClassName="rounded-full bg-slate-50 border-slate-200 text-xs"
+              />
             ) : undefined
           }
           userName={currentUser.name}
@@ -617,12 +631,15 @@ function PageContent() {
           onWhatsApp={() => handleSelect("whatsapp-messages")}
           onNotificationNavigate={handleNotificationNavigate}
           onToggleSidebar={() => setSidebarOpen(true)}
+          searchInputRef={searchInputRef}
+          onSearchFocusChange={setSearchInputFocused}
         />
 
-        <main className={`flex-1 h-full min-h-0 ${(activeItem === "settings" || activeItem === "update-job-card" || activeItem === "delivered" || activeItem === "whatsapp-messages" || activeItem === "new-job-card") ? "overflow-hidden" : "overflow-y-auto"}`}>
-          <div
-            className={`form-main-wrapper ${activeItem === "whatsapp-messages" ? "flex h-full min-h-0 flex-col !p-0" : `${(activeItem === "settings" || activeItem === "update-job-card" || activeItem === "delivered") ? "flex h-full min-h-0 flex-col" : ""} ${activeItem === "new-job-card" ? "h-full" : ""}`}`}
-          >
+        <main className="mt-[1mm] flex flex-1 min-h-0 flex-col gap-[1mm]">
+          <div className="flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl bg-slate-100">
+            <div
+              className={`form-main-wrapper flex-1 min-h-0 ${(activeItem === "settings" || activeItem === "update-job-card" || activeItem === "delivered" || activeItem === "whatsapp-messages" || activeItem === "new-job-card" || activeItem === "maintenance-tracker") ? "overflow-hidden" : "overflow-y-auto"} ${activeItem === "whatsapp-messages" ? "flex h-full min-h-0 flex-col !p-0" : `${(activeItem === "settings" || activeItem === "update-job-card" || activeItem === "delivered" || activeItem === "maintenance-tracker") ? "flex h-full min-h-0 flex-col" : ""} ${activeItem === "new-job-card" ? "h-full" : ""}`} ${(activeItem === "update-job-card" || activeItem === "delivered" || activeItem === "technician-task-details" || activeItem === "maintenance-tracker") ? "!px-0" : ""}`}
+            >
             {deviceStatusBadge ? (
               <div
                 className={`mb-4 rounded-lg border px-3 py-2 text-sm ${
@@ -814,6 +831,32 @@ function PageContent() {
             {activeItem === "delivered" && (
               <JobCardTabStrip value={readyForDeliverySubformTab} onValueChange={setReadyForDeliverySubformTab} />
             )}
+
+            {activeItem === "maintenance-tracker" && (
+              <div className={`global-tabs-wrap ${maintenanceTrackerTab === "all" ? "is-first" : "is-offset"}`}>
+                <Tabs value={maintenanceTrackerTab} onValueChange={setMaintenanceTrackerTab}>
+                  <div className="mb-2 mobile-only-tab-select">
+                    <Select value={maintenanceTrackerTab} onValueChange={setMaintenanceTrackerTab}>
+                      <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Select section" /></SelectTrigger>
+                      <SelectContent className="rounded-md">
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="oil">Oil Change</SelectItem>
+                        <SelectItem value="filter">Filters</SelectItem>
+                        <SelectItem value="general">General Maint.</SelectItem>
+                        <SelectItem value="pending">Pending Payments</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <TabsList className="settings-tabs-list desktop-only-tab-strip">
+                    <TabsTrigger value="all" className="settings-tabs-trigger"><Calendar className="h-4 w-4 text-slate-600" /><span>All</span></TabsTrigger>
+                    <TabsTrigger value="oil" className="settings-tabs-trigger"><Droplets className="h-4 w-4 text-slate-600" /><span>Oil Change</span></TabsTrigger>
+                    <TabsTrigger value="filter" className="settings-tabs-trigger"><Filter className="h-4 w-4 text-slate-600" /><span>Filters</span></TabsTrigger>
+                    <TabsTrigger value="general" className="settings-tabs-trigger"><Wrench className="h-4 w-4 text-slate-600" /><span>General Maint.</span></TabsTrigger>
+                    <TabsTrigger value="pending" className="settings-tabs-trigger"><DollarSign className="h-4 w-4 text-slate-600" /><span>Pending Payments</span></TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+            )}
             {/* Content */}
             {activeItem === "dashboard" ? (
               <DashboardContent onNavigate={handleSelect} role={currentUser.role} />
@@ -823,7 +866,7 @@ function PageContent() {
               </div>
             ) : activeItem === "update-job-card" ? (
               <div
-                className={`global-form-shell update-job-card-shell ${
+                className={`global-form-shell fill-height global-tab-form-shell ${
                   updateJobCardSubformTab === "main-form" ? "is-first" : ""
                 }`}
               >
@@ -844,16 +887,16 @@ function PageContent() {
                 />
               </div>
             ) : activeItem === "technician-task-details" ? (
-              <div className="global-form-shell">
+              <div className="global-form-shell fill-height overflow-y-auto">
                 <TechnicianTaskDetailsForm
-                currentEmployeeId={currentUser.employeeRefId ?? null}
+                currentEmployeeId={currentUser.role === "technician" ? (currentUser.employeeRefId ?? null) : null}
                 externalSearch={technicianSearch}
                 onExternalSearchChange={setTechnicianSearch}
               />
               </div>
             ) : activeItem === "delivered" ? (
               <div
-                className={`global-form-shell update-job-card-shell ${
+                className={`global-form-shell fill-height global-tab-form-shell ${
                   readyForDeliverySubformTab === "main-form" ? "is-first" : ""
                 }`}
               >
@@ -887,10 +930,14 @@ function PageContent() {
                 />
               </div>
             ) : activeItem === "maintenance-tracker" ? (
-              <MaintenanceTracker
-                externalSearch={maintenanceSearch}
-                onExternalSearchChange={setMaintenanceSearch}
-              />
+              <div className={`global-form-shell fill-height global-tab-form-shell ${maintenanceTrackerTab === "all" ? "is-first" : ""}`}>
+                <MaintenanceTracker
+                  activeTab={maintenanceTrackerTab}
+                  onTabChange={setMaintenanceTrackerTab}
+                  externalSearch={maintenanceSearch}
+                  onExternalSearchChange={setMaintenanceSearch}
+                />
+              </div>
             ) : activeItem === "employee" ? (
               <div className="global-form-shell">
                 <EmployeeMasterForm
@@ -918,7 +965,7 @@ function PageContent() {
                   inventoryTab === "suppliers" ? "is-first" : "is-offset"
                 }`}
               >
-                <SupplierProductInventoryForm activeTab={inventoryTab} />
+                <SupplierProductInventoryForm activeTab={inventoryTab} supplierSelectRef={inventorySupplierSelectRef} />
               </div>
             ) : activeItem === "inventory-pos" ? (
               <div
@@ -979,17 +1026,18 @@ function PageContent() {
             ) : (
               <PlaceholderContent title={activeLabel} icon={ActiveIcon} />
             )}
-            {/* Footer clearance spacer — not needed, footer is now in-flow */}
+              {/* Footer clearance spacer — not needed, footer is now in-flow */}
+            </div>
           </div>
 
           {/* Footer */}
-          <footer className={`shrink-0 bg-background border-t border-slate-100 px-6 py-3 ${activeItem === "whatsapp-messages" ? "hidden" : ""}`}>
-            <div className="flex items-center justify-between gap-4">
+          <footer className={`w-full shrink-0 h-14 bg-white border border-slate-100 px-4 rounded-2xl ${activeItem === "whatsapp-messages" ? "hidden" : ""}`}>
+            <div className="flex h-full items-center justify-between gap-4">
               <p className="text-xs text-muted-foreground">
-                &copy; 2025 Garage Management System | All Rights Reserved.
+                &copy; {new Date().getFullYear()} AutoFlow Garage Management System | All Rights Reserved.
               </p>
               {activeItem === "settings" && settingsTab === "shop" && (
-                <div className="mr-4 flex items-center gap-3">
+                <div className="flex items-center gap-3">
                   <Button
                     type="button"
                     variant="outline"
@@ -1011,7 +1059,7 @@ function PageContent() {
                 </div>
               )}
               {activeItem === "update-job-card" && (
-                <div className="mr-4 flex items-center gap-3">
+                <div className="flex items-center gap-3">
                   <Button
                     type="button"
                     size="sm"
@@ -1032,7 +1080,7 @@ function PageContent() {
                 </div>
               )}
               {activeItem === "delivered" && (
-                <div className="mr-4 flex items-center gap-3">
+                <div className="flex items-center gap-3">
                   <Button
                     type="button"
                     size="sm"

@@ -102,6 +102,17 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             jobCardNumber: true,
+            serviceDate: true,
+            createdAt: true,
+            updatedAt: true,
+            jobcardStatus: true,
+            vehicleStatus: true,
+            deliveryDate: true,
+            customer: {
+              select: {
+                name: true,
+              },
+            },
             vehicle: {
               select: {
                 registrationNumber: true,
@@ -130,6 +141,13 @@ export async function GET(request: NextRequest) {
         vehicleNumber: row.jobCard?.vehicle?.registrationNumber || "-",
         vehicleMake: row.jobCard?.vehicle?.make || "-",
         vehicleModel: row.jobCard?.vehicle?.model || "-",
+        customerName: row.jobCard?.customer?.name || "-",
+        serviceDate: row.jobCard?.serviceDate,
+        jobCardCreatedAt: row.jobCard?.createdAt,
+        jobCardUpdatedAt: row.jobCard?.updatedAt,
+        jobCardStatus: row.jobCard?.jobcardStatus || "Under Service",
+        vehicleStatus: row.jobCard?.vehicleStatus || "Pending",
+        deliveryDate: row.jobCard?.deliveryDate,
         status: row.status,
         taskAssigned: row.taskAssigned || "-",
         assignedAt: row.assignedAt,

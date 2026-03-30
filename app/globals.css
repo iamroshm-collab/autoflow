@@ -50,6 +50,31 @@
     display: none !important;
   }
 
+  .thin-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(148 163 184) transparent;
+  }
+
+  .thin-scrollbar::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
+
+  .thin-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+    margin-top: 6px;
+    margin-bottom: 6px;
+  }
+
+  .thin-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgb(148 163 184);
+    border-radius: 9999px;
+  }
+
+  .thin-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(100 116 139);
+  }
+
   .dropdown-scroll::-webkit-scrollbar {
     width: 0 !important;
     height: 0 !important;
@@ -258,6 +283,16 @@
     border-top-right-radius: 0;
   }
 
+  /* Generic shell for all forms that sit directly beneath a tab strip. */
+  .global-tab-form-shell {
+    padding: 0 var(--master-gap) 1mm !important;
+  }
+
+  .global-tab-form-shell.is-first {
+    border-top-left-radius: 0;
+  }
+
+  /* Backward-compatible alias — kept so existing JSX doesn't break */
   .update-job-card-shell {
     padding: 0 var(--master-gap) var(--master-gap) !important;
   }
@@ -270,7 +305,7 @@
   .global-form-shell {
     background: white;
     border: 1px solid rgb(226 232 240); /* slate-200 */
-    border-radius: 0.5rem;
+    border-radius: 1rem;               /* matches rounded-2xl top bar */
     padding: 1.5rem;
     width: 100%;
     height: calc(100vh - 12rem);
@@ -324,6 +359,18 @@
     display: none !important;
   }
 
+  .maintenance-table-shell {
+    overflow-y: hidden !important;
+  }
+
+  .maintenance-table-shell .form-table-wrapper {
+    max-height: calc((10 * var(--row-height)) + var(--header-height)) !important;
+  }
+
+  .maintenance-table-shell > .global-subform-table-content {
+    padding-top: var(--master-gap) !important;
+  }
+
   .global-subform-table-content {
     padding: var(--master-gap) 0 0 !important;
     gap: var(--master-gap);
@@ -355,6 +402,23 @@
     border-color: hsl(var(--border)) !important;
     width: 100%;
     min-width: 0;
+  }
+
+  /* ─── Standard top-bar search input ─────────────────────────────────────────
+     Apply to every search <input> rendered inside the TopBar, regardless of
+     whether it uses searchConfig or customSearch.
+     Always pair with pl-8 (for the Search icon) in the element's className.  */
+  .global-topbar-search {
+    height: var(--topbar-search-height) !important;
+    min-height: var(--topbar-search-height) !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-right: 0.75rem !important;
+    background-color: rgb(248 250 252) !important; /* slate-50 */
+    border-color: rgb(226 232 240) !important;     /* slate-200 */
+    font-size: 0.75rem !important;                 /* text-xs  */
+    line-height: 1rem !important;
+    border-radius: 9999px !important;              /* rounded-full */
   }
 
   @media (max-width: 767px) {
@@ -1082,11 +1146,18 @@
   /* Floating sticky action row without boxed container chrome */
   .floating-add-action {
     position: sticky;
-    bottom: 1rem;
+    bottom: 1mm;
     z-index: 40;
     margin-top: 1rem;
     background: hsl(var(--card));
     padding-top: 0.5rem;
+  }
+
+  /* Keep spare-parts add button spacing aligned with form-field to container spacing */
+  .spare-parts-add-action {
+    bottom: 0;
+    margin-top: 1mm;
+    padding-top: 0;
   }
 
   /* Standard scroll area for forms with sticky add-action rows */
@@ -1098,18 +1169,20 @@
   }
 
   .global-add-scroll-area::-webkit-scrollbar {
-    width: 4px !important;
-    height: 4px !important;
+    width: 3px !important;
+    height: 3px !important;
     display: block !important;
+  }
+
+  .global-add-scroll-area::-webkit-scrollbar-track {
+    background: transparent;
+    margin-top: 6px;
+    margin-bottom: 6px;
   }
 
   .global-add-scroll-area::-webkit-scrollbar-thumb {
     background: rgb(148 163 184);
     border-radius: 9999px;
-  }
-
-  .global-add-scroll-area::-webkit-scrollbar-track {
-    background: transparent;
   }
 
   .global-list-form-content {
@@ -1198,10 +1271,13 @@
     --sidebar-border: 210 40% 90%;
     --sidebar-ring: 0 85% 50%;
 
-    /* PIXEL PERFECT MATH FOR 8 ROWS */
+    /* Standard top bar search input height — used across ALL forms */
+    --topbar-search-height: 1.932rem;
+
+    /* PIXEL PERFECT MATH FOR 9 ROWS */
     --row-height: 45px;
     --header-height: 44px;
-    --visible-rows: 8;
+    --visible-rows: 9;
     --master-gap: 1.5rem;
 
     --visible-form-rows: 5;
@@ -1220,7 +1296,17 @@
   }
 
   .form-main-wrapper {
-    padding: 1mm 0;
+    padding: 0 1mm 0 1mm;
+    border-radius: inherit; /* inherit rounded-2xl from parent — clips scrollbar to rounded corners */
+  }
+
+  .dashboard-card {
+    background: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    border-radius: calc(var(--radius) - 2px);
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    border: 1px solid hsl(var(--border) / 0.5);
+    padding: 1.25rem;
   }
 
   .form-container {
@@ -1228,7 +1314,7 @@
     flex-direction: column !important;
     gap: var(--master-gap) !important;
     padding: var(--master-gap) !important;
-    border-radius: var(--radius);
+    border-radius: 1rem;               /* matches rounded-2xl topbar/footer */
     background: hsl(var(--card));
     box-sizing: border-box;
     width: 100%;
@@ -1236,6 +1322,31 @@
 
   .form-container.is-first-tab {
     border-top-left-radius: 0 !important;
+  }
+
+  /* Maintenance tracker: square top-left of the "All" tab table */
+  .form-table-wrapper.form-table-wrapper--flat-tl {
+    border-top-left-radius: 0 !important;
+  }
+
+  /* When the first tab is active, square the top-left corner of the first
+     visible table/panel so it connects flush with the active tab button.
+     Targets form-table-wrapper and overflow containers inside any is-first shell. */
+  .global-form-shell.is-first > .form-table-wrapper,
+  .global-form-shell.is-first .form-table-wrapper:first-child,
+  .global-tabs-frame.is-first > .form-table-wrapper,
+  .global-tabs-frame.is-first .form-table-wrapper:first-child,
+  .global-tabs-frame.is-first .overflow-x-auto:first-child,
+  .global-tabs-frame.is-first .border.rounded-lg:first-child,
+  .global-tabs-frame.is-first .border.rounded-md:first-child {
+    border-top-left-radius: 0 !important;
+  }
+
+    /* Maintenance tracker: always keep the inner table wrapper rounded even when
+      the outer shell squares its own top-left corner for tab alignment. */
+    .maintenance-table-shell .form-table-wrapper:first-child,
+    .global-form-shell.is-first .maintenance-table-shell .form-table-wrapper:first-child {
+    border-top-left-radius: 0.5rem !important;
   }
 
   .form-container.tabs-fill-width.is-last-tab {
@@ -1381,18 +1492,109 @@ input#attendanceDate {
 
 /* Thin professional scrollbar */
 .form-table-wrapper::-webkit-scrollbar {
-  width: 6px;
+  width: 3px;
+}
+.form-table-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+  margin-top: 6px;
+  margin-bottom: 6px;
 }
 .form-table-wrapper::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-  border-radius: 10px;
+  border-radius: 9999px;
 }
 
 .global-list-viewport::-webkit-scrollbar {
-  width: 6px;
+  width: 3px;
+}
+
+.global-list-viewport::-webkit-scrollbar-track {
+  background: transparent;
+  margin-top: 6px;
+  margin-bottom: 6px;
 }
 
 .global-list-viewport::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-  border-radius: 10px;
+  border-radius: 9999px;
+}
+
+/* ===== GLOBAL SCROLLBAR DESIGN =====
+   3px wide, no arrows, gap from container edges */
+
+/* Width for all scrollbars */
+*::-webkit-scrollbar {
+  width: 3px !important;
+  height: 3px !important;
+}
+
+/* Remove ALL scrollbar arrow buttons — every direction, every state */
+*::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button:start,
+*::-webkit-scrollbar-button:end,
+*::-webkit-scrollbar-button:start:decrement,
+*::-webkit-scrollbar-button:start:increment,
+*::-webkit-scrollbar-button:end:decrement,
+*::-webkit-scrollbar-button:end:increment,
+*::-webkit-scrollbar-button:vertical:start:decrement,
+*::-webkit-scrollbar-button:vertical:start:increment,
+*::-webkit-scrollbar-button:vertical:end:decrement,
+*::-webkit-scrollbar-button:vertical:end:increment,
+*::-webkit-scrollbar-button:horizontal:start:decrement,
+*::-webkit-scrollbar-button:horizontal:end:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+/* Gap from container top/bottom edges */
+*::-webkit-scrollbar-track {
+  margin-top: 6px !important;
+  margin-bottom: 6px !important;
+  background: transparent;
+}
+
+/* Targeted rule for the main page scroll container */
+.form-main-wrapper {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 transparent;
+}
+
+.form-main-wrapper::-webkit-scrollbar {
+  width: 3px !important;
+  display: block !important;
+}
+
+.form-main-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+  /* Match rounded-2xl (1rem) so thumb never enters the corner curve area */
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.form-main-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.form-main-wrapper::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.form-main-wrapper::-webkit-scrollbar-corner {
+  background: transparent !important;
+  display: none !important;
+}
+
+/* Firefox */
+html, body, * {
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }

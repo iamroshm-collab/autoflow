@@ -7,8 +7,6 @@ export const metadata = {
 
 export default function MaintenanceTrackerPage() {
   return (
-    <div className="container mx-auto py-8">
-      <MaintenanceTracker />
-    </div>
+    <MaintenanceTracker />
   )
 }

@@ -169,10 +169,12 @@ const defaultSupplierForm = (): SupplierFormState => ({
 
 interface SupplierProductInventoryFormProps {
   activeTab?: "suppliers" | "products"
+  supplierSelectRef?: React.MutableRefObject<((supplier: { supplierId: number }) => void) | null>
 }
 
 export function SupplierProductInventoryForm({
   activeTab = "suppliers",
+  supplierSelectRef,
 }: SupplierProductInventoryFormProps = {}) {
   const unitOptions = [
     "",
@@ -437,6 +439,13 @@ export function SupplierProductInventoryForm({
       setIsLoadingDetails(false)
     }
   }
+
+  // Expose loadSupplierDetails to the top bar via ref
+  useEffect(() => {
+    if (supplierSelectRef) {
+      supplierSelectRef.current = (s) => loadSupplierDetails(s.supplierId)
+    }
+  })
 
   const handleClearNew = () => {
     setSelectedSupplierId(null)
@@ -992,15 +1001,6 @@ export function SupplierProductInventoryForm({
 
         {activeTab === "products" && (
           <>
-            {/* Search Box - Outside Container */}
-            <div className="mt-3 mb-3 w-96 ml-auto">
-              <SupplierAutocomplete
-                onSelect={async (supplier) => {
-                  await loadSupplierDetails(supplier.supplierId)
-                }}
-              />
-            </div>
-
             {/* Supplier and Products Container */}
             <div className="global-tabs-panel">
               {/* Supplier Display */}

@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import DatePickerInput from '@/components/ui/date-picker-input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { notify } from '@/components/ui/notify'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Printer, Trash2, Eye, X, Save, PlusCircle, Eye as EyeIcon, Search } from 'lucide-react'
+import { Printer, Trash2, Eye, X, Save, PlusCircle, Eye as EyeIcon } from 'lucide-react'
 import { formatDateDDMMYY, getTodayISODateInIndia, parseDDMMYYToISO } from '@/lib/utils'
 import { CustomerStateModal } from '@/components/dashboard/customer-state-modal'
 
@@ -416,7 +416,6 @@ export function POSSalesForm() {
   const [isSaleBillOpen, setIsSaleBillOpen] = useState(false)
   const [isSaleBillLoading, setIsSaleBillLoading] = useState(false)
   const [saleBillHighlight, setSaleBillHighlight] = useState(0)
-  const saleBillRef = useRef<HTMLDivElement | null>(null)
   const [summary, setSummary] = useState<SummaryStats>({ todaysSales: 0, totalCustomers: 0, returns: 0, totalRevenue: 0 })
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [customerMobile, setCustomerMobile] = useState<string>(selectedCustomer?.mobileNo || '')
@@ -603,6 +602,36 @@ export function POSSalesForm() {
     // reset new row defaults
           setNewRowDefaults({ qnty: 1, discountAmount: 0 })
     return newItem.id
+  }
+
+  const addEmptyLineItem = () => {
+    if (!ensureSaleRowAccess()) {
+      return
+    }
+
+    const newItem: SaleLineItem = {
+      id: Math.random().toString(36).substr(2, 9),
+      productId: 0,
+      product: '',
+      description: '',
+      hsn: '',
+      qnty: 1,
+      salePrice: 0,
+      sgstRate: 0,
+      cgstRate: 0,
+      igstRate: 0,
+      discount: 0,
+      returnQnty: 0,
+      amount: 0,
+      discountAmount: 0,
+      sgstAmount: 0,
+      cgstAmount: 0,
+      igstAmount: 0,
+      totalAmount: 0,
+    }
+
+    setLineItems((prev) => [...prev, newItem])
+    setUnsavedChanges(true)
   }
 
   // Update line item
@@ -839,6 +868,35 @@ export function POSSalesForm() {
       try { win.focus(); win.print() } catch {}
     }
   }
+
+  const handleSaveRef = useRef(handleSave)
+  const handleDeleteRef = useRef(handleDeleteCurrent)
+  const handlePrintRef = useRef(handlePrint)
+  handleSaveRef.current = handleSave
+  handleDeleteRef.current = handleDeleteCurrent
+  handlePrintRef.current = handlePrint
+
+  useEffect(() => {
+    const onSave = () => {
+      void handleSaveRef.current()
+    }
+    const onDelete = () => {
+      void handleDeleteRef.current()
+    }
+    const onPrint = () => {
+      void handlePrintRef.current()
+    }
+
+    window.addEventListener("inventoryPosSales:save", onSave)
+    window.addEventListener("inventoryPosSales:delete", onDelete)
+    window.addEventListener("inventoryPosSales:print", onPrint)
+
+    return () => {
+      window.removeEventListener("inventoryPosSales:save", onSave)
+      window.removeEventListener("inventoryPosSales:delete", onDelete)
+      window.removeEventListener("inventoryPosSales:print", onPrint)
+    }
+  }, [])
 
   const searchSales = async (_forceAll = false) => {
     setShowSearchModal(true)
@@ -1179,93 +1237,10 @@ export function POSSalesForm() {
     }
   }
 
-  useEffect(() => {
-    const handleOutside = (event: MouseEvent) => {
-      if (!saleBillRef.current?.contains(event.target as Node)) {
-        setIsSaleBillOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleOutside)
-    return () => document.removeEventListener('mousedown', handleOutside)
-  }, [])
-
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between w-full">
-            <CardTitle className="text-base font-semibold">Inventory Sales Entry</CardTitle>
-            <div className="relative" ref={saleBillRef}>
-              <div className="relative flex items-center">
-                <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <input
-                  type="text"
-                  className="h-9 w-72 rounded-md border border-input bg-background pl-9 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  placeholder="Search bill or customer..."
-                  value={saleBillInput}
-                  onFocus={() => void openSaleBillSearch()}
-                  onChange={(e) => {
-                    setSaleBillInput(e.target.value)
-                    setSaleBillHighlight(0)
-                    setIsSaleBillOpen(true)
-                  }}
-                  onKeyDown={(e) => {
-                    if (!isSaleBillOpen) return
-                    if (e.key === 'ArrowDown') {
-                      e.preventDefault()
-                      setSaleBillHighlight((h) => Math.min(h + 1, saleBillFiltered.length - 1))
-                    } else if (e.key === 'ArrowUp') {
-                      e.preventDefault()
-                      setSaleBillHighlight((h) => Math.max(h - 1, 0))
-                    } else if (e.key === 'Enter') {
-                      const sel = saleBillFiltered[saleBillHighlight]
-                      if (sel) {
-                        loadSale(sel)
-                        setIsSaleBillOpen(false)
-                        setSaleBillInput('')
-                      }
-                    } else if (e.key === 'Escape') {
-                      setIsSaleBillOpen(false)
-                    }
-                  }}
-                />
-              </div>
-              {isSaleBillOpen && (
-                <div className="dropdown-container">
-                  <div className="dropdown-scroll">
-                    {isSaleBillLoading ? (
-                      <div className="dropdown-empty-state">Loading bills...</div>
-                    ) : saleBillFiltered.length === 0 ? (
-                      <div className="dropdown-empty-state">No bills found.</div>
-                    ) : (
-                      saleBillFiltered.map((r, idx) => (
-                        <button
-                          key={r.saleId}
-                          type="button"
-                          className={`dropdown-item${idx === saleBillHighlight ? ' selected' : ''}`}
-                          onMouseDown={() => {
-                            loadSale(r)
-                            setIsSaleBillOpen(false)
-                            setSaleBillInput('')
-                          }}
-                        >
-                          <span className="font-medium">{r.billNumber || '\u2014'}</span>
-                          {r.customer && (
-                            <span className="ml-2 text-xs text-slate-400">{r.customer}</span>
-                          )}
-                          {r.billDate && (
-                            <span className="ml-2 text-xs text-slate-400">{formatDateDDMMYY(r.billDate)}</span>
-                          )}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      <Card className="border-0 bg-transparent p-0 shadow-none">
+        <CardContent className="space-y-6 p-0">
           {/* Product Search & Grid */}
           <div className="space-y-4">
             {/* Warning for stock issues (visual only) - banner removed per request */}
@@ -1278,10 +1253,10 @@ export function POSSalesForm() {
                 Add bill header details first. After saving header and customer state, the sale detail row will appear.
               </div>
             ) : (
-            <div ref={tableContainerRef} className="relative w-full overflow-x-auto rounded-md border">
+            <div ref={tableContainerRef} className="inventory-pos-table-wrapper inventory-pos-sales-table-wrapper">
               <Table className="w-full table-fixed">
               {/* picker moved outside table to keep valid HTML structure */}
-                  <TableHeader className="bg-gray-100">
+                  <TableHeader className="bg-gray-100 sticky top-0 z-10">
                     <TableRow>
                       <TableHead className="w-12">Sl No</TableHead>
                       <TableHead style={{ width: '40%' }} className="text-left">Item Name</TableHead>
@@ -1560,6 +1535,24 @@ export function POSSalesForm() {
             )}
           </div>
 
+            <div className="shrink-0 mt-4">
+              <Button
+                type="button"
+                variant="ghost"
+                className="global-bottom-btn-add"
+                onClick={() => {
+                  if (isHeaderPrepared) {
+                    addEmptyLineItem()
+                    return
+                  }
+                  startFreshBill()
+                }}
+                disabled={isLoading}
+              >
+                <PlusCircle className="mr-2 h-4 w-4" /> {isHeaderPrepared ? 'Add Product' : 'Add Bill'}
+              </Button>
+            </div>
+
             {/* Totals Summary */}
             {lineItems.length > 0 && (
               <div className="ml-auto w-96 space-y-2 rounded-md border bg-blue-50 p-4">
@@ -1577,39 +1570,6 @@ export function POSSalesForm() {
                 <div className="flex gap-2 mt-2" />
               </div>
             )}
-
-            <div className="sticky-form-actions mt-4 flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                className="flex-1 justify-start border border-dashed border-emerald-500 bg-transparent text-emerald-500 hover:bg-green-50"
-                onClick={startFreshBill}
-                disabled={isLoading}
-              >
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Bill
-              </Button>
-              <Button
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={handleSave}
-                disabled={isLoading || lineItems.length === 0}
-              >
-                <Save className="mr-2 h-4 w-4" /> Save
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteCurrent}
-                disabled={isLoading || (lineItems.length === 0 && !saleId)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
-              </Button>
-              <Button
-                className="bg-amber-500 hover:bg-amber-600 text-white"
-                onClick={handlePrint}
-                disabled={isLoading || lineItems.length === 0}
-              >
-                <Printer className="mr-2 h-4 w-4" /> Print
-              </Button>
-            </div>
 
             <Dialog open={isAddBillModalOpen} onOpenChange={setIsAddBillModalOpen}>
               <DialogContent className="max-w-[46rem]">
@@ -1630,40 +1590,45 @@ export function POSSalesForm() {
                             setSelectedCustomer(null)
                             setCustomerStateCode('')
                             setCustomerStateName('')
-                            setShowCustomerSuggestions(Boolean(e.target.value))
+                            setShowCustomerSuggestions(true)
                           }}
-                          onFocus={() => setShowCustomerSuggestions(Boolean(customerSearch))}
+                          onFocus={() => setShowCustomerSuggestions(true)}
+                          onClick={() => setShowCustomerSuggestions(true)}
                           onBlur={() => setTimeout(() => setShowCustomerSuggestions(false), 100)}
                           placeholder="Search customer"
-                          className="h-10"
+                          className="h-10 global-record-search-input"
                           autoComplete="off"
                         />
-                        {showCustomerSuggestions && customerSearch && Array.isArray(customers) && customers.length > 0 && (
+                        {showCustomerSuggestions && (
                           <div className="dropdown-container">
                             <div className="dropdown-scroll dropdown-scroll-modal">
-                              {customers
-                                .filter((c) => ((c.customerName || c.name || '') as string).toLowerCase().includes(String(customerSearch).toLowerCase()))
-                                .slice(0, 8)
-                                .map((c: CustomerOption) => (
-                                  <button
-                                    key={c.customerId || c.id || (c.mobileNo || c.mobile)}
-                                    type="button"
-                                    onMouseDown={() => {
-                                      const name = c.customerName || c.name || ''
-                                      const mobile = c.mobileNo || c.mobile || ''
-                                      setSelectedCustomer(c)
-                                      setCustomerSearch(name)
-                                      setCustomerMobile(mobile)
-                                      setCustomerStateCode(String(c.stateId || ''))
-                                      setCustomerStateName(String(c.state || ''))
-                                      setShowCustomerSuggestions(false)
-                                      setUnsavedChanges(true)
-                                    }}
-                                    className="dropdown-item"
-                                  >
-                                    {(c.customerName || c.name)} - {(c.mobileNo || c.mobile || '')}
-                                  </button>
-                                ))}
+                              {Array.isArray(customers) && customers.length > 0 ? (
+                                customers
+                                  .filter((c) => ((c.customerName || c.name || '') as string).toLowerCase().includes(String(customerSearch).toLowerCase()))
+                                  .slice(0, 8)
+                                  .map((c: CustomerOption) => (
+                                    <button
+                                      key={c.customerId || c.id || (c.mobileNo || c.mobile)}
+                                      type="button"
+                                      onMouseDown={() => {
+                                        const name = c.customerName || c.name || ''
+                                        const mobile = c.mobileNo || c.mobile || ''
+                                        setSelectedCustomer(c)
+                                        setCustomerSearch(name)
+                                        setCustomerMobile(mobile)
+                                        setCustomerStateCode(String(c.stateId || ''))
+                                        setCustomerStateName(String(c.state || ''))
+                                        setShowCustomerSuggestions(false)
+                                        setUnsavedChanges(true)
+                                      }}
+                                      className="dropdown-item"
+                                    >
+                                      {(c.customerName || c.name)} - {(c.mobileNo || c.mobile || '')}
+                                    </button>
+                                  ))
+                              ) : (
+                                <div className="dropdown-empty-state">No customers found.</div>
+                              )}
                             </div>
                           </div>
                         )}

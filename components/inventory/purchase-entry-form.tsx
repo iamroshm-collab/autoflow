@@ -15,7 +15,7 @@ import DatePickerInput from "@/components/ui/date-picker-input"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/notify"
-import { Pencil, Plus, Save, Search, Trash2 } from "lucide-react"
+import { Pencil, Plus, Save, Trash2 } from "lucide-react"
 import useContinuousRows from "@/components/hooks/useContinuousRows"
 import { formatDateDDMMYY, getTodayISODateInIndia, parseDDMMYYToISO } from "@/lib/utils"
 
@@ -74,7 +74,6 @@ export default function PurchaseEntryForm() {
   const [isNewSupplierDropdownOpen, setIsNewSupplierDropdownOpen] = useState(false)
   const [newBillNumber, setNewBillNumber] = useState<string>("")
   const [newPurchaseDate, setNewPurchaseDate] = useState<string>(todayDDMMYY())
-  const [isHeaderPrepared, setIsHeaderPrepared] = useState(false)
   const newSupplierDropdownRef = useRef<HTMLDivElement | null>(null)
 
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
@@ -322,8 +321,8 @@ export default function PurchaseEntryForm() {
     setBillNumber(newBillNumber.trim())
     setPurchaseDate(formatDateDDMMYY(newPurchaseDateISO))
     setPurchaseId(null)
-    setRows((prev) => (prev.length > 0 ? prev : [makeRow()]))
-    setIsHeaderPrepared(true)
+    setRows([])
+    setIsNewPurchaseModalOpen(false)
   }
 
   const handleSelectNewSupplier = (supplier: Supplier) => {
@@ -467,207 +466,161 @@ export default function PurchaseEntryForm() {
 
   const canOpenEditModal = Boolean(selectedSupplier && billNumber.trim())
 
+  const savePurchaseRef = useRef(savePurchase)
+  const clearFormRef = useRef(clearForm)
+  savePurchaseRef.current = savePurchase
+  clearFormRef.current = clearForm
+
+  useEffect(() => {
+    const onSave = () => {
+      void savePurchaseRef.current()
+    }
+    const onDelete = () => {
+      clearFormRef.current()
+    }
+
+    window.addEventListener("inventoryPosPurchase:save", onSave)
+    window.addEventListener("inventoryPosPurchase:delete", onDelete)
+
+    return () => {
+      window.removeEventListener("inventoryPosPurchase:save", onSave)
+      window.removeEventListener("inventoryPosPurchase:delete", onDelete)
+    }
+  }, [])
+
   const tableRows = rows.length ? rows : []
+  const purchaseSubtotal = tableRows.reduce((sum, row) => sum + rowTotal(row), 0)
 
   return (
     <div className="space-y-4">
-      <Card className="p-4 md:p-5">
-        <div className="flex items-center justify-between gap-2 mb-4">
-          <h2 className="text-base font-semibold">Inventory Purchase Entry</h2>
-          <div className="flex items-center gap-2">
-            <div className="relative" ref={billSearchRef}>
-              <div className="relative flex items-center">
-                <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <input
-                  type="text"
-                  className="h-9 w-72 rounded-md border border-input bg-background pl-9 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  placeholder="Search bill or supplier..."
-                  value={billSearchInput}
-                  onFocus={() => void openBillSearch()}
-                  onChange={(e) => {
-                    setBillSearchInput(e.target.value)
-                    setBillSearchHighlight(0)
-                    setIsBillSearchOpen(true)
-                  }}
-                  onKeyDown={(e) => {
-                    if (!isBillSearchOpen) return
-                    if (e.key === "ArrowDown") {
-                      e.preventDefault()
-                      setBillSearchHighlight((h) => Math.min(h + 1, billSearchFiltered.length - 1))
-                    } else if (e.key === "ArrowUp") {
-                      e.preventDefault()
-                      setBillSearchHighlight((h) => Math.max(h - 1, 0))
-                    } else if (e.key === "Enter") {
-                      const sel = billSearchFiltered[billSearchHighlight]
-                      if (sel) {
-                        void loadPurchaseToMain(sel)
-                        setIsBillSearchOpen(false)
-                        setBillSearchInput("")
-                      }
-                    } else if (e.key === "Escape") {
-                      setIsBillSearchOpen(false)
-                    }
-                  }}
-                />
-              </div>
-              {isBillSearchOpen && (
-                <div className="dropdown-container">
-                  <div className="dropdown-scroll">
-                    {isBillSearchLoading ? (
-                      <div className="dropdown-empty-state">Loading bills...</div>
-                    ) : billSearchFiltered.length === 0 ? (
-                      <div className="dropdown-empty-state">No bills found.</div>
-                    ) : (
-                      billSearchFiltered.map((r, idx) => (
-                        <button
-                          key={r.purchaseId}
-                          type="button"
-                          className={`dropdown-item${idx === billSearchHighlight ? " selected" : ""}`}
-                          onMouseDown={() => {
-                            void loadPurchaseToMain(r)
-                            setIsBillSearchOpen(false)
-                            setBillSearchInput("")
-                          }}
-                        >
-                          <span className="font-medium">{r.refDocument || r.billNumber || "—"}</span>
-                          {r.supplier && (
-                            <span className="ml-2 text-xs text-slate-400">{r.supplier}</span>
-                          )}
-                          {r.purchaseDate && (
-                            <span className="ml-2 text-xs text-slate-400">{formatDateDDMMYY(r.purchaseDate)}</span>
-                          )}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-md border overflow-x-auto">
-          <table className="w-full text-sm min-w-[980px] table-fixed">
-            <thead className="bg-slate-100/80">
-              <tr>
-                <th className="text-left font-medium px-3 py-2" style={{ width: "42%" }}>Product</th>
-                <th className="text-center font-medium px-3 py-2" style={{ width: "9%" }}>Qty</th>
-                <th className="text-center font-medium px-3 py-2" style={{ width: "15%" }}>Unit Price</th>
-                <th className="text-center font-medium px-3 py-2" style={{ width: "11%" }}>Edit Unit Price</th>
-                <th className="text-center font-medium px-3 py-2" style={{ width: "14%" }}>Total</th>
-                <th className="text-center font-medium px-3 py-2" style={{ width: "9%" }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tableRows.length === 0 ? (
+      <Card className="border-0 bg-transparent p-0 shadow-none">
+        <div className="space-y-6">
+          <div className="inventory-pos-table-wrapper inventory-pos-purchase-table-wrapper">
+            <table className="w-full text-sm min-w-[980px] table-fixed">
+              <thead className="bg-slate-100/80 sticky top-0 z-10">
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
-                    Click New Purchase below to start with supplier, bill number, and date.
-                  </td>
+                  <th className="text-left font-medium px-3 py-2" style={{ width: "42%" }}>Product</th>
+                  <th className="text-center font-medium px-3 py-2" style={{ width: "9%" }}>Qty</th>
+                  <th className="text-center font-medium px-3 py-2" style={{ width: "15%" }}>Unit Price</th>
+                  <th className="text-center font-medium px-3 py-2" style={{ width: "11%" }}>Edit Unit Price</th>
+                  <th className="text-center font-medium px-3 py-2" style={{ width: "14%" }}>Total</th>
+                  <th className="text-center font-medium px-3 py-2" style={{ width: "9%" }}>Action</th>
                 </tr>
-              ) : (
-                tableRows.map((row) => (
-                  <tr key={row.id} className="border-t">
-                    <td className="p-2 text-left">
-                      <select
-                        value={row.productId ?? ""}
-                        onChange={(event) =>
-                          updateProductForRow(row.id, event.target.value ? Number(event.target.value) : undefined)
-                        }
-                        className="h-9 w-full rounded border border-input bg-background px-2"
-                      >
-                        <option value="">Select product</option>
-                        {products.map((product) => (
-                          <option key={product.productId} value={product.productId}>
-                            {product.productName}
-                          </option>
-                        ))}
-                      </select>
+              </thead>
+              <tbody>
+                {tableRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
+                      Click New Purchase below to start with supplier, bill number, and date.
                     </td>
-                    <td className="p-2 text-center">
-                      <Input
-                        type="number"
-                        min={0}
-                        value={row.quantity}
-                        onChange={(event) => updateRow(row.id, { quantity: Number(event.target.value || 0) })}
-                      />
-                    </td>
-                    <td className="p-2 text-center">
-                      <Input
-                        type="number"
-                        min={0}
-                        value={row.unitPrice}
-                        onChange={(event) => updateRow(row.id, { unitPrice: Number(event.target.value || 0) })}
-                      />
-                    </td>
-                    <td className="p-2 text-center">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openPriceEditor(row)}
-                        aria-label="Edit unit price"
-                        className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </td>
-                    <td className="p-2 text-center">
-                      <Input readOnly value={rowTotal(row).toFixed(2)} className="bg-slate-100" />
-                    </td>
-                    <td className="p-2">
-                      <div className="flex items-center justify-center gap-1">
+                  </tr>
+                ) : (
+                  tableRows.map((row) => (
+                    <tr key={row.id} className="border-t">
+                      <td className="p-2 text-left">
+                        <select
+                          value={row.productId ?? ""}
+                          onChange={(event) =>
+                            updateProductForRow(row.id, event.target.value ? Number(event.target.value) : undefined)
+                          }
+                          className="h-9 w-full rounded border border-input bg-background px-2"
+                        >
+                          <option value="">Select product</option>
+                          {products.map((product) => (
+                            <option key={product.productId} value={product.productId}>
+                              {product.productName}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="p-2 text-center">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={row.quantity}
+                          onChange={(event) => updateRow(row.id, { quantity: Number(event.target.value || 0) })}
+                        />
+                      </td>
+                      <td className="p-2 text-center">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={row.unitPrice}
+                          onChange={(event) => updateRow(row.id, { unitPrice: Number(event.target.value || 0) })}
+                        />
+                      </td>
+                      <td className="p-2 text-center">
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onClick={() => setIsEditModalOpen(true)}
-                          aria-label="Edit purchase"
+                          onClick={() => openPriceEditor(row)}
+                          aria-label="Edit unit price"
                           className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800"
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeRow(row.id)}
-                          aria-label="Delete row"
-                          className="h-8 w-8 p-0 text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+                      <td className="p-2 text-center">
+                        <Input readOnly value={rowTotal(row).toFixed(2)} className="bg-slate-100" />
+                      </td>
+                      <td className="p-2">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setIsEditModalOpen(true)}
+                            aria-label="Edit purchase"
+                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeRow(row.id)}
+                            aria-label="Delete row"
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-        <div className="sticky-form-actions flex flex-wrap items-center gap-2 mt-4">
-          <Button
-            type="button"
-            onClick={() => setIsNewPurchaseModalOpen(true)}
-            className="flex-1 justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-4 py-2 min-h-[40px]"
-            variant="ghost"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Purchase
-          </Button>
-          <Button type="button" variant="destructive" onClick={clearForm} className="px-4 py-2 min-h-[40px]">
-            Delete
-          </Button>
-          <Button
-            type="button"
-            onClick={() => void savePurchase()}
-            disabled={isSaving || tableRows.length === 0}
-            className="px-4 py-2 min-h-[40px] bg-blue-600 text-white hover:bg-blue-700"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {isSaving ? "Saving..." : "Save"}
-          </Button>
+          <div className="shrink-0">
+            <Button
+              type="button"
+              onClick={() => {
+                if (selectedSupplier && billNumber.trim()) {
+                  addProductRow()
+                  return
+                }
+                setIsNewPurchaseModalOpen(true)
+              }}
+              className="global-bottom-btn-add"
+              variant="ghost"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              {selectedSupplier && billNumber.trim() ? "Add Product" : "New Purchase"}
+            </Button>
+          </div>
+
+          {tableRows.length > 0 && (
+            <div className="ml-auto w-96 space-y-2 rounded-md border bg-blue-50 p-4">
+              <div className="flex justify-between">
+                <span>Total:</span>
+                <span className="font-semibold">₹{purchaseSubtotal.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
         </div>
       </Card>
 
@@ -741,112 +694,18 @@ export default function PurchaseEntryForm() {
               </div>
             </div>
 
-            {(isHeaderPrepared || rows.length > 0) && (
-              <>
-                <div className="rounded-md border overflow-hidden">
-                  <table className="w-full text-sm table-fixed">
-                    <thead className="bg-slate-100/80">
-                      <tr>
-                        <th className="text-left font-medium px-3 py-2" style={{ width: "50%" }}>Product</th>
-                        <th className="text-left font-medium px-3 py-2" style={{ width: "25%" }}>Qty</th>
-                        <th className="text-left font-medium px-3 py-2" style={{ width: "25%" }}>Unit Price</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.length === 0 ? (
-                        <tr>
-                          <td colSpan={3} className="px-3 py-6 text-center text-muted-foreground">
-                            No product rows. Use Add Product.
-                          </td>
-                        </tr>
-                      ) : (
-                        rows.map((row) => (
-                          <tr key={row.id} className="border-t">
-                            <td className="p-2">
-                              <select
-                                value={row.productId ?? ""}
-                                onChange={(event) =>
-                                  updateProductForRow(row.id, event.target.value ? Number(event.target.value) : undefined)
-                                }
-                                className="h-9 w-full rounded border border-input bg-background px-2"
-                              >
-                                <option value="">Select product</option>
-                                {products.map((product) => (
-                                  <option key={product.productId} value={product.productId}>
-                                    {product.productName}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="p-2">
-                              <Input
-                                type="number"
-                                min={0}
-                                value={row.quantity}
-                                onChange={(event) => updateRow(row.id, { quantity: Number(event.target.value || 0) })}
-                              />
-                            </td>
-                            <td className="p-2">
-                              <Input
-                                type="number"
-                                min={0}
-                                value={row.unitPrice}
-                                onChange={(event) => updateRow(row.id, { unitPrice: Number(event.target.value || 0) })}
-                              />
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="sticky-form-actions flex justify-center mt-2">
-                  <Button
-                    type="button"
-                    onClick={addProductRow}
-                    className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-4 py-2 min-h-[40px]"
-                    variant="ghost"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Product
-                  </Button>
-                </div>
-              </>
-            )}
-
             <DialogFooter className="sticky-form-actions flex justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  setIsNewPurchaseModalOpen(false)
-                  setIsHeaderPrepared(false)
-                }}
+                onClick={() => setIsNewPurchaseModalOpen(false)}
                 className="px-4 py-2 min-h-[40px]"
               >
                 Cancel
               </Button>
-              {!isHeaderPrepared ? (
-                <Button type="button" onClick={handleCreatePurchaseHeader} className="px-4 py-2 min-h-[40px]">
-                  Save Header
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  className="px-4 py-2 min-h-[40px] bg-blue-600 text-white hover:bg-blue-700"
-                  onClick={async () => {
-                    const ok = await savePurchase()
-                    if (ok) {
-                      setIsNewPurchaseModalOpen(false)
-                      setIsHeaderPrepared(false)
-                    }
-                  }}
-                  disabled={isSaving}
-                >
-                  {isSaving ? "Saving..." : "Save Purchase"}
-                </Button>
-              )}
+              <Button type="button" onClick={handleCreatePurchaseHeader} className="px-4 py-2 min-h-[40px]">
+                Save Header
+              </Button>
             </DialogFooter>
           </div>
         </DialogContent>
@@ -1028,7 +887,7 @@ export default function PurchaseEntryForm() {
                 type="button"
                 onClick={addProductRow}
                 variant="ghost"
-                className="w-full justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent"
+                className="global-bottom-btn-add"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Product

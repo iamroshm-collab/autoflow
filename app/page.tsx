@@ -11,11 +11,11 @@ import { JobCardTabStrip, type JobCardSubformTab } from "@/components/dashboard/
 import { useEmployeeSearch } from "@/hooks/useEmployeeSearch"
 import { canAccessMenu, type UserRole } from "@/lib/access-control"
 import { getOrCreateDeviceId } from "@/lib/device-identity"
+import { getTodayISODateInIndia } from "@/lib/utils"
 import { SupplierAutocomplete } from "@/components/SupplierAutocomplete"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { DatePickerInput } from "@/components/ui/date-picker-input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
@@ -206,6 +206,10 @@ function PageContent() {
   const [customerSearch, setCustomerSearch] = useState("")
   const [technicianSearch, setTechnicianSearch] = useState("")
   const [maintenanceSearch, setMaintenanceSearch] = useState("")
+  const [attendancePayrollSearch, setAttendancePayrollSearch] = useState("")
+  const [attendancePayrollRecordCount, setAttendancePayrollRecordCount] = useState(0)
+  const [inventorySearch, setInventorySearch] = useState("")
+  const [inventoryRecordCount, setInventoryRecordCount] = useState(0)
   const [maintenanceTrackerTab, setMaintenanceTrackerTab] = useState<string>("all")
   const {
     employeeSearch,
@@ -225,9 +229,18 @@ function PageContent() {
   } = useEmployeeSearch(activeItem)
   const [sparePartsTab, setSparePartsTab] = useState<"all" | "returned" | "payments">("all")
   const [attendancePayrollTab, setAttendancePayrollTab] = useState<"attendance" | "adjustments" | "payroll">("attendance")
+  const [attendanceDate, setAttendanceDate] = useState<string>(() => getTodayISODateInIndia())
+  const [employeeRecordCount, setEmployeeRecordCount] = useState(0)
   const [inventoryTab, setInventoryTab] = useState<"suppliers" | "products">("suppliers")
+  const [inventorySelectedSupplierSummary, setInventorySelectedSupplierSummary] = useState<{ name: string; mobile: string } | null>(null)
   const inventorySupplierSelectRef = useRef<((supplier: { supplierId: number }) => void) | null>(null)
   const [inventoryPosTab, setInventoryPosTab] = useState<"purchase" | "sales" | "inventory" | "stock-movement" | "credit-notes" | "debit-notes" | "gst-report">("purchase")
+  const [inventoryPosSearch, setInventoryPosSearch] = useState("")
+  const [inventoryPosSupplierFilter, setInventoryPosSupplierFilter] = useState("")
+  const [inventoryPosSupplierOptions, setInventoryPosSupplierOptions] = useState<string[]>([])
+  const [inventoryPosSupplierSearch, setInventoryPosSupplierSearch] = useState("")
+  const [isInventoryPosSupplierOpen, setIsInventoryPosSupplierOpen] = useState(false)
+  const [inventoryPosRecordCount, setInventoryPosRecordCount] = useState(0)
   const [updateJobCardSubformTab, setUpdateJobCardSubformTab] = useState<JobCardSubformTab>("main-form")
   const [readyForDeliverySubformTab, setReadyForDeliverySubformTab] = useState<JobCardSubformTab>("main-form")
   const [settingsTab, setSettingsTab] = useState<"shop" | "spare-parts" | "gst-states">("shop")
@@ -236,6 +249,7 @@ function PageContent() {
   const [sparePartsEndDate, setSparePartsEndDate] = useState("")
   const [whatsAppContactName, setWhatsAppContactName] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const inventoryPosSupplierSearchRef = useRef<HTMLDivElement>(null)
 
   const selectedJobCardId = searchParams.get("jobCardId") || ""
 
@@ -358,7 +372,73 @@ function PageContent() {
     if (activeItem !== "technician-task-details") setTechnicianSearch("")
     if (activeItem !== "maintenance-tracker") setMaintenanceSearch("")
     if (activeItem !== "maintenance-tracker") setMaintenanceTrackerTab("all")
+    if (activeItem !== "attendance-payroll") setAttendancePayrollSearch("")
+    if (activeItem !== "inventory") setInventorySearch("")
+    if (activeItem !== "inventory-pos") setInventoryPosSearch("")
   }, [activeItem])
+
+  useEffect(() => {
+    if (!(activeItem === "inventory-pos" && inventoryPosTab === "inventory")) return
+
+    let cancelled = false
+    const loadSuppliers = async () => {
+      try {
+        const res = await fetch("/api/suppliers", { cache: "no-store" })
+        if (!res.ok) return
+        const rows = await res.json()
+        if (!Array.isArray(rows) || cancelled) return
+
+        const options = Array.from(
+          new Set(
+            rows
+              .map((row: any) => String(row?.supplierName || "").trim())
+              .filter((name: string) => name.length > 0)
+          )
+        ).sort((a, b) => a.localeCompare(b))
+
+        if (!cancelled) setInventoryPosSupplierOptions(options)
+      } catch {
+      }
+    }
+
+    void loadSuppliers()
+    return () => {
+      cancelled = true
+    }
+  }, [activeItem, inventoryPosTab])
+
+  useEffect(() => {
+    if (!(activeItem === "inventory-pos" && inventoryPosTab === "inventory")) {
+      setIsInventoryPosSupplierOpen(false)
+      setInventoryPosSupplierSearch("")
+      return
+    }
+
+    if (!inventoryPosSupplierFilter || inventoryPosSupplierFilter === "all") {
+      setInventoryPosSupplierSearch("")
+    } else {
+      setInventoryPosSupplierSearch(inventoryPosSupplierFilter)
+    }
+  }, [activeItem, inventoryPosSupplierFilter, inventoryPosTab])
+
+  useEffect(() => {
+    const onDocMouseDown = (event: MouseEvent) => {
+      if (!inventoryPosSupplierSearchRef.current?.contains(event.target as Node)) {
+        setIsInventoryPosSupplierOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", onDocMouseDown)
+    return () => document.removeEventListener("mousedown", onDocMouseDown)
+  }, [])
+
+  useEffect(() => {
+    if (!(activeItem === "inventory-pos" && inventoryPosTab === "inventory")) return
+    window.dispatchEvent(
+      new CustomEvent("inventoryPosInventory:setSupplier", {
+        detail: { supplier: inventoryPosSupplierFilter },
+      })
+    )
+  }, [activeItem, inventoryPosSupplierFilter, inventoryPosTab])
 
   const fetchNavigationRecords = useCallback(
     async (options?: { jobcardStatus?: string; registrationNumber?: string; excludeVehicleStatus?: string }) => {
@@ -544,6 +624,52 @@ function PageContent() {
                   value: maintenanceSearch,
                   onChange: setMaintenanceSearch,
                 }
+              : activeItem === "attendance-payroll"
+              ? {
+                  placeholder: "Search employee...",
+                  value: attendancePayrollSearch,
+                  onChange: setAttendancePayrollSearch,
+                  suffix: attendancePayrollRecordCount > 0 ? (
+                    <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                      {attendancePayrollRecordCount} of {attendancePayrollRecordCount}
+                    </span>
+                  ) : undefined,
+                }
+              : activeItem === "inventory"
+              ? {
+                  placeholder: inventoryTab === "suppliers" ? "Search supplier..." : "Search product...",
+                  value: inventorySearch,
+                  onChange: setInventorySearch,
+                  suffix: inventoryRecordCount > 0 ? (
+                    <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                      {inventoryRecordCount} of {inventoryRecordCount}
+                    </span>
+                  ) : undefined,
+                }
+              : activeItem === "inventory-pos"
+              ? inventoryPosTab === "inventory"
+                ? undefined
+                : {
+                  placeholder:
+                    inventoryPosTab === "purchase"
+                      ? "Search purchase..."
+                      : inventoryPosTab === "sales"
+                        ? "Search sales..."
+                        : inventoryPosTab === "stock-movement"
+                            ? "Search movement..."
+                            : inventoryPosTab === "credit-notes"
+                              ? "Search credit note..."
+                              : inventoryPosTab === "debit-notes"
+                                ? "Search debit note..."
+                                : "Search GST report...",
+                  value: inventoryPosSearch,
+                  onChange: setInventoryPosSearch,
+                  suffix: inventoryPosRecordCount > 0 ? (
+                    <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                      {inventoryPosRecordCount} of {inventoryPosRecordCount}
+                    </span>
+                  ) : undefined,
+                }
               : undefined
           }
           customSearch={
@@ -559,70 +685,143 @@ function PageContent() {
                 />
               </div>
             ) : activeItem === "employee" ? (
-              <div ref={employeeSearchContainerRef} className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
-                <Input
-                  ref={employeeSearchInputRef}
-                  value={employeeSearch}
-                  onChange={(e) => {
-                    setEmployeeSearch(e.target.value)
-                    if (!isEmployeeSearchOpen) setIsEmployeeSearchOpen(true)
-                    employeeDropdownNav.resetHighlight()
-                  }}
-                  onClick={openEmployeeSearchDropdown}
-                  onFocus={openEmployeeSearchDropdown}
-                  onKeyDown={(e) => {
-                    if (!isEmployeeSearchOpen && (e.key === "ArrowDown" || e.key === "Enter")) {
-                      e.preventDefault()
-                      openEmployeeSearchDropdown()
-                      return
-                    }
-                    if (isEmployeeSearchOpen) employeeDropdownNav.handleKeyDown(e)
-                  }}
-                  placeholder="Search employee..."
-                  className="global-topbar-search pl-8"
-                  aria-label="Search Employee"
-                  aria-autocomplete="list"
-                  aria-expanded={isEmployeeSearchOpen}
-                  aria-controls="employee-search-dropdown"
-                />
-                {isEmployeeSearchOpen && (
-                  <div className="dropdown-container">
-                    <div id="employee-search-dropdown" className="dropdown-scroll" role="listbox">
-                      {isEmployeeSearchLoading ? (
-                        <div className="dropdown-empty-state">Loading employees...</div>
-                      ) : employeeSearchResults.length > 0 ? (
-                        employeeSearchResults.map((employee, index) => (
-                          <button
-                            key={employee.employeeId}
-                            type="button"
-                            role="option"
-                            aria-selected={index === employeeDropdownNav.highlightedIndex}
-                            {...employeeDropdownNav.getItemProps(index)}
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => handleSelectEmployeeSearchResult(employee)}
-                            className={`dropdown-item ${index === employeeDropdownNav.highlightedIndex ? "selected" : ""}`}
-                          >
-                            <div className="font-medium">{employee.empName}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {employee.mobile}
-                              {employee.designation ? ` • ${employee.designation}` : ""}
-                            </div>
-                          </button>
-                        ))
-                      ) : (
-                        <div className="dropdown-empty-state">No employees found.</div>
-                      )}
+              <div className="flex items-center gap-2">
+                {employeeRecordCount > 0 ? (
+                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                    {employeeRecordCount} of {employeeRecordCount}
+                  </span>
+                ) : null}
+                <div ref={employeeSearchContainerRef} className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                  <Input
+                    ref={employeeSearchInputRef}
+                    value={employeeSearch}
+                    onChange={(e) => {
+                      setEmployeeSearch(e.target.value)
+                      if (!isEmployeeSearchOpen) setIsEmployeeSearchOpen(true)
+                      employeeDropdownNav.resetHighlight()
+                    }}
+                    onClick={openEmployeeSearchDropdown}
+                    onFocus={openEmployeeSearchDropdown}
+                    onKeyDown={(e) => {
+                      if (!isEmployeeSearchOpen && (e.key === "ArrowDown" || e.key === "Enter")) {
+                        e.preventDefault()
+                        openEmployeeSearchDropdown()
+                        return
+                      }
+                      if (isEmployeeSearchOpen) employeeDropdownNav.handleKeyDown(e)
+                    }}
+                    placeholder="Search employee..."
+                    className="global-topbar-search pl-8"
+                    aria-label="Search Employee"
+                    aria-autocomplete="list"
+                    aria-expanded={isEmployeeSearchOpen}
+                    aria-controls="employee-search-dropdown"
+                  />
+                  {isEmployeeSearchOpen && (
+                    <div className="dropdown-container">
+                      <div id="employee-search-dropdown" className="dropdown-scroll" role="listbox">
+                        {isEmployeeSearchLoading ? (
+                          <div className="dropdown-empty-state">Loading employees...</div>
+                        ) : employeeSearchResults.length > 0 ? (
+                          employeeSearchResults.map((employee, index) => (
+                            <button
+                              key={employee.employeeId}
+                              type="button"
+                              role="option"
+                              aria-selected={index === employeeDropdownNav.highlightedIndex}
+                              {...employeeDropdownNav.getItemProps(index)}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => handleSelectEmployeeSearchResult(employee)}
+                              className={`dropdown-item ${index === employeeDropdownNav.highlightedIndex ? "selected" : ""}`}
+                            >
+                              <div className="font-medium">{employee.empName}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {employee.mobile}
+                                {employee.designation ? ` • ${employee.designation}` : ""}
+                              </div>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="dropdown-empty-state">No employees found.</div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             ) : activeItem === "inventory" && inventoryTab === "products" ? (
               <SupplierAutocomplete
                 placeholder="Search supplier..."
                 onSelect={(s) => inventorySupplierSelectRef.current?.(s)}
-                inputClassName="rounded-full bg-slate-50 border-slate-200 text-xs"
+                inputClassName="global-topbar-search"
               />
+            ) : activeItem === "inventory-pos" && inventoryPosTab === "inventory" ? (
+              <div className="w-full min-w-0" ref={inventoryPosSupplierSearchRef}>
+                <div className="relative w-full">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                  <Input
+                    value={inventoryPosSupplierSearch}
+                    onChange={(e) => {
+                      setInventoryPosSupplierSearch(e.target.value)
+                      setIsInventoryPosSupplierOpen(true)
+                      if (!e.target.value.trim()) {
+                        setInventoryPosSupplierFilter("")
+                      }
+                    }}
+                    onFocus={() => setIsInventoryPosSupplierOpen(true)}
+                    onClick={() => setIsInventoryPosSupplierOpen(true)}
+                    placeholder="Select supplier to search"
+                    className="global-topbar-search pl-8"
+                    aria-label="Select supplier to search"
+                    autoComplete="off"
+                  />
+                  {isInventoryPosSupplierOpen && (
+                    <div className="dropdown-container">
+                      <div className="dropdown-scroll" role="listbox" aria-label="Supplier options">
+                        <button
+                          type="button"
+                          role="option"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setInventoryPosSupplierFilter("all")
+                            setInventoryPosSupplierSearch("")
+                            setIsInventoryPosSupplierOpen(false)
+                          }}
+                          className="dropdown-item"
+                        >
+                          All Suppliers
+                        </button>
+                        {inventoryPosSupplierOptions
+                          .filter((supplierName) =>
+                            supplierName.toLowerCase().includes(inventoryPosSupplierSearch.trim().toLowerCase())
+                          )
+                          .map((supplierName) => (
+                            <button
+                              key={supplierName}
+                              type="button"
+                              role="option"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                setInventoryPosSupplierFilter(supplierName)
+                                setInventoryPosSupplierSearch(supplierName)
+                                setIsInventoryPosSupplierOpen(false)
+                              }}
+                              className={`dropdown-item ${inventoryPosSupplierFilter === supplierName ? "selected" : ""}`}
+                            >
+                              {supplierName}
+                            </button>
+                          ))}
+                        {inventoryPosSupplierOptions.filter((supplierName) =>
+                          supplierName.toLowerCase().includes(inventoryPosSupplierSearch.trim().toLowerCase())
+                        ).length === 0 ? (
+                          <div className="dropdown-empty-state">No suppliers found.</div>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             ) : undefined
           }
           userName={currentUser.name}
@@ -638,7 +837,7 @@ function PageContent() {
         <main className="mt-[1mm] flex flex-1 min-h-0 flex-col gap-[1mm]">
           <div className="flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl bg-slate-100">
             <div
-              className={`form-main-wrapper flex-1 min-h-0 ${(activeItem === "settings" || activeItem === "update-job-card" || activeItem === "delivered" || activeItem === "whatsapp-messages" || activeItem === "new-job-card" || activeItem === "maintenance-tracker") ? "overflow-hidden" : "overflow-y-auto"} ${activeItem === "whatsapp-messages" ? "flex h-full min-h-0 flex-col !p-0" : `${(activeItem === "settings" || activeItem === "update-job-card" || activeItem === "delivered" || activeItem === "maintenance-tracker") ? "flex h-full min-h-0 flex-col" : ""} ${activeItem === "new-job-card" ? "h-full" : ""}`} ${(activeItem === "update-job-card" || activeItem === "delivered" || activeItem === "technician-task-details" || activeItem === "maintenance-tracker") ? "!px-0" : ""}`}
+              className={`form-main-wrapper flex-1 min-h-0 overflow-hidden ${activeItem === "whatsapp-messages" ? "flex h-full min-h-0 flex-col !p-0" : `${(activeItem === "settings" || activeItem === "update-job-card" || activeItem === "delivered" || activeItem === "maintenance-tracker" || activeItem === "employee" || activeItem === "inventory" || activeItem === "inventory-pos") ? "flex h-full min-h-0 flex-col" : ""} ${activeItem === "new-job-card" ? "h-full" : ""}`} ${(activeItem === "update-job-card" || activeItem === "delivered" || activeItem === "technician-task-details" || activeItem === "maintenance-tracker" || activeItem === "employee" || activeItem === "inventory" || activeItem === "inventory-pos") ? "!px-0" : ""}`}
             >
             {deviceStatusBadge ? (
               <div
@@ -676,20 +875,23 @@ function PageContent() {
                     setAttendancePayrollTab(value as "attendance" | "adjustments" | "payroll")
                   }
                 >
-                  <TabsList className="settings-tabs-list desktop-only-tab-strip">
-                    <TabsTrigger value="attendance" className="settings-tabs-trigger">
-                      <CalendarCheck className="h-4 w-4 text-slate-600" />
-                      <span>{currentUser.role === "technician" ? "My Attendance" : "Mobile Attendance"}</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="adjustments" className="settings-tabs-trigger">
-                      <SlidersHorizontal className="h-4 w-4 text-slate-600" />
-                      <span>{currentUser.role === "technician" ? "Payment History" : "Adjustments"}</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="payroll" className="settings-tabs-trigger">
-                      <Banknote className="h-4 w-4 text-slate-600" />
-                      <span>{currentUser.role === "technician" ? "My Payroll" : "Payroll"}</span>
-                    </TabsTrigger>
-                  </TabsList>
+                  <div className="flex w-full flex-wrap items-center gap-3">
+                    <TabsList className="settings-tabs-list desktop-only-tab-strip">
+                      <TabsTrigger value="attendance" className="settings-tabs-trigger">
+                        <CalendarCheck className="h-4 w-4 text-slate-600" />
+                        <span>{currentUser.role === "technician" ? "My Attendance" : "Mobile Attendance"}</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="adjustments" className="settings-tabs-trigger">
+                        <SlidersHorizontal className="h-4 w-4 text-slate-600" />
+                        <span>{currentUser.role === "technician" ? "Payment History" : "Adjustments"}</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="payroll" className="settings-tabs-trigger">
+                        <Banknote className="h-4 w-4 text-slate-600" />
+                        <span>{currentUser.role === "technician" ? "My Payroll" : "Payroll"}</span>
+                      </TabsTrigger>
+                    </TabsList>
+
+                  </div>
                 </Tabs>
               </div>
             )}
@@ -728,21 +930,30 @@ function PageContent() {
                   inventoryTab === "suppliers" ? "is-first" : "is-offset"
                 }`}
               >
-                <Tabs
-                  value={inventoryTab}
-                  onValueChange={(value) => setInventoryTab(value as "suppliers" | "products")}
-                >
-                  <TabsList className="settings-tabs-list desktop-only-tab-strip">
-                    <TabsTrigger value="suppliers" className="settings-tabs-trigger">
-                      <Users className="h-4 w-4 text-slate-600" />
-                      <span>Suppliers</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="products" className="settings-tabs-trigger">
-                      <Package className="h-4 w-4 text-slate-600" />
-                      <span>Products</span>
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+                <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-6">
+                  <Tabs
+                    value={inventoryTab}
+                    onValueChange={(value) => setInventoryTab(value as "suppliers" | "products")}
+                  >
+                    <TabsList className="settings-tabs-list desktop-only-tab-strip">
+                      <TabsTrigger value="suppliers" className="settings-tabs-trigger">
+                        <Users className="h-4 w-4 text-slate-600" />
+                        <span>Suppliers</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="products" className="settings-tabs-trigger">
+                        <Package className="h-4 w-4 text-slate-600" />
+                        <span>Products</span>
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                  {inventoryTab === "products" && inventorySelectedSupplierSummary ? (
+                    <div className="flex min-w-0 items-center justify-self-end gap-2 pr-10 text-sm font-medium text-sky-600">
+                      <span className="truncate">{inventorySelectedSupplierSummary.name}</span>
+                      <span>-</span>
+                      <span className="truncate">{inventorySelectedSupplierSummary.mobile}</span>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             )}
 
@@ -857,6 +1068,7 @@ function PageContent() {
                 </Tabs>
               </div>
             )}
+
             {/* Content */}
             {activeItem === "dashboard" ? (
               <DashboardContent onNavigate={handleSelect} role={currentUser.role} />
@@ -939,45 +1151,43 @@ function PageContent() {
                 />
               </div>
             ) : activeItem === "employee" ? (
-              <div className="global-form-shell">
+              <div className="global-form-shell fill-height">
                 <EmployeeMasterForm
                   searchTerm={employeeSearch}
                   selectedEmployeeId={selectedEmployeeRecordId}
                   onSelectedEmployeeHandled={() => setSelectedEmployeeRecordId(null)}
+                  onRecordsCountChange={setEmployeeRecordCount}
                 />
               </div>
             ) : activeItem === "attendance-payroll" ? (
-              <div
-                className={`global-tabs-frame ${
-                  attendancePayrollTab === "attendance" ? "is-first" : "is-offset"
-                }`}
-              >
+              <div className={`global-form-shell fill-height global-tab-form-shell attendance-payroll-shell ${attendancePayrollTab === "attendance" ? "is-first" : ""}`}>
                 <AttendancePayrollModule
                   activeTab={attendancePayrollTab}
                   onTabChange={setAttendancePayrollTab}
+                  attendanceDate={attendanceDate}
+                  onAttendanceDateChange={setAttendanceDate}
                   viewerRole={currentUser.role}
                   currentEmployeeId={currentUser.employeeRefId ?? null}
+                  searchTerm={attendancePayrollSearch}
+                  onRecordsCountChange={setAttendancePayrollRecordCount}
                 />
               </div>
             ) : activeItem === "inventory" ? (
-              <div
-                className={`global-tabs-frame ${
-                  inventoryTab === "suppliers" ? "is-first" : "is-offset"
-                }`}
-              >
-                <SupplierProductInventoryForm activeTab={inventoryTab} supplierSelectRef={inventorySupplierSelectRef} />
+              <div className={`global-form-shell fill-height global-tab-form-shell inventory-shell ${inventoryTab === "suppliers" ? "is-first" : ""}`}>
+                <SupplierProductInventoryForm
+                  activeTab={inventoryTab}
+                  supplierSelectRef={inventorySupplierSelectRef}
+                  searchTerm={inventorySearch}
+                  onRecordsCountChange={setInventoryRecordCount}
+                  onSelectedSupplierSummaryChange={setInventorySelectedSupplierSummary}
+                />
               </div>
             ) : activeItem === "inventory-pos" ? (
-              <div
-                className={`global-tabs-frame ${
-                  inventoryPosTab === "purchase"
-                    ? "tabs-fill-width is-first"
-                    : inventoryPosTab === "gst-report"
-                      ? "tabs-fill-width is-last"
-                      : "tabs-fill-width"
-                }`}
-              >
-                <InventoryPosModule activeTab={inventoryPosTab} />
+              <div className={`global-form-shell fill-height global-tab-form-shell inventory-pos-shell ${inventoryPosTab === "purchase" ? "is-first" : ""}`}>
+                <InventoryPosModule
+                  activeTab={inventoryPosTab}
+                  onRecordsCountChange={setInventoryPosRecordCount}
+                />
               </div>
             ) : activeItem === "customers" ? (
               <div className="global-form-shell">
@@ -1097,6 +1307,98 @@ function PageContent() {
                     onClick={() => window.dispatchEvent(new CustomEvent("readyForDelivery:delete"))}
                   >
                     Delete
+                  </Button>
+                </div>
+              )}
+              {activeItem === "inventory" && inventoryTab === "products" && (
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 px-4 text-sm"
+                    onClick={() => window.dispatchEvent(new CustomEvent("inventoryProducts:clear"))}
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9 px-4 text-sm bg-green-600 text-white hover:bg-green-700"
+                    onClick={() => window.dispatchEvent(new CustomEvent("inventoryProducts:save"))}
+                  >
+                    Save
+                  </Button>
+                </div>
+              )}
+              {activeItem === "inventory-pos" && inventoryPosTab === "purchase" && (
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="h-9 px-4 text-sm"
+                    onClick={() => window.dispatchEvent(new CustomEvent("inventoryPosPurchase:delete"))}
+                  >
+                    Delete
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9 px-4 text-sm bg-green-600 text-white hover:bg-green-700"
+                    onClick={() => window.dispatchEvent(new CustomEvent("inventoryPosPurchase:save"))}
+                  >
+                    Save
+                  </Button>
+                </div>
+              )}
+              {activeItem === "inventory-pos" && inventoryPosTab === "sales" && (
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="h-9 px-4 text-sm"
+                    onClick={() => window.dispatchEvent(new CustomEvent("inventoryPosSales:delete"))}
+                  >
+                    Delete
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 px-4 text-sm"
+                    onClick={() => window.dispatchEvent(new CustomEvent("inventoryPosSales:print"))}
+                  >
+                    Print
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9 px-4 text-sm bg-green-600 text-white hover:bg-green-700"
+                    onClick={() => window.dispatchEvent(new CustomEvent("inventoryPosSales:save"))}
+                  >
+                    Save
+                  </Button>
+                </div>
+              )}
+              {activeItem === "inventory-pos" && inventoryPosTab === "inventory" && (
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9 px-4 text-sm bg-sky-600 text-white hover:bg-sky-700"
+                    onClick={() => window.dispatchEvent(new CustomEvent("inventoryPosInventory:refresh"))}
+                  >
+                    Refresh
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9 px-4 text-sm bg-amber-500 text-white hover:bg-amber-600"
+                    onClick={() => window.dispatchEvent(new CustomEvent("inventoryPosInventory:exportCsv"))}
+                  >
+                    Export to CSV
                   </Button>
                 </div>
               )}

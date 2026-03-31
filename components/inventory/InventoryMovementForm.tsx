@@ -47,7 +47,6 @@ export function InventoryMovementForm() {
 
   return (
     <div className="space-y-3">
-      <h3 className="text-base font-semibold">Stock Movements</h3>
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full min-w-[880px] text-sm">
           <thead className="bg-slate-100/80">

@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import PurchaseEntryForm from "@/components/inventory/purchase-entry-form"
 import { POSSalesForm } from "@/components/inventory/pos-sales"
@@ -13,9 +12,10 @@ import { notify } from "@/components/ui/notify"
 
 interface InventoryPosModuleProps {
 	activeTab: "purchase" | "sales" | "inventory" | "stock-movement" | "credit-notes" | "debit-notes" | "gst-report"
+	onRecordsCountChange?: (count: number) => void
 }
 
-export function InventoryPosModule({ activeTab }: InventoryPosModuleProps) {
+export function InventoryPosModule({ activeTab, onRecordsCountChange }: InventoryPosModuleProps) {
 
 	const [creditNotes, setCreditNotes] = useState<NoteEntry[]>([])
 	const [debitNotes, setDebitNotes] = useState<NoteEntry[]>([])
@@ -181,88 +181,62 @@ export function InventoryPosModule({ activeTab }: InventoryPosModuleProps) {
 		return () => clearInterval(id)
 	}, [])
 
+	useEffect(() => {
+		const count =
+			activeTab === "purchase"
+				? todayPurchasesCount
+				: activeTab === "sales"
+					? todaySalesCount
+					: activeTab === "inventory"
+						? productsCount
+						: activeTab === "credit-notes"
+							? creditNotes.length
+							: activeTab === "debit-notes"
+								? debitNotes.length
+								: activeTab === "gst-report"
+									? creditNotes.length + debitNotes.length
+									: 0
+		onRecordsCountChange?.(count)
+	}, [
+		activeTab,
+		creditNotes.length,
+		debitNotes.length,
+		onRecordsCountChange,
+		productsCount,
+		todayPurchasesCount,
+		todaySalesCount,
+	])
+
 	return (
-		<div className="space-y-6">
+		<div className="global-subform-table-content flex min-h-0 flex-col">
 			<Tabs value={activeTab} className="space-y-0">
-				<TabsContent value="purchase" className="global-tabs-panel space-y-4">
-					<div className="grid gap-4 md:grid-cols-4">
-						<Card className="bg-blue-50">
-							<CardContent className="pt-6">
-								<div className="text-sm font-medium text-gray-600">Today&apos;s Purchases</div>
-								<div className="mt-2 text-2xl font-bold text-blue-600">{todayPurchasesCount}</div>
-							</CardContent>
-						</Card>
-						<Card className="bg-green-50">
-							<CardContent className="pt-6">
-								<div className="text-sm font-medium text-gray-600">Total Suppliers</div>
-								<div className="mt-2 text-2xl font-bold text-green-600">{suppliersCount}</div>
-							</CardContent>
-						</Card>
-						<Card className="bg-purple-50">
-							<CardContent className="pt-6">
-								<div className="text-sm font-medium text-gray-600">Products Added</div>
-								<div className="mt-2 text-2xl font-bold text-purple-600">{productsCount}</div>
-							</CardContent>
-						</Card>
-						<Card className="bg-orange-50">
-							<CardContent className="pt-6">
-								<div className="text-sm font-medium text-gray-600">Total Amount</div>
-								<div className="mt-2 text-2xl font-bold text-orange-600">₹{todayTotalAmount.toFixed(2)}</div>
-							</CardContent>
-						</Card>
-					</div>
+				<TabsContent value="purchase" className="space-y-4">
 					<PurchaseEntryForm />
 				</TabsContent>
 
-				<TabsContent value="sales" className="global-tabs-panel space-y-4">
-					<div className="grid gap-4 md:grid-cols-4">
-						<Card className="bg-blue-50">
-							<CardContent className="pt-6">
-								<div className="text-sm font-medium text-gray-600">Today&apos;s Sales</div>
-								<div className="mt-2 text-2xl font-bold text-blue-600">{todaySalesCount}</div>
-							</CardContent>
-						</Card>
-						<Card className="bg-green-50">
-							<CardContent className="pt-6">
-								<div className="text-sm font-medium text-gray-600">Total Customers</div>
-								<div className="mt-2 text-2xl font-bold text-green-600">{totalCustomersCount}</div>
-							</CardContent>
-						</Card>
-						<Card className="bg-red-50">
-							<CardContent className="pt-6">
-								<div className="text-sm font-medium text-gray-600">Returns</div>
-								<div className="mt-2 text-2xl font-bold text-red-600">{returnsCount}</div>
-							</CardContent>
-						</Card>
-						<Card className="bg-orange-50">
-							<CardContent className="pt-6">
-								<div className="text-sm font-medium text-gray-600">Total Revenue</div>
-								<div className="mt-2 text-2xl font-bold text-orange-600">₹{todayRevenue.toFixed(2)}</div>
-							</CardContent>
-						</Card>
-					</div>
+				<TabsContent value="sales" className="space-y-4">
 					<POSSalesForm />
 				</TabsContent>
 
-				<TabsContent value="inventory" className="global-tabs-panel space-y-4">
+				<TabsContent value="inventory" className="space-y-4">
 					<InventoryReportComponent />
 				</TabsContent>
 
-				<TabsContent value="stock-movement" className="global-tabs-panel space-y-4">
+				<TabsContent value="stock-movement" className="space-y-4">
 					<InventoryMovementForm />
 				</TabsContent>
 
-				<TabsContent value="credit-notes" className="global-tabs-panel space-y-4">
+				<TabsContent value="credit-notes" className="space-y-4">
 					{notesLoading && <div className="text-sm text-muted-foreground">Loading notes...</div>}
 					<CreditNoteTab entries={creditNotes} onAdd={handleAddCreditNote} />
 				</TabsContent>
 
-				<TabsContent value="debit-notes" className="global-tabs-panel space-y-4">
+				<TabsContent value="debit-notes" className="space-y-4">
 					{notesLoading && <div className="text-sm text-muted-foreground">Loading notes...</div>}
 					<DebitNoteTab entries={debitNotes} onAdd={handleAddDebitNote} />
 				</TabsContent>
 
-				<TabsContent value="gst-report" className="global-tabs-panel space-y-4">
+				<TabsContent value="gst-report" className="space-y-4">
 					{notesLoading && <div className="text-sm text-muted-foreground">Loading notes...</div>}
 					<GstReportTab creditNotes={creditNotes} debitNotes={debitNotes} />
 				</TabsContent>

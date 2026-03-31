@@ -87,12 +87,14 @@ interface EmployeeMasterFormProps {
   searchTerm?: string
   selectedEmployeeId?: number | null
   onSelectedEmployeeHandled?: () => void
+  onRecordsCountChange?: (count: number) => void
 }
 
 export function EmployeeMasterForm({
   searchTerm = "",
   selectedEmployeeId,
   onSelectedEmployeeHandled,
+  onRecordsCountChange,
 }: EmployeeMasterFormProps) {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [search, setSearch] = useState(searchTerm)
@@ -191,6 +193,10 @@ export function EmployeeMasterForm({
       setForm((prev) => ({ ...prev, isAttendanceEligible: false }))
     }
   }, [form.isAttendanceEligible, isAdminDesignation])
+
+  useEffect(() => {
+    onRecordsCountChange?.(employees.length)
+  }, [employees.length, onRecordsCountChange])
 
   const loadEmployeeIntoForm = (employee: Employee) => {
     const parsedAddress = parseAddress(employee.address)
@@ -413,9 +419,9 @@ export function EmployeeMasterForm({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-0 flex-col">
       <div>
-        <div className="form-table-wrapper">
+        <div className="form-table-wrapper employee-table-wrapper">
           <table className="w-full text-sm">
             <thead className="bg-slate-100/80">
               <tr>
@@ -487,7 +493,7 @@ export function EmployeeMasterForm({
           </table>
         </div>
 
-        <div className="floating-add-action spare-parts-add-action">
+        <div className="floating-add-action spare-parts-add-action employee-add-action">
           <Button
             type="button"
             onClick={handleAddNew}

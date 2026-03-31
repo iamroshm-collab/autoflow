@@ -148,14 +148,10 @@ export function TopBar({
       <div className="flex-1" />
 
       {/* Search — context-aware, pinned to right before action icons */}
-      {customSearch ? (
-        <div className="flex items-center gap-2 w-56">
-          {customSearch}
-        </div>
-      ) : searchConfig ? (
+      {searchConfig ? (
         <div className="flex items-center gap-2">
           {searchConfig.suffix ?? null}
-          <div className="relative w-[25rem]">
+          <div className="relative w-[17.5rem]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
             <Input
               ref={searchInputRef}
@@ -167,6 +163,11 @@ export function TopBar({
               className="global-topbar-search pl-8"
             />
           </div>
+        </div>
+      ) : null}
+      {customSearch ? (
+        <div className="flex items-center gap-2 w-[17.5rem] max-w-[17.5rem] min-w-0 shrink-0">
+          {customSearch}
         </div>
       ) : null}
 

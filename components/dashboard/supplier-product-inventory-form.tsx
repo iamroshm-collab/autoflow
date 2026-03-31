@@ -170,11 +170,17 @@ const defaultSupplierForm = (): SupplierFormState => ({
 interface SupplierProductInventoryFormProps {
   activeTab?: "suppliers" | "products"
   supplierSelectRef?: React.MutableRefObject<((supplier: { supplierId: number }) => void) | null>
+  searchTerm?: string
+  onRecordsCountChange?: (count: number) => void
+  onSelectedSupplierSummaryChange?: (summary: { name: string; mobile: string } | null) => void
 }
 
 export function SupplierProductInventoryForm({
   activeTab = "suppliers",
   supplierSelectRef,
+  searchTerm = "",
+  onRecordsCountChange,
+  onSelectedSupplierSummaryChange,
 }: SupplierProductInventoryFormProps = {}) {
   const unitOptions = [
     "",
@@ -372,11 +378,44 @@ export function SupplierProductInventoryForm({
     }
   }, [addSupplierDialogOpen, editingFromListId, shopStateId, availableStates])
 
-  const filteredSuppliers = useMemo(() => {
-    const term = search.trim().toLowerCase()
-    if (!term) return suppliers
-    return suppliers.filter((s) => s.supplierName?.toLowerCase().includes(term))
-  }, [search, suppliers])
+  const normalizedSearch = useMemo(() => String(searchTerm || "").trim().toLowerCase(), [searchTerm])
+
+  const visibleSuppliers = useMemo(() => {
+    if (!normalizedSearch) return suppliers
+    return suppliers.filter((supplier) => {
+      const name = String(supplier.supplierName || "").toLowerCase()
+      const mobile = String(supplier.mobileNo || "").toLowerCase()
+      const state = String(supplier.stateName || "").toLowerCase()
+      return name.includes(normalizedSearch) || mobile.includes(normalizedSearch) || state.includes(normalizedSearch)
+    })
+  }, [normalizedSearch, suppliers])
+
+  const visibleProducts = useMemo(() => {
+    if (!normalizedSearch) return products
+    return products.filter((row) => {
+      const productName = String(row.productName || "").toLowerCase()
+      const unit = String(row.unit || "").toLowerCase()
+      const hsn = String(row.hsnCode || "").toLowerCase()
+      return productName.includes(normalizedSearch) || unit.includes(normalizedSearch) || hsn.includes(normalizedSearch)
+    })
+  }, [normalizedSearch, products])
+
+  useEffect(() => {
+    const count = activeTab === "suppliers" ? visibleSuppliers.length : visibleProducts.length
+    onRecordsCountChange?.(count)
+  }, [activeTab, visibleSuppliers.length, visibleProducts.length, onRecordsCountChange])
+
+  useEffect(() => {
+    if (activeTab !== "products" || !selectedSupplierId || !supplierForm.supplierName.trim()) {
+      onSelectedSupplierSummaryChange?.(null)
+      return
+    }
+
+    onSelectedSupplierSummaryChange?.({
+      name: supplierForm.supplierName.trim(),
+      mobile: supplierForm.mobileNo.trim(),
+    })
+  }, [activeTab, onSelectedSupplierSummaryChange, selectedSupplierId, supplierForm.mobileNo, supplierForm.supplierName])
 
   const loadSupplierDetails = async (supplierId: number) => {
     setIsLoadingDetails(true)
@@ -904,88 +943,86 @@ export function SupplierProductInventoryForm({
     }
   }, [newSupplierStateSelectedIndex, showNewSupplierStateDropdown])
 
+  const handleSaveRef = useRef(handleSave)
+  const handleClearRef = useRef(handleClearNew)
+  handleSaveRef.current = handleSave
+  handleClearRef.current = handleClearNew
+
+  useEffect(() => {
+    const onSave = () => handleSaveRef.current()
+    const onClear = () => handleClearRef.current()
+    window.addEventListener("inventoryProducts:save", onSave)
+    window.addEventListener("inventoryProducts:clear", onClear)
+    return () => {
+      window.removeEventListener("inventoryProducts:save", onSave)
+      window.removeEventListener("inventoryProducts:clear", onClear)
+    }
+  }, [])
+
   return (
     <>
         {/* Tab Panels (rendered conditionally) */}
         {activeTab === "suppliers" && (
-          <>
-            <div className="global-tabs-panel space-y-4">
-              <div className="space-y-4">
-                {isLoadingList ? (
-                  <p className="text-sm text-muted-foreground">Loading suppliers...</p>
-                ) : suppliers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No suppliers found</p>
-                ) : (
-                  <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-slate-100">
-                            <th className="text-center p-4 font-semibold text-slate-600" style={{width: '25%'}}>Supplier Name</th>
-                            <th className="text-center p-4 font-semibold text-slate-600" style={{width: '10%'}}>Mobile No</th>
-                            <th className="text-center p-4 font-semibold text-slate-600" style={{width: '10%'}}>State</th>
-                            <th className="text-center p-4 font-semibold text-slate-600" style={{width: '25%'}}>GSTIN</th>
-                            <th className="text-center p-4 font-semibold text-slate-600" style={{width: '25%'}}>PAN</th>
-                            <th className="text-center p-4 font-semibold text-slate-600" style={{width: '5%'}}>Products</th>
-                            <th className="text-center p-4 font-semibold text-slate-600" style={{width: '10%'}}>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {suppliers.map((supplier) => (
-                            <tr key={supplier.supplierId} className="border-b last:border-b-0">
-                            <td className="p-2 text-center">
-                              <div className="text-sm text-slate-700">{supplier.supplierName}</div>
-                            </td>
-                            <td className="p-2 text-center">
-                              <div className="text-sm text-slate-700">{supplier.mobileNo}</div>
-                            </td>
-                            <td className="p-2 text-center w-16">
-                              <div className="text-sm text-slate-700">{supplier.stateName || "-"}</div>
-                            </td>
-                            <td className="p-2 text-center">
-                              <div className="text-sm text-slate-700">-</div>
-                            </td>
-                            <td className="p-2 text-center">
-                              <div className="text-sm text-slate-700">-</div>
-                            </td>
-                            <td className="p-2 text-center">
-                              <span className="text-sm font-medium">{supplier._count.products}</span>
-                            </td>
-                            <td className="p-2">
-                              <div className="flex items-center justify-center gap-2">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleEditSupplier(supplier)}
-                                  aria-label="Edit"
-                                  className="text-blue-600 hover:text-blue-800"
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDeleteSupplierFromList(supplier.supplierId)}
-                                  aria-label="Delete"
-                                  className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  </div>
-                )}
+          <div className="global-subform-table-content flex min-h-0 flex-col">
+            {isLoadingList ? (
+              <p className="text-sm text-muted-foreground">Loading suppliers...</p>
+            ) : visibleSuppliers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No suppliers found</p>
+            ) : (
+              <div className="form-table-wrapper shrink-0">
+                <table className="w-full table-fixed text-sm">
+                  <thead className="sticky top-0 z-20">
+                    <tr>
+                      <th className="bg-slate-100 text-center" style={{ width: "25%" }}>Supplier Name</th>
+                      <th className="bg-slate-100 text-center" style={{ width: "10%" }}>Mobile No</th>
+                      <th className="bg-slate-100 text-center" style={{ width: "10%" }}>State</th>
+                      <th className="bg-slate-100 text-center" style={{ width: "25%" }}>GSTIN</th>
+                      <th className="bg-slate-100 text-center" style={{ width: "25%" }}>PAN</th>
+                      <th className="bg-slate-100 text-center" style={{ width: "5%" }}>Products</th>
+                      <th className="bg-slate-100 text-center" style={{ width: "10%" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="[&_td]:text-center">
+                    {visibleSuppliers.map((supplier) => (
+                      <tr key={supplier.supplierId}>
+                        <td>{supplier.supplierName}</td>
+                        <td>{supplier.mobileNo}</td>
+                        <td>{supplier.stateName || "-"}</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td className="font-medium">{supplier._count.products}</td>
+                        <td>
+                          <div className="flex items-center justify-center gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditSupplier(supplier)}
+                              aria-label="Edit"
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteSupplierFromList(supplier.supplierId)}
+                              aria-label="Delete"
+                              className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </div>
+            )}
 
-            <div className="sticky-form-actions flex justify-center">
+            <div className="shrink-0">
               <Button
                 type="button"
                 onClick={() => setAddSupplierDialogOpen(true)}
@@ -996,49 +1033,32 @@ export function SupplierProductInventoryForm({
                 Add Supplier
               </Button>
             </div>
-          </>
+          </div>
         )}
 
         {activeTab === "products" && (
           <>
-            {/* Supplier and Products Container */}
-            <div className="global-tabs-panel">
-              {/* Supplier Display */}
-              <div className="p-4 border-b">
-                <div className="flex items-center justify-center gap-2">
-                  {supplierForm.supplierName ? (
-                    <>
-                      <h3 className="text-lg text-sky-600">{supplierForm.supplierName}</h3>
-                      <span className="text-lg text-sky-600">-</span>
-                      <p className="text-lg text-sky-600">{supplierForm.mobileNo || ""}</p>
-                    </>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Select a supplier to view/add products</p>
-                  )}
-                </div>
-              </div>
-
+            <div className="global-subform-table-content flex min-h-0 flex-col">
               {selectedSupplierId && (
-                <div className="p-4 space-y-4">
-                  <div className="overflow-x-auto border rounded-md">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted/50">
+                <div className="form-table-wrapper shrink-0" style={{ maxHeight: "19.5rem" }}>
+                  <table className="w-full table-fixed text-sm">
+                    <thead className="sticky top-0 z-20">
                       <tr>
-                        <th className="text-center p-3" style={{width: '30%'}}>Product Name</th>
-                        <th className="text-center p-3" style={{width: '10%'}}>Unit</th>
-                      <th className="text-center p-3" style={{width: '10%'}}>MRP</th>
-                      <th className="text-center p-3" style={{width: '10%'}}>Purchase Price</th>
-                      <th className="text-center p-3" style={{width: '10%'}}>Sale Price</th>
-                      <th className="text-center p-3" style={{width: '10%'}}>HSN Code</th>
-                      <th className="text-center p-3" style={{width: '7%'}}>{isSameStateAsShop ? "SGST %" : "IGST %"}</th>
-                      {isSameStateAsShop && <th className="text-center p-3" style={{width: '7%'}}>CGST %</th>}
-                      <th className="text-center p-3" style={{width: '6%'}}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {products.map((row) => (
+                        <th className="bg-slate-100 text-center" style={{ width: "30%" }}>Product Name</th>
+                        <th className="bg-slate-100 text-center" style={{ width: "10%" }}>Unit</th>
+                        <th className="bg-slate-100 text-center" style={{ width: "10%" }}>MRP</th>
+                        <th className="bg-slate-100 text-center" style={{ width: "10%" }}>Purchase Price</th>
+                        <th className="bg-slate-100 text-center" style={{ width: "10%" }}>Sale Price</th>
+                        <th className="bg-slate-100 text-center" style={{ width: "10%" }}>HSN Code</th>
+                        <th className="bg-slate-100 text-center" style={{ width: "7%" }}>{isSameStateAsShop ? "SGST %" : "IGST %"}</th>
+                        {isSameStateAsShop && <th className="bg-slate-100 text-center" style={{ width: "7%" }}>CGST %</th>}
+                        <th className="bg-slate-100 text-center" style={{ width: "6%" }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                    {visibleProducts.map((row) => (
                       <tr key={row.rowId} className="border-t hover:bg-muted/30 transition-colors">
-                        <td className="p-3 text-center" style={{width: '30%'}}>
+                        <td className="p-3 text-left" style={{width: '30%'}}>
                           <input
                             type="text"
                             value={row.productName}
@@ -1047,7 +1067,7 @@ export function SupplierProductInventoryForm({
                             placeholder="Enter product name"
                             data-product-id={row.rowId}
                             data-field="productName"
-                            className="w-full px-2 py-1 border border-border/90 rounded bg-muted/30 text-sm text-center focus:outline-none focus:ring-1 focus:ring-sky-400"
+                            className="w-full px-2 py-1 border border-border/90 rounded bg-muted/30 text-sm text-left focus:outline-none focus:ring-1 focus:ring-sky-400"
                           />
                         </td>
                         <td className="p-3 text-center" style={{width: '10%'}}>
@@ -1056,7 +1076,7 @@ export function SupplierProductInventoryForm({
                             onChange={(e) => handleProductFieldChange(row.rowId, "unit", e.target.value)}
                             data-product-id={row.rowId}
                             data-field="unit"
-                            className="w-full px-2 py-1 border border-border/90 rounded bg-muted/30 text-sm text-center focus:outline-none focus:ring-1 focus:ring-sky-400"
+                            className="w-full px-2 py-1 border-0 rounded bg-transparent text-sm text-center focus:outline-none focus:ring-1 focus:ring-sky-400"
                           >
                             <option value="">-</option>
                             {unitOptions.map((u) => (
@@ -1166,48 +1186,29 @@ export function SupplierProductInventoryForm({
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
-              </div>
+                  </table>
+                </div>
             )}
 
             {!selectedSupplierId && (
-              <div className="p-4 text-center py-8">
+              <div className="rounded-lg border border-slate-200 bg-white p-4 text-center py-8">
                 <p className="text-sm text-muted-foreground">Please select a supplier from the dropdown above to manage products</p>
               </div>
             )}
             </div>
 
-            {/* Bottom Action Buttons - Using sticky-form-actions */}
+            {/* Add Product row */}
             {selectedSupplierId && (
-              <div className="sticky-form-actions flex flex-wrap items-center justify-between gap-5">
+              <div className="shrink-0 mt-4">
                 <Button
                   type="button"
                   onClick={() => addProductRow()}
-                  className="flex-1 justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
+                  className="global-bottom-btn-add"
                   variant="ghost"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Product
                 </Button>
-                <div className="flex gap-5">
-                  <Button
-                    type="button"
-                    onClick={handleClearNew}
-                    disabled={isSaving}
-                    variant="outline"
-                    className="px-4 py-2 min-h-[40px]"
-                  >
-                    Clear
-                  </Button>
-                  <Button
-                    onClick={handleSave}
-                    disabled={isSaving || isLoadingDetails}
-                    className="bg-green-600 text-white hover:bg-green-700 px-4 py-2 min-h-[40px]"
-                  >
-                    {isSaving ? "Saving..." : "Save"}
-                  </Button>
-                </div>
               </div>
             )}
           </>
@@ -1233,8 +1234,8 @@ export function SupplierProductInventoryForm({
               {editingFromListId !== null ? "Update supplier details." : "Enter the supplier details to create a new supplier record."}
             </DialogDescription>
           </DialogHeader>
-          <div className="global-form-shell space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 items-start">
+          <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
               <div className="space-y-2">
                 <Label htmlFor="new-supplier-name">Supplier Name *</Label>
                 <Input
@@ -1382,16 +1383,6 @@ export function SupplierProductInventoryForm({
                 </Popover>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-state-code">State Code</Label>
-                <Input
-                  id="new-state-code"
-                  value={newSupplierForm.stateCode ?? ""}
-                  readOnly
-                  className="bg-slate-100 cursor-not-allowed"
-                  placeholder="Auto-populated"
-                />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="new-gstin">GSTIN</Label>
                 <Input
                   id="new-gstin"
@@ -1409,51 +1400,51 @@ export function SupplierProductInventoryForm({
                   placeholder="Enter PAN"
                 />
               </div>
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="new-address-line-1">Address Line 1 (Apartment, Suite, Unit, Building, Floor)</Label>
-              <Input
-                id="new-address-line-1"
-                value={newSupplierForm.addressLine1}
-                onChange={(e) => setNewSupplierForm((prev) => ({ ...prev, addressLine1: e.target.value }))}
-                placeholder="Enter address line 1"
-              />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="new-address-line-2">Address Line 2 (Street Address)</Label>
-              <Input
-                id="new-address-line-2"
-                value={newSupplierForm.addressLine2}
-                onChange={(e) => setNewSupplierForm((prev) => ({ ...prev, addressLine2: e.target.value }))}
-                placeholder="Enter address line 2"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-city">City</Label>
-              <Input
-                id="new-city"
-                value={newSupplierForm.city}
-                onChange={(e) => setNewSupplierForm((prev) => ({ ...prev, city: e.target.value }))}
-                placeholder="Enter city"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-district">District</Label>
-              <Input
-                id="new-district"
-                value={newSupplierForm.district}
-                onChange={(e) => setNewSupplierForm((prev) => ({ ...prev, district: e.target.value }))}
-                placeholder="Enter district"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-postal">Postal Code</Label>
-              <Input
-                id="new-postal"
-                value={newSupplierForm.postalCode}
-                onChange={(e) => setNewSupplierForm((prev) => ({ ...prev, postalCode: e.target.value }))}
-                placeholder="Enter postal code"
-              />
+              <div className="space-y-2">
+                <Label htmlFor="new-address-line-1">Address Line 1 (Building, Floor)</Label>
+                <Input
+                  id="new-address-line-1"
+                  value={newSupplierForm.addressLine1}
+                  onChange={(e) => setNewSupplierForm((prev) => ({ ...prev, addressLine1: e.target.value }))}
+                  placeholder="Enter address line 1"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-address-line-2">Address Line 2 (Street Address)</Label>
+                <Input
+                  id="new-address-line-2"
+                  value={newSupplierForm.addressLine2}
+                  onChange={(e) => setNewSupplierForm((prev) => ({ ...prev, addressLine2: e.target.value }))}
+                  placeholder="Enter address line 2"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-city">City</Label>
+                <Input
+                  id="new-city"
+                  value={newSupplierForm.city}
+                  onChange={(e) => setNewSupplierForm((prev) => ({ ...prev, city: e.target.value }))}
+                  placeholder="Enter city"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-district">District</Label>
+                <Input
+                  id="new-district"
+                  value={newSupplierForm.district}
+                  onChange={(e) => setNewSupplierForm((prev) => ({ ...prev, district: e.target.value }))}
+                  placeholder="Enter district"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-postal">Postal Code</Label>
+                <Input
+                  id="new-postal"
+                  value={newSupplierForm.postalCode}
+                  onChange={(e) => setNewSupplierForm((prev) => ({ ...prev, postalCode: e.target.value }))}
+                  placeholder="Enter postal code"
+                />
+              </div>
             </div>
           </div>
           <DialogFooter className="flex gap-5 justify-end pt-4">

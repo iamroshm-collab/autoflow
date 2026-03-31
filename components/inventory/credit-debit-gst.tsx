@@ -164,9 +164,8 @@ const NoteForm = ({
   }
 
   return (
-    <Card className="p-4 md:p-5">
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <h2 className="text-base font-semibold">{label} Notes</h2>
+    <Card className="border-0 bg-transparent p-0 shadow-none">
+      <div className="mb-4 flex items-center justify-end gap-2">
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <Input
@@ -335,9 +334,9 @@ const NoteForm = ({
         </DialogContent>
       </Dialog>
 
-      <div className="mt-4 rounded-md border overflow-x-auto">
+      <div className="mt-4 inventory-pos-table-wrapper">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10 bg-white">
             <TableRow>
               <TableHead className="w-[110px]">Date</TableHead>
               <TableHead>Note #</TableHead>
@@ -388,11 +387,11 @@ const NoteForm = ({
         </Table>
       </div>
 
-      <div className="sticky-form-actions mt-4 flex flex-wrap items-center gap-2">
+      <div className="shrink-0 mt-4">
         <Button
           type="button"
           onClick={() => setIsNewModalOpen(true)}
-          className="flex-1 justify-start border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent"
+          className="global-bottom-btn-add"
           variant="ghost"
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -446,7 +445,6 @@ const NoteSummary = ({ title, entries }: { title: string; entries: NoteEntry[] }
 export function CreditNoteTab({ entries, onAdd }: { entries: NoteEntry[]; onAdd: (entry: NoteEntry) => void }) {
   return (
     <div className="space-y-4">
-      <NoteSummary title="Credit Notes" entries={entries} />
       <NoteForm onAdd={onAdd} defaultTaxRate={18} label="Credit" entries={entries} />
     </div>
   )
@@ -455,7 +453,6 @@ export function CreditNoteTab({ entries, onAdd }: { entries: NoteEntry[]; onAdd:
 export function DebitNoteTab({ entries, onAdd }: { entries: NoteEntry[]; onAdd: (entry: NoteEntry) => void }) {
   return (
     <div className="space-y-4">
-      <NoteSummary title="Debit Notes" entries={entries} />
       <NoteForm onAdd={onAdd} defaultTaxRate={18} label="Debit" entries={entries} />
     </div>
   )
@@ -617,7 +614,7 @@ export function GstReportTab({ creditNotes, debitNotes }: { creditNotes: NoteEnt
 
   return (
     <div className="space-y-4">
-      <Card>
+      <Card className="border-0 bg-transparent p-0 shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">GSTR-1 Snapshot</CardTitle>
         </CardHeader>
@@ -794,7 +791,7 @@ export function GstReportTab({ creditNotes, debitNotes }: { creditNotes: NoteEnt
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-0 bg-transparent p-0 shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Adjustment Notes (Credit / Debit)</CardTitle>
         </CardHeader>

@@ -292,6 +292,10 @@
     border-top-left-radius: 0;
   }
 
+  .attendance-payroll-shell {
+    padding-bottom: 0 !important;
+  }
+
   /* Backward-compatible alias — kept so existing JSX doesn't break */
   .update-job-card-shell {
     padding: 0 var(--master-gap) var(--master-gap) !important;
@@ -377,6 +381,15 @@
     box-sizing: border-box;
   }
 
+  .inventory-pos-shell table input,
+  .inventory-pos-shell table select,
+  .inventory-pos-shell table textarea {
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
   .global-record-search-wrap {
     display: flex;
     align-items: center;
@@ -402,6 +415,58 @@
     border-color: hsl(var(--border)) !important;
     width: 100%;
     min-width: 0;
+  }
+
+  .global-record-select-trigger {
+    height: 1.8rem !important;
+    min-height: 1.8rem !important;
+    background-color: rgb(248 250 252) !important;
+    border-color: hsl(var(--border)) !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .global-topbar-select-trigger {
+    height: var(--topbar-search-height) !important;
+    min-height: var(--topbar-search-height) !important;
+    background-color: rgb(248 250 252) !important;
+    border-color: rgb(226 232 240) !important;
+    border-radius: 9999px !important;
+    color: rgb(15 23 42) !important;
+    font-size: 0.875rem !important;
+  }
+
+  .global-topbar-select-trigger[data-placeholder],
+  .global-topbar-select-trigger[data-placeholder] > span,
+  .global-topbar-select-trigger > span {
+    color: rgb(15 23 42) !important;
+  }
+
+  .global-record-select-content {
+    border: 1px solid rgb(226 232 240) !important;
+    border-radius: 0.5rem !important;
+    background-color: white !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  .global-record-select-content [data-radix-select-viewport] {
+    padding: 0.25rem !important;
+  }
+
+  .global-record-select-content [role="option"] {
+    border-radius: 0.375rem !important;
+  }
+
+  .global-record-select-content [role="option"]:hover,
+  .global-record-select-content [role="option"][data-highlighted] {
+    background-color: rgb(239 246 255) !important;
+    color: rgb(30 41 59) !important;
+  }
+
+  .global-record-select-content [role="option"][data-state="checked"] {
+    background-color: rgb(219 234 254) !important;
+    color: rgb(30 41 59) !important;
+    font-weight: 500;
   }
 
   /* ─── Standard top-bar search input ─────────────────────────────────────────
@@ -1160,6 +1225,10 @@
     padding-top: 0;
   }
 
+  .employee-add-action {
+    margin-top: var(--master-gap);
+  }
+
   /* Standard scroll area for forms with sticky add-action rows */
   .global-add-scroll-area {
     max-height: 52vh;
@@ -1296,7 +1365,7 @@
   }
 
   .form-main-wrapper {
-    padding: 0 1mm 0 1mm;
+    padding: 0;
     border-radius: inherit; /* inherit rounded-2xl from parent — clips scrollbar to rounded corners */
   }
 
@@ -1349,6 +1418,11 @@
     border-top-left-radius: 0.5rem !important;
   }
 
+    .inventory-shell.is-first > .form-table-wrapper,
+    .inventory-shell.is-first .form-table-wrapper:first-child {
+      border-top-left-radius: 0.5rem !important;
+    }
+
   .form-container.tabs-fill-width.is-last-tab {
     border-top-right-radius: 0 !important;
   }
@@ -1377,6 +1451,40 @@
     overflow-x: hidden;
     border: 1px solid hsl(var(--border));
     border-radius: 0.5rem;
+  }
+
+  .employee-table-wrapper {
+    max-height: calc((10 * var(--row-height)) + var(--header-height)) !important;
+  }
+
+  .attendance-payroll-table-wrapper {
+    max-height: calc((8 * var(--row-height)) + var(--header-height)) !important;
+  }
+
+  .mobile-attendance-table-wrapper {
+    max-height: calc((10 * var(--row-height)) + var(--header-height)) !important;
+  }
+
+  .inventory-pos-table-wrapper {
+    width: 100%;
+    max-height: calc((9 * var(--row-height)) + var(--header-height)) !important;
+    overflow-y: auto !important;
+    overflow-x: auto !important;
+    box-sizing: border-box;
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.5rem;
+  }
+
+  .inventory-pos-purchase-table-wrapper {
+    max-height: calc((7 * var(--row-height)) + var(--header-height)) !important;
+  }
+
+  .inventory-pos-sales-table-wrapper {
+    max-height: calc((6 * var(--row-height)) + var(--header-height)) !important;
+  }
+
+  .inventory-pos-inventory-table-wrapper {
+    max-height: calc((6 * var(--row-height)) + var(--header-height)) !important;
   }
 
   .form-table-wrapper table {
@@ -1490,6 +1598,16 @@ input#attendanceDate {
   box-sizing: border-box;
 }
 
+/* Compact size override for Attendance tab-row date input */
+input#attendanceDateInTabs {
+  height: 33px !important;
+  min-height: 33px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  font-size: 12.5px !important;
+  line-height: 1 !important;
+}
+
 /* Thin professional scrollbar */
 .form-table-wrapper::-webkit-scrollbar {
   width: 3px;
@@ -1557,7 +1675,7 @@ input#attendanceDate {
 
 /* Targeted rule for the main page scroll container */
 .form-main-wrapper {
-  overflow-y: auto;
+  overflow-y: hidden;
   scrollbar-width: thin;
   scrollbar-color: #94a3b8 transparent;
 }

@@ -20,6 +20,8 @@ interface DatePickerInputProps {
   id?: string
   className?: string
   format?: "iso" | "dd-mm-yy" // Whether input/output is ISO or dd-mm-yy
+  popoverSide?: "top" | "bottom" | "left" | "right"
+  popoverAlign?: "start" | "center" | "end"
 }
 
 export function DatePickerInput({
@@ -30,6 +32,8 @@ export function DatePickerInput({
   id,
   className,
   format = "iso",
+  popoverSide = "top",
+  popoverAlign = "start",
 }: DatePickerInputProps) {
   const [inputValue, setInputValue] = React.useState("")
   const [open, setOpen] = React.useState(false)
@@ -113,7 +117,14 @@ export function DatePickerInput({
           className={cn("h-10 cursor-pointer", className)}
         />
       </PopoverTrigger>
-      <PopoverContent className="w-[280px] p-0 border bg-white rounded-md shadow-lg" align="start" side="top" sideOffset={4}>
+      <PopoverContent
+        className="w-[280px] p-0 border bg-white rounded-md shadow-lg"
+        align={popoverAlign}
+        side={popoverSide}
+        sideOffset={4}
+        avoidCollisions
+        collisionPadding={12}
+      >
         <CalendarComponent
           mode="single"
           selected={selectedDate}

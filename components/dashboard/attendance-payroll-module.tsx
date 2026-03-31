@@ -13,14 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from '@/components/ui/notify'
 import { Printer, Plus, Trash2, Calendar, Edit3, CreditCard, Pencil, Save, X } from "lucide-react"
@@ -169,15 +161,23 @@ type AttendancePayrollTabKey = "attendance" | "adjustments" | "payroll"
 interface AttendancePayrollModuleProps {
   activeTab?: AttendancePayrollTabKey
   onTabChange?: (tab: AttendancePayrollTabKey) => void
+  attendanceDate?: string
+  onAttendanceDateChange?: (value: string) => void
   viewerRole?: "admin" | "manager" | "technician"
   currentEmployeeId?: number | null
+  searchTerm?: string
+  onRecordsCountChange?: (count: number) => void
 }
 
 export function AttendancePayrollModule({
   activeTab: controlledActiveTab,
   onTabChange,
+  attendanceDate: controlledAttendanceDate,
+  onAttendanceDateChange,
   viewerRole,
   currentEmployeeId,
+  searchTerm = "",
+  onRecordsCountChange,
 }: AttendancePayrollModuleProps = {}) {
   const [internalActiveTab, setInternalActiveTab] = useState<AttendancePayrollTabKey>("attendance")
   const activeTab = controlledActiveTab ?? internalActiveTab
@@ -198,7 +198,15 @@ export function AttendancePayrollModule({
   
   // Attendance Tab State
   // default to today so rows are visible immediately when opening Attendance tab
-  const [attendanceDate, setAttendanceDate] = useState<string>(todayIndia)
+  const [internalAttendanceDate, setInternalAttendanceDate] = useState<string>(todayIndia)
+  const attendanceDate = controlledAttendanceDate ?? internalAttendanceDate
+  const setAttendanceDate = useCallback((value: string) => {
+    if (onAttendanceDateChange) {
+      onAttendanceDateChange(value)
+      return
+    }
+    setInternalAttendanceDate(value)
+  }, [onAttendanceDateChange])
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([])
   const [attendanceCalendarRecords, setAttendanceCalendarRecords] = useState<AttendanceCalendarRecord[]>([])
   const [loadingAttendanceCalendar, setLoadingAttendanceCalendar] = useState(false)
@@ -811,6 +819,47 @@ export function AttendancePayrollModule({
     ? adjustments
     : adjustments.filter((adj) => String(adj.employeeId) === adjustmentFilterEmployeeId)
 
+  const searchQuery = searchTerm.trim().toLowerCase()
+
+  const visibleAttendanceRecords = useMemo(() => {
+    if (!searchQuery) return attendanceRecords
+    return attendanceRecords.filter((record) =>
+      String(record.empName || "").toLowerCase().includes(searchQuery) ||
+      String(record.idNumber || "").toLowerCase().includes(searchQuery) ||
+      String(record.designation || "").toLowerCase().includes(searchQuery)
+    )
+  }, [attendanceRecords, searchQuery])
+
+  const visibleAdjustments = useMemo(() => {
+    if (!searchQuery) return filteredAdjustments
+    return filteredAdjustments.filter((adj) =>
+      String(adj.employee.empName || "").toLowerCase().includes(searchQuery) ||
+      String(adj.employee.idNumber || "").toLowerCase().includes(searchQuery) ||
+      String(adj.employee.designation || "").toLowerCase().includes(searchQuery) ||
+      String(adj.adjustmentType || "").toLowerCase().includes(searchQuery) ||
+      String(adj.remarks || "").toLowerCase().includes(searchQuery)
+    )
+  }, [filteredAdjustments, searchQuery])
+
+  const visiblePayrollRecords = useMemo(() => {
+    if (!searchQuery) return payrollRecords
+    return payrollRecords.filter((payroll) =>
+      String(payroll.employee.empName || "").toLowerCase().includes(searchQuery) ||
+      String(payroll.employee.idNumber || "").toLowerCase().includes(searchQuery) ||
+      String(payroll.employee.designation || "").toLowerCase().includes(searchQuery)
+    )
+  }, [payrollRecords, searchQuery])
+
+  useEffect(() => {
+    const count =
+      activeTab === "attendance"
+        ? visibleAttendanceRecords.length
+        : activeTab === "adjustments"
+          ? visibleAdjustments.length
+          : visiblePayrollRecords.length
+    onRecordsCountChange?.(count)
+  }, [activeTab, visibleAttendanceRecords.length, visibleAdjustments.length, visiblePayrollRecords.length, onRecordsCountChange])
+
   const attendanceByDate = useMemo(() => {
     const map = new Map<string, AttendanceCalendarRecord>()
     attendanceCalendarRecords.forEach((record) => {
@@ -860,7 +909,7 @@ export function AttendancePayrollModule({
     <div className="space-y-6">
         {/* Tab Panels (rendered conditionally) */}
         {activeTab === "attendance" && (
-          <div className="global-tabs-panel space-y-4">
+          <div className="space-y-4">
             {isTechnicianViewer ? (
               <div className="space-y-4">
                 {!Number.isInteger(currentEmployeeId) ? (
@@ -983,48 +1032,53 @@ export function AttendancePayrollModule({
               </div>
             ) : (
               <>
-            <div className="flex flex-wrap items-center justify-between gap-4 pt-4">
-              <div className="flex items-center gap-2">
+            <div className="my-3 flex flex-wrap items-center gap-4">
+              <div className="text-sm text-muted-foreground">
+                Employees must mark attendance from their phone at /mobile-attendance.
+              </div>
+
+              <div className="ml-auto flex items-center gap-2">
+                <Label htmlFor="attendanceDateInTabs" className="text-xs text-slate-600 whitespace-nowrap">
+                  Select Date
+                </Label>
                 <DatePickerInput
-                  id="attendanceDate"
+                  id="attendanceDateInTabs"
                   value={attendanceDate}
                   onChange={handleAttendanceDateChange}
                   format="iso"
                   placeholder="dd-mm-yy"
-                  className="w-64 border rounded-md px-3 py-2 bg-white focus:ring-0 mx-auto text-center"
+                  popoverSide="bottom"
+                  popoverAlign="end"
+                  className="!h-[33px] rounded-full border border-slate-300 bg-white px-2 text-center text-[12.5px] leading-none focus:ring-0 w-[188px]"
                 />
-              </div>
-
-              <div className="text-sm text-muted-foreground">
-                Employees must mark attendance from their phone at /mobile-attendance.
               </div>
             </div>
 
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader className="[&_th]:text-center">
-                  <TableRow>
-                    <TableHead className="w-16">#</TableHead>
-                    <TableHead>Employee Name</TableHead>
-                    <TableHead>ID Number</TableHead>
-                    <TableHead>Designation</TableHead>
-                    <TableHead>Check In</TableHead>
-                    <TableHead>Check Out</TableHead>
-                    <TableHead>Worked Time</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="w-28">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="[&_td]:text-center">
-                  {attendanceRecords.map((record, index) => (
-                    <TableRow key={record.employeeId} className="h-8">
-                      <TableCell className="h-8">{index + 1}</TableCell>
-                      <TableCell className="font-medium h-8">{record.empName}</TableCell>
-                      <TableCell className="h-8">{record.idNumber}</TableCell>
-                      <TableCell className="h-8">{record.designation || "N/A"}</TableCell>
+            <div className="form-table-wrapper attendance-payroll-table-wrapper mobile-attendance-table-wrapper">
+              <table className="w-full table-fixed text-sm">
+                <thead className="sticky top-0 z-20">
+                  <tr>
+                    <th className="w-16 bg-slate-100 text-center">#</th>
+                    <th className="bg-slate-100 text-center">Employee Name</th>
+                    <th className="bg-slate-100 text-center">ID Number</th>
+                    <th className="bg-slate-100 text-center">Designation</th>
+                    <th className="bg-slate-100 text-center">Check In</th>
+                    <th className="bg-slate-100 text-center">Check Out</th>
+                    <th className="bg-slate-100 text-center">Worked Time</th>
+                    <th className="bg-slate-100 text-center">Status</th>
+                    <th className="w-28 bg-slate-100 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="[&_td]:text-center">
+                  {visibleAttendanceRecords.map((record, index) => (
+                    <tr key={record.employeeId} className="h-8">
+                      <td className="h-8">{index + 1}</td>
+                      <td className="font-medium h-8">{record.empName}</td>
+                      <td className="h-8">{record.idNumber}</td>
+                      <td className="h-8">{record.designation || "N/A"}</td>
                       {editingEmployeeId === record.employeeId && attendanceEditForm ? (
                         <>
-                          <TableCell className="h-8">
+                          <td className="h-8">
                             <Input
                               type="time"
                               value={attendanceEditForm.checkInTime}
@@ -1035,8 +1089,8 @@ export function AttendancePayrollModule({
                               }
                               className="h-8"
                             />
-                          </TableCell>
-                          <TableCell className="h-8">
+                          </td>
+                          <td className="h-8">
                             <Input
                               type="time"
                               value={attendanceEditForm.checkOutTime}
@@ -1047,8 +1101,8 @@ export function AttendancePayrollModule({
                               }
                               className="h-8"
                             />
-                          </TableCell>
-                          <TableCell className="h-8">
+                          </td>
+                          <td className="h-8">
                             <Input
                               type="number"
                               min={0}
@@ -1060,8 +1114,8 @@ export function AttendancePayrollModule({
                               }
                               className="h-8"
                             />
-                          </TableCell>
-                          <TableCell className="h-8">
+                          </td>
+                          <td className="h-8">
                             <Select
                               value={normalizeStatusOption(attendanceEditForm.attendance)}
                               onValueChange={(value) =>
@@ -1079,8 +1133,8 @@ export function AttendancePayrollModule({
                                 <SelectItem value="A">A</SelectItem>
                               </SelectContent>
                             </Select>
-                          </TableCell>
-                          <TableCell className="h-8">
+                          </td>
+                          <td className="h-8">
                             <div className="flex items-center justify-center gap-2">
                               <Button
                                 type="button"
@@ -1103,15 +1157,15 @@ export function AttendancePayrollModule({
                                 <X className="h-4 w-4" />
                               </Button>
                             </div>
-                          </TableCell>
+                          </td>
                         </>
                       ) : (
                         <>
-                          <TableCell className="h-8">{formatTimeInIndia(record.checkInAt)}</TableCell>
-                          <TableCell className="h-8">{formatTimeInIndia(record.checkOutAt)}</TableCell>
-                          <TableCell className="h-8">{record.workedDuration || "0m"}</TableCell>
-                          <TableCell className="h-8">{normalizeStatusOption(record.attendance)}</TableCell>
-                          <TableCell className="h-8">
+                          <td className="h-8">{formatTimeInIndia(record.checkInAt)}</td>
+                          <td className="h-8">{formatTimeInIndia(record.checkOutAt)}</td>
+                          <td className="h-8">{record.workedDuration || "0m"}</td>
+                          <td className="h-8">{normalizeStatusOption(record.attendance)}</td>
+                          <td className="h-8">
                             <div className="flex items-center justify-center gap-2">
                               <Button
                                 type="button"
@@ -1134,20 +1188,20 @@ export function AttendancePayrollModule({
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
-                          </TableCell>
+                          </td>
                         </>
                       )}
-                    </TableRow>
+                    </tr>
                   ))}
-                  {attendanceRecords.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted-foreground h-8">
+                  {visibleAttendanceRecords.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="text-center text-muted-foreground h-8">
                         No employees found
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   )}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
               </>
             )}
@@ -1155,19 +1209,19 @@ export function AttendancePayrollModule({
         )}
 
         {activeTab === "adjustments" && (
-          <div className="global-tabs-panel space-y-4">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between gap-4 mb-6">
-                <h3 className="text-lg font-semibold">
-                  {isTechnicianViewer ? "Payment History" : "Recent Adjustments"}
-                </h3>
+          <div className="space-y-4">
+            <div className="space-y-4">
+              <div className="my-3 flex min-h-[33px] items-center justify-end gap-4">
                 {!isTechnicianViewer ? (
                   <div className="w-80 max-w-full">
                     <Select value={adjustmentFilterEmployeeId} onValueChange={setAdjustmentFilterEmployeeId}>
-                      <SelectTrigger aria-label="Filter adjustments by employee" className="w-full">
+                      <SelectTrigger
+                        aria-label="Filter adjustments by employee"
+                        className="global-record-select-trigger !h-[33px] !min-h-[33px] w-full"
+                      >
                         <SelectValue placeholder="Select employee" />
                       </SelectTrigger>
-                      <SelectContent className="dropdown-scroll-modal">
+                      <SelectContent className="global-record-select-content dropdown-scroll-modal">
                         <SelectItem value="all">All Employees</SelectItem>
                         {employees.map((employee) => (
                           <SelectItem key={employee.employeeId} value={String(employee.employeeId)}>
@@ -1180,26 +1234,26 @@ export function AttendancePayrollModule({
                 ) : null}
               </div>
 
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Employee</TableHead>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Deduction</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Remarks</TableHead>
-                      {!isTechnicianViewer ? <TableHead className="w-24">Actions</TableHead> : null}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredAdjustments.map((adj) => (
-                      <TableRow key={adj.adjustmentId}>
-                        <TableCell className="font-medium">{adj.employee.empName}</TableCell>
-                        <TableCell>{adj.employee.idNumber}</TableCell>
-                        <TableCell>
+              <div className="form-table-wrapper attendance-payroll-table-wrapper">
+                <table className="w-full table-fixed text-sm">
+                  <thead className="sticky top-0 z-20">
+                    <tr>
+                      <th className="bg-slate-100 text-center">Employee</th>
+                      <th className="bg-slate-100 text-center">ID</th>
+                      <th className="bg-slate-100 text-center">Type</th>
+                      <th className="bg-slate-100 text-center">Amount</th>
+                      <th className="bg-slate-100 text-center">Deduction</th>
+                      <th className="bg-slate-100 text-center">Date</th>
+                      <th className="bg-slate-100 text-center">Remarks</th>
+                      {!isTechnicianViewer ? <th className="w-24 bg-slate-100 text-center">Actions</th> : null}
+                    </tr>
+                  </thead>
+                  <tbody className="[&_td]:text-center">
+                    {visibleAdjustments.map((adj) => (
+                      <tr key={adj.adjustmentId} className="h-8">
+                        <td className="font-medium h-8">{adj.employee.empName}</td>
+                        <td className="h-8">{adj.employee.idNumber}</td>
+                        <td className="h-8">
                           <span
                             className={`px-2 py-1 rounded-full text-xs ${
                               adj.adjustmentType === "Allowance"
@@ -1213,17 +1267,17 @@ export function AttendancePayrollModule({
                           >
                             {adj.adjustmentType}
                           </span>
-                        </TableCell>
-                        <TableCell>₹{adj.amount.toFixed(2)}</TableCell>
-                        <TableCell className="text-red-600">
+                        </td>
+                        <td className="h-8">₹{adj.amount.toFixed(2)}</td>
+                        <td className="h-8 text-red-600">
                           {adj.adjustmentType === "Deduction" ? `-₹${adj.amount.toFixed(2)}` : "-"}
-                        </TableCell>
-                        <TableCell>{formatDateDDMMYY(adj.adjustmentDate)}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
+                        </td>
+                        <td className="h-8">{formatDateDDMMYY(adj.adjustmentDate)}</td>
+                        <td className="h-8 text-sm text-muted-foreground">
                           {adj.remarks || "-"}
-                        </TableCell>
+                        </td>
                         {!isTechnicianViewer ? (
-                          <TableCell>
+                          <td className="h-8">
                             <div className="flex items-center justify-center gap-2">
                               <Button
                                 type="button"
@@ -1246,25 +1300,25 @@ export function AttendancePayrollModule({
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
-                          </TableCell>
+                          </td>
                         ) : null}
-                      </TableRow>
+                      </tr>
                     ))}
-                    {filteredAdjustments.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={isTechnicianViewer ? 7 : 8} className="text-center text-muted-foreground">
+                    {visibleAdjustments.length === 0 && (
+                      <tr>
+                        <td colSpan={isTechnicianViewer ? 7 : 8} className="h-8 text-center text-muted-foreground">
                           {loadingAdjustments
                             ? (isTechnicianViewer ? "Loading payment history..." : "Loading adjustments...")
                             : (isTechnicianViewer ? "No payment history found for this period" : "No adjustments found")}
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     )}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
 
               {!isTechnicianViewer ? (
-                <div className="sticky-form-actions flex justify-center mt-6">
+                <div className="shrink-0 mt-6">
                   <Button
                     type="button"
                     onClick={openNewAdjustmentModal}
@@ -1409,8 +1463,8 @@ export function AttendancePayrollModule({
         )}
 
         {activeTab === "payroll" && (
-          <div className="global-tabs-panel space-y-4">
-            <div className="flex items-center justify-between gap-4 pt-4">
+          <div className="space-y-4 px-2">
+            <div className="my-3 flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <Label htmlFor="payrollMonth" className="text-center">Month:</Label>
@@ -1418,7 +1472,7 @@ export function AttendancePayrollModule({
                     value={payrollMonth.toString()}
                     onValueChange={(value) => setPayrollMonth(parseInt(value))}
                   >
-                    <SelectTrigger id="payrollMonth" className="w-40 mx-auto">
+                    <SelectTrigger id="payrollMonth" className="w-40 mx-auto !h-[33px] !min-h-[33px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1439,7 +1493,7 @@ export function AttendancePayrollModule({
                     value={payrollYear.toString()}
                     onValueChange={(value) => setPayrollYear(parseInt(value))}
                   >
-                    <SelectTrigger id="payrollYear" className="w-32 mx-auto">
+                    <SelectTrigger id="payrollYear" className="w-32 mx-auto !h-[33px] !min-h-[33px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1456,7 +1510,11 @@ export function AttendancePayrollModule({
               </div>
 
               {!isTechnicianViewer ? (
-                <Button onClick={generatePayroll} disabled={generatingPayroll} className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button
+                  onClick={generatePayroll}
+                  disabled={generatingPayroll}
+                  className="!h-[33px] !min-h-[33px] bg-blue-600 text-white hover:bg-blue-700"
+                >
                   {generatingPayroll ? "Generating..." : "Generate Monthly Payroll"}
                 </Button>
               ) : (
@@ -1464,51 +1522,51 @@ export function AttendancePayrollModule({
               )}
             </div>
 
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>ID</TableHead>
-                    <TableHead>P</TableHead>
-                    <TableHead>H</TableHead>
-                    <TableHead>L</TableHead>
-                    <TableHead>A</TableHead>
-                    <TableHead>Basic Salary</TableHead>
-                    <TableHead>Allowances</TableHead>
-                    <TableHead>Incentives</TableHead>
-                    <TableHead>Advances</TableHead>
-                    <TableHead>Deductions</TableHead>
-                    <TableHead className="font-bold">Net Salary</TableHead>
-                    <TableHead className="w-24">Download</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payrollRecords.map((payroll, index) => (
-                    <TableRow key={payroll.payrollId}>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell className="font-medium">{payroll.employee.empName}</TableCell>
-                      <TableCell>{payroll.employee.idNumber}</TableCell>
-                      <TableCell>{payroll.totalPresent}</TableCell>
-                      <TableCell>{payroll.totalHalfDay}</TableCell>
-                      <TableCell>{payroll.totalLeave}</TableCell>
-                      <TableCell>{payroll.totalAbsent}</TableCell>
-                      <TableCell>₹{payroll.basicSalary.toFixed(2)}</TableCell>
-                      <TableCell className="text-green-600">
+            <div className="form-table-wrapper attendance-payroll-table-wrapper">
+              <table className="w-full table-fixed text-sm">
+                <thead className="sticky top-0 z-20">
+                  <tr>
+                    <th className="bg-slate-100 text-center">#</th>
+                    <th className="w-[16%] bg-slate-100 text-center">Employee</th>
+                    <th className="bg-slate-100 text-center">ID</th>
+                    <th className="w-[4.5%] bg-slate-100 text-center">P</th>
+                    <th className="w-[4.5%] bg-slate-100 text-center">H</th>
+                    <th className="w-[4.5%] bg-slate-100 text-center">L</th>
+                    <th className="w-[4.5%] bg-slate-100 text-center">A</th>
+                    <th className="bg-slate-100 text-center">Basic Salary</th>
+                    <th className="bg-slate-100 text-center">Allowances</th>
+                    <th className="bg-slate-100 text-center">Incentives</th>
+                    <th className="bg-slate-100 text-center">Advances</th>
+                    <th className="bg-slate-100 text-center">Deductions</th>
+                    <th className="bg-slate-100 text-center font-bold">Net Salary</th>
+                    <th className="w-24 bg-slate-100 text-center">Download</th>
+                  </tr>
+                </thead>
+                <tbody className="[&_td]:text-center">
+                  {visiblePayrollRecords.map((payroll, index) => (
+                    <tr key={payroll.payrollId} className="h-8">
+                      <td className="h-8">{index + 1}</td>
+                      <td className="h-8 font-medium">{payroll.employee.empName}</td>
+                      <td className="h-8">{payroll.employee.idNumber}</td>
+                      <td className="h-8">{payroll.totalPresent}</td>
+                      <td className="h-8">{payroll.totalHalfDay}</td>
+                      <td className="h-8">{payroll.totalLeave}</td>
+                      <td className="h-8">{payroll.totalAbsent}</td>
+                      <td className="h-8">₹{payroll.basicSalary.toFixed(2)}</td>
+                      <td className="h-8 text-green-600">
                         +₹{payroll.totalAllowance.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-blue-600">
+                      </td>
+                      <td className="h-8 text-blue-600">
                         +₹{payroll.totalIncentive.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-red-600">
+                      </td>
+                      <td className="h-8 text-red-600">
                         -₹{payroll.totalAdvance.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-orange-600">
+                      </td>
+                      <td className="h-8 text-orange-600">
                         -₹{(payroll.totalDeduction || 0).toFixed(2)}
-                      </TableCell>
-                      <TableCell className="font-bold">₹{payroll.netSalary.toFixed(2)}</TableCell>
-                      <TableCell>
+                      </td>
+                      <td className="h-8 font-bold">₹{payroll.netSalary.toFixed(2)}</td>
+                      <td className="h-8">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1517,29 +1575,29 @@ export function AttendancePayrollModule({
                           <Printer className="h-4 w-4 mr-1" />
                           Slip
                         </Button>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))}
-                  {payrollRecords.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={13} className="text-center text-muted-foreground">
+                  {visiblePayrollRecords.length === 0 && (
+                    <tr>
+                      <td colSpan={13} className="h-8 text-center text-muted-foreground">
                         {isTechnicianViewer
                           ? "No payroll generated for this month yet."
                           : "No payroll records found. Click \"Generate Monthly Payroll\" to create records."}
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   )}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
 
-            {payrollRecords.length > 0 && (
+            {visiblePayrollRecords.length > 0 && (
               <div className="flex justify-end p-4 bg-muted/50 rounded-lg">
                 <div className="text-right">
                   <div className="text-sm text-muted-foreground">Total Net Payable</div>
                   <div className="text-2xl font-bold">
                     ₹
-                    {payrollRecords
+                    {visiblePayrollRecords
                       .reduce((sum, p) => sum + p.netSalary, 0)
                       .toFixed(2)}
                   </div>

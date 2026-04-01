@@ -156,6 +156,7 @@ model SparePartsBill {
   billReturned       Boolean   @default(false)
   returnAmount       Float     @default(0)
   returnedDate       DateTime?
+  returnedItem       String?
   itemDescription    String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt

@@ -57,6 +57,7 @@ export async function GET() {
           billDate: true,
           billNumber: true,
           itemDescription: true,
+          returnedItem: true,
           amount: true,
           billReturned: true,
           returnedDate: true,
@@ -87,6 +88,7 @@ export async function GET() {
       billDate: row.billDate,
       billNumber: row.billNumber,
       item: row.itemDescription || "",
+      returnedItem: row.returnedItem || "",
       amount: Number(row.amount || 0),
       return: Boolean(row.billReturned),
       returnDate: row.returnedDate,
@@ -114,6 +116,7 @@ export async function POST(request: NextRequest) {
       billNumber?: string
       item?: string
       itemDescription?: string
+      returnedItem?: string
       amount?: number | string
       returnAmount?: number | string
       returnDate?: string | null
@@ -162,6 +165,7 @@ export async function POST(request: NextRequest) {
     const shopName = (body.shopName || "").trim()
     const billNumber = (body.billNumber || `LEDGER-${nextSl}`).trim()
     const itemDescription = (body.itemDescription || body.item || "").trim()
+    const returnedItem = (body.returnedItem || "").trim() || null
 
     const created = await prisma.sparePartsBill.create({
       data: {
@@ -177,6 +181,7 @@ export async function POST(request: NextRequest) {
         amount,
         paid: paidAmount,
         itemDescription,
+        returnedItem,
         billReturned: recordType === "return" || returnAmount > 0 || Boolean(returnDate),
         returnAmount,
         returnedDate: returnDate ?? (recordType === "return" ? now : null),

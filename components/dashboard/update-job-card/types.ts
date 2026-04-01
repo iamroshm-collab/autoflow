@@ -15,6 +15,7 @@ export interface SparePartRow {
 export interface SparePartReturnRow {
   id: string
   billNumber: string
+  returnedItem: string
   returnDate: string
   returnAmount: number
 }

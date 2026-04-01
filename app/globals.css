@@ -330,8 +330,7 @@
     min-height: 0;
     flex-direction: column;
     overflow: hidden;
-    border-radius: 0.5rem;
-    padding: 1.25rem;
+    padding: 0.75rem 0;
   }
 
   .global-settings-content {
@@ -347,6 +346,10 @@
     width: 0 !important;
     height: 0 !important;
     display: none !important;
+  }
+
+  .shop-settings-content {
+    padding-right: 0;
   }
 
   .global-main-form-content {
@@ -1021,6 +1024,10 @@
     .global-settings-content.lock-desktop {
       overflow-y: hidden;
     }
+
+    .global-settings-panel {
+      padding: 1.5rem 0;
+    }
   }
 
   .global-settings-grid {
@@ -1115,7 +1122,7 @@
     align-items: center;
     min-height: var(--header-height);
     height: var(--header-height);
-    padding: 0 0.5rem;
+    padding: 0 var(--master-gap);
     box-sizing: border-box;
   }
 
@@ -1125,7 +1132,7 @@
     align-items: center;
     min-height: var(--row-height);
     height: var(--row-height);
-    padding: 0 0.5rem;
+    padding: 0 var(--master-gap);
     box-sizing: border-box;
   }
 
@@ -1135,7 +1142,7 @@
     align-items: center;
     min-height: var(--header-height);
     height: var(--header-height);
-    padding: 0 0.5rem;
+    padding: 0 var(--master-gap);
     box-sizing: border-box;
   }
 
@@ -1144,7 +1151,7 @@
     align-items: center;
     min-height: var(--row-height);
     height: var(--row-height);
-    padding: 0 0.5rem;
+    padding: 0 var(--master-gap);
     box-sizing: border-box;
   }
 
@@ -1189,6 +1196,16 @@
 
   .global-bottom-btn-primary:hover {
     background: rgb(29 78 216); /* blue-700 */
+  }
+
+  .global-bottom-btn-success {
+    gap: 0.5rem;
+    background: rgb(22 163 74); /* green-600 */
+    color: white;
+  }
+
+  .global-bottom-btn-success:hover {
+    background: rgb(21 128 61); /* green-700 */
   }
 
   .global-bottom-btn-add {
@@ -1301,6 +1318,14 @@
     max-height: 100%;
   }
 
+  .settings-list-panel {
+    padding: 0 !important;
+  }
+
+  .settings-list-panel .settings-list-viewport {
+    margin-right: 1mm;
+  }
+
 }
 
 @layer base {
@@ -1398,6 +1423,13 @@
     border-top-left-radius: 0 !important;
   }
 
+  /* Keep inner table top-left radius independent from outer shell corner rules. */
+  .form-table-wrapper.form-table-wrapper--independent-tl,
+  .global-form-shell.is-first .form-table-wrapper.form-table-wrapper--independent-tl:first-child,
+  .global-tabs-frame.is-first .form-table-wrapper.form-table-wrapper--independent-tl:first-child {
+    border-top-left-radius: 0.5rem !important;
+  }
+
   /* When the first tab is active, square the top-left corner of the first
      visible table/panel so it connects flush with the active tab button.
      Targets form-table-wrapper and overflow containers inside any is-first shell. */
@@ -1457,6 +1489,31 @@
     max-height: calc((10 * var(--row-height)) + var(--header-height)) !important;
   }
 
+  .customer-table-wrapper {
+    height: calc((10 * var(--row-height)) + var(--header-height)) !important;
+    min-height: calc((10 * var(--row-height)) + var(--header-height)) !important;
+    max-height: calc((10 * var(--row-height)) + var(--header-height)) !important;
+  }
+
+  .accounting-table-wrapper {
+    height: calc((6 * var(--row-height)) + var(--header-height)) !important;
+    min-height: calc((6 * var(--row-height)) + var(--header-height)) !important;
+    max-height: calc((6 * var(--row-height)) + var(--header-height)) !important;
+    margin-top: -0.75rem !important;
+  }
+
+  .spare-parts-ledger-table-wrapper {
+    height: calc((6 * var(--row-height)) + var(--header-height)) !important;
+    min-height: calc((6 * var(--row-height)) + var(--header-height)) !important;
+    max-height: calc((6 * var(--row-height)) + var(--header-height)) !important;
+  }
+
+  .spare-parts-ledger-table-wrapper--5 {
+    height: calc((5 * var(--row-height)) + var(--header-height)) !important;
+    min-height: calc((5 * var(--row-height)) + var(--header-height)) !important;
+    max-height: calc((5 * var(--row-height)) + var(--header-height)) !important;
+  }
+
   .attendance-payroll-table-wrapper {
     max-height: calc((8 * var(--row-height)) + var(--header-height)) !important;
   }
@@ -1467,6 +1524,8 @@
 
   .inventory-pos-table-wrapper {
     width: 100%;
+    height: calc((9 * var(--row-height)) + var(--header-height)) !important;
+    min-height: calc((9 * var(--row-height)) + var(--header-height)) !important;
     max-height: calc((9 * var(--row-height)) + var(--header-height)) !important;
     overflow-y: auto !important;
     overflow-x: auto !important;

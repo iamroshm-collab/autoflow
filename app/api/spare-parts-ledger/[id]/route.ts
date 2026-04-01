@@ -35,6 +35,11 @@ export async function PATCH(
         typeof body.itemDescription === "string" ? body.itemDescription : ""
     }
 
+    if (Object.prototype.hasOwnProperty.call(body, "returnedItem")) {
+      updateData.returnedItem =
+        typeof body.returnedItem === "string" ? body.returnedItem : ""
+    }
+
     if (Object.prototype.hasOwnProperty.call(body, "billDate")) {
       const billDate = body.billDate ? new Date(body.billDate) : null
       if (!billDate || Number.isNaN(billDate.getTime())) {

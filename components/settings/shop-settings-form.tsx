@@ -337,8 +337,8 @@ export default function ShopSettingsForm({ panelCornerClass = "" }: ShopSettings
 
   return (
     <div className="h-full min-h-0">
-      <div className={`global-settings-panel border border-slate-200 bg-white ${panelCornerClass}`}>
-        <div className="global-settings-content lock-desktop">
+      <div className={`global-settings-panel ${panelCornerClass}`}>
+        <div className="global-settings-content lock-desktop shop-settings-content">
           <div className="global-settings-grid">
         {/* Shop Name */}
         <div>

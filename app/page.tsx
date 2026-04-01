@@ -204,6 +204,7 @@ function PageContent() {
   const [searchValue, setSearchValue] = useState("")
   const [searchInputFocused, setSearchInputFocused] = useState(false)
   const [customerSearch, setCustomerSearch] = useState("")
+  const [customerRecordCount, setCustomerRecordCount] = useState(0)
   const [technicianSearch, setTechnicianSearch] = useState("")
   const [maintenanceSearch, setMaintenanceSearch] = useState("")
   const [attendancePayrollSearch, setAttendancePayrollSearch] = useState("")
@@ -241,6 +242,11 @@ function PageContent() {
   const [inventoryPosSupplierSearch, setInventoryPosSupplierSearch] = useState("")
   const [isInventoryPosSupplierOpen, setIsInventoryPosSupplierOpen] = useState(false)
   const [inventoryPosRecordCount, setInventoryPosRecordCount] = useState(0)
+  const [incomeExpenseSearch, setIncomeExpenseSearch] = useState("")
+  const [incomeExpenseRecordCount, setIncomeExpenseRecordCount] = useState(0)
+  const [sparePartsSearch, setSparePartsSearch] = useState("")
+  const [sparePartsRecordCount, setSparePartsRecordCount] = useState(0)
+  const [settingsSearch, setSettingsSearch] = useState("")
   const [updateJobCardSubformTab, setUpdateJobCardSubformTab] = useState<JobCardSubformTab>("main-form")
   const [readyForDeliverySubformTab, setReadyForDeliverySubformTab] = useState<JobCardSubformTab>("main-form")
   const [settingsTab, setSettingsTab] = useState<"shop" | "spare-parts" | "gst-states">("shop")
@@ -617,6 +623,49 @@ function PageContent() {
                   placeholder: "Search customer by name, mobile, vehicle...",
                   value: customerSearch,
                   onChange: setCustomerSearch,
+                  suffix: customerRecordCount > 0 ? (
+                    <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                      {customerRecordCount} of {customerRecordCount}
+                    </span>
+                  ) : undefined,
+                }
+              : activeItem === "income-expense"
+              ? {
+                  placeholder: "Search income and expense records...",
+                  value: incomeExpenseSearch,
+                  onChange: setIncomeExpenseSearch,
+                  suffix: incomeExpenseRecordCount > 0 ? (
+                    <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                      {incomeExpenseRecordCount} of {incomeExpenseRecordCount}
+                    </span>
+                  ) : undefined,
+                }
+              : activeItem === "spare-parts"
+              ? {
+                  placeholder:
+                    sparePartsTab === "all"
+                      ? "Search spare parts ledger..."
+                      : sparePartsTab === "returned"
+                        ? "Search returned bills..."
+                        : "Search bill payments...",
+                  value: sparePartsSearch,
+                  onChange: setSparePartsSearch,
+                  suffix: sparePartsRecordCount > 0 ? (
+                    <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                      {sparePartsRecordCount} of {sparePartsRecordCount}
+                    </span>
+                  ) : undefined,
+                }
+              : activeItem === "settings"
+              ? {
+                  placeholder:
+                    settingsTab === "shop"
+                      ? "Search shop settings fields..."
+                      : settingsTab === "spare-parts"
+                        ? "Search spare part shops..."
+                        : "Search GST states...",
+                  value: settingsSearch,
+                  onChange: setSettingsSearch,
                 }
               : activeItem === "maintenance-tracker"
               ? {
@@ -1009,7 +1058,7 @@ function PageContent() {
               <div
                 className={`global-tabs-wrap ${
                   settingsTab === "shop" ? "is-first" : "is-offset"
-                } sticky top-[2.2rem] z-20 bg-background pb-0`}
+                }`}
               >
                 <Tabs
                   value={settingsTab}
@@ -1187,27 +1236,32 @@ function PageContent() {
                 <InventoryPosModule
                   activeTab={inventoryPosTab}
                   onRecordsCountChange={setInventoryPosRecordCount}
+                  searchTerm={inventoryPosSearch}
                 />
               </div>
             ) : activeItem === "customers" ? (
-              <div className="global-form-shell">
-                <CustomerVehicleManagement initialSearch={customerSearch} />
+              <div className="global-form-shell fill-height global-tab-form-shell is-first">
+                <CustomerVehicleManagement
+                  initialSearch={customerSearch}
+                  onRecordsCountChange={setCustomerRecordCount}
+                />
               </div>
             ) : activeItem === "income-expense" ? (
-              <div className="global-form-shell">
-                <AccountingMasterForm />
+              <div className="global-form-shell fill-height global-tab-form-shell is-first">
+                <AccountingMasterForm
+                  searchTerm={incomeExpenseSearch}
+                  onRecordsCountChange={setIncomeExpenseRecordCount}
+                />
               </div>
             ) : activeItem === "spare-parts" ? (
-              <div
-                className={`global-tabs-frame ${
-                  sparePartsTab === "all" ? "is-first" : "is-offset"
-                }`}
-              >
+              <div className={`global-form-shell fill-height global-tab-form-shell ${sparePartsTab === "all" ? "is-first" : ""}`}>
                 <SparePartsPurchaseLedger
                   activeTab={sparePartsTab}
                   shopID={sparePartsShopFilter}
                   startDate={sparePartsStartDate}
                   endDate={sparePartsEndDate}
+                  searchTerm={sparePartsSearch}
+                  onRecordsCountChange={setSparePartsRecordCount}
                   onShopFilterChange={setSparePartsShopFilter}
                   onStartDateChange={setSparePartsStartDate}
                   onEndDateChange={setSparePartsEndDate}
@@ -1224,13 +1278,15 @@ function PageContent() {
                 <WhatsAppAdminMessagesComponent onContactChange={setWhatsAppContactName} />
               </div>
             ) : activeItem === "settings" ? (
-              <div className="hide-scrollbar min-h-0 flex-1 overflow-hidden pr-2">
-                <div
-                  className={`global-tabs-frame settings-no-container ${
-                    settingsTab === "shop" ? "is-first" : ""
-                  }`}
-                >
-                  <SettingsModule activeTab={settingsTab} />
+              <div className={`global-form-shell fill-height global-tab-form-shell ${settingsTab === "shop" ? "is-first" : ""}`}>
+                <div className="hide-scrollbar min-h-0 flex-1 overflow-hidden">
+                  <div
+                    className={`global-tabs-frame settings-no-container ${
+                      settingsTab === "shop" ? "is-first" : ""
+                    }`}
+                  >
+                    <SettingsModule activeTab={settingsTab} />
+                  </div>
                 </div>
               </div>
             ) : (
@@ -1307,6 +1363,35 @@ function PageContent() {
                     onClick={() => window.dispatchEvent(new CustomEvent("readyForDelivery:delete"))}
                   >
                     Delete
+                  </Button>
+                </div>
+              )}
+              {activeItem === "inventory-pos" && inventoryPosTab === "gst-report" && (
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9 px-4 text-sm bg-green-600 text-white hover:bg-green-700"
+                    onClick={() => window.dispatchEvent(new CustomEvent("inventoryPosGst:load"))}
+                  >
+                    Load Report
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 px-4 text-sm"
+                    onClick={() => window.dispatchEvent(new CustomEvent("inventoryPosGst:reset"))}
+                  >
+                    Reset
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9 px-4 text-sm bg-blue-600 text-white hover:bg-blue-700"
+                    onClick={() => window.dispatchEvent(new CustomEvent("inventoryPosGst:export"))}
+                  >
+                    Export Excel (CSV)
                   </Button>
                 </div>
               )}

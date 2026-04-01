@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { toast } from '@/components/ui/notify'
-import { Check, ChevronsUpDown, Pencil, Trash2, Plus, X, RotateCcw } from "lucide-react"
+import { Check, ChevronsUpDown, Pencil, Trash2, Plus, X, RotateCcw, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { DatePickerInput } from "@/components/ui/date-picker-input"
 import { Label } from "@/components/ui/label"
@@ -166,7 +165,15 @@ function SearchableSelect<T>({
   )
 }
 
-export function AccountingMasterForm() {
+interface AccountingMasterFormProps {
+  searchTerm?: string
+  onRecordsCountChange?: (count: number) => void
+}
+
+export function AccountingMasterForm({
+  searchTerm = "",
+  onRecordsCountChange,
+}: AccountingMasterFormProps = {}) {
   const [employees, setEmployees] = useState<EmployeeOption[]>([])
   const [vehicles, setVehicles] = useState<VehicleOption[]>([])
 
@@ -206,6 +213,19 @@ export function AccountingMasterForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isEditSaving, setIsEditSaving] = useState(false)
+  const [activeDescriptionRowId, setActiveDescriptionRowId] = useState<string | null>(null)
+  const [activeDescriptionText, setActiveDescriptionText] = useState("")
+
+  const showDescriptionToast = (rowId: string, text: string) => {
+    if (activeDescriptionRowId === rowId) {
+      setActiveDescriptionRowId(null)
+      setActiveDescriptionText("")
+      return
+    }
+
+    setActiveDescriptionRowId(rowId)
+    setActiveDescriptionText(text)
+  }
 
   const loadLookups = async () => {
     try {
@@ -467,45 +487,74 @@ export function AccountingMasterForm() {
     }
   }
 
+  const normalizedSearch = searchTerm.trim().toLowerCase()
+
+  const displayedRows = useMemo(() => {
+    if (!normalizedSearch) {
+      return rows
+    }
+
+    return rows.filter((row) => {
+      const vehicleText = row.vehicle
+        ? `${row.vehicle.registrationNumber} ${row.vehicle.make} ${row.vehicle.model}`
+        : ""
+      const employeeText = row.employee
+        ? `${row.employee.employeeId} ${row.employee.empName} ${row.employee.mobile}`
+        : ""
+
+      return [
+        row.transactionType,
+        row.description,
+        row.paymentType,
+        row.payrollTag || "",
+        vehicleText,
+        employeeText,
+        String(row.transactionAmount || 0),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedSearch)
+    })
+  }, [normalizedSearch, rows])
+
+  useEffect(() => {
+    onRecordsCountChange?.(displayedRows.length)
+  }, [displayedRows.length, onRecordsCountChange])
+
   return (
-    <div className="space-y-6">
+    <div className="global-subform-table-content flex min-h-0 flex-col">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
           <p className="text-sm text-muted-foreground">Total Income</p>
           <p className="text-2xl font-semibold text-emerald-600">{toCurrency(totals.totalIncome)}</p>
-        </Card>
-        <Card className="p-4">
+        </div>
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3">
           <p className="text-sm text-muted-foreground">Total Expenses</p>
           <p className="text-2xl font-semibold text-red-600">{toCurrency(totals.totalExpense)}</p>
-        </Card>
-        <Card className="p-4">
+        </div>
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
           <p className="text-sm text-muted-foreground">Net Profit / Loss</p>
           <p className={cn("text-2xl font-semibold", totals.netProfitLoss >= 0 ? "text-emerald-600" : "text-red-600")}>
             {toCurrency(totals.netProfitLoss)}
           </p>
-        </Card>
+        </div>
       </div>
 
-      <Card className="p-4 md:p-6">
-        <div className="flex items-start justify-between mb-4">
-          <h2 className="text-base font-semibold">Filter & Search</h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
           <div className="space-y-2 w-full">
             <Label>Start Date</Label>
-            <DatePickerInput value={filterStartDate} onChange={setFilterStartDate} className="w-[100%]" />
+            <DatePickerInput value={filterStartDate} onChange={setFilterStartDate} className="w-full h-10 border border-slate-300 bg-white" />
           </div>
 
           <div className="space-y-2 w-full">
             <Label>End Date</Label>
-            <DatePickerInput value={filterEndDate} onChange={setFilterEndDate} className="w-[100%]" />
+            <DatePickerInput value={filterEndDate} onChange={setFilterEndDate} className="w-full h-10 border border-slate-300 bg-white" />
           </div>
 
           <div className="space-y-2 w-full">
             <Label>Transaction Type</Label>
             <Select value={filterTransactionType} onValueChange={setFilterTransactionType}>
-              <SelectTrigger className="w-[100%]">
+              <SelectTrigger className="w-full h-10 border border-slate-300 bg-white">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -519,7 +568,7 @@ export function AccountingMasterForm() {
           <div className="space-y-2 w-full">
             <Label>Employee</Label>
             <Select value={filterEmployeeId} onValueChange={setFilterEmployeeId}>
-              <SelectTrigger className="w-[100%]">
+              <SelectTrigger className="w-full h-10 border border-slate-300 bg-white">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -539,19 +588,16 @@ export function AccountingMasterForm() {
               <RotateCcw className="h-5 w-5" />
             </Button>
           </div>
+      </div>
 
-        </div>
-      </Card>
-
-      <div>
-        <div className="form-table-wrapper">
+      <div className="form-table-wrapper form-table-wrapper--independent-tl accounting-table-wrapper shrink-0">
           <table className="w-full text-sm table-fixed">
             <colgroup>
               <col style={{ width: "11%" }} />
               <col style={{ width: "10%" }} />
-              <col style={{ width: "14%" }} />
-              <col style={{ width: "14%" }} />
-              <col style={{ width: "14%" }} />
+              <col style={{ width: "16%" }} />
+              <col style={{ width: "15%" }} />
+              <col style={{ width: "11%" }} />
               <col style={{ width: "11%" }} />
               <col style={{ width: "10%" }} />
               <col style={{ width: "8%" }} />
@@ -561,12 +607,12 @@ export function AccountingMasterForm() {
               <tr>
                 <th className="text-center p-2">Date</th>
                 <th className="text-center p-2">Type</th>
-                <th className="text-center p-2">Description</th>
                 <th className="text-center p-2">Vehicle</th>
                 <th className="text-center p-2">Employee</th>
                 <th className="text-center p-2">Payment</th>
                 <th className="text-center p-2">Amount</th>
                 <th className="text-center p-2">Source</th>
+                <th className="text-center p-2">Description</th>
                 <th className="text-center p-2">Action</th>
               </tr>
             </thead>
@@ -577,14 +623,14 @@ export function AccountingMasterForm() {
                     Loading transactions...
                   </td>
                 </tr>
-              ) : rows.length === 0 ? (
+              ) : displayedRows.length === 0 ? (
                 <tr>
                   <td className="p-3 text-muted-foreground text-center" colSpan={9}>
                     No transactions found.
                   </td>
                 </tr>
               ) : (
-                rows.map((row) => (
+                displayedRows.map((row) => (
                   <tr key={row.id} className="border-t">
                     <td className="p-2 text-center">{formatDateDDMMYY(row.transactionDate)}</td>
                     <td className="p-2 text-center">
@@ -599,7 +645,6 @@ export function AccountingMasterForm() {
                         {row.transactionType}
                       </span>
                     </td>
-                    <td className="p-2 text-center">{row.description}</td>
                     <td className="p-2 text-center">
                       {row.vehicle
                         ? `${row.vehicle.registrationNumber} (${row.vehicle.make} ${row.vehicle.model})`
@@ -611,6 +656,28 @@ export function AccountingMasterForm() {
                     <td className="p-2 text-center">{row.paymentType}</td>
                     <td className="p-2 text-center font-medium">{toCurrency(row.transactionAmount)}</td>
                     <td className="p-2 text-center">{row.payrollTag || "Manual"}</td>
+                    <td className="p-2">
+                      <div className="relative flex items-center justify-center">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => showDescriptionToast(row.id, row.description)}
+                          aria-label="View description"
+                          className="text-slate-600 hover:text-slate-800"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+
+                        {activeDescriptionRowId === row.id && (
+                          <div className="absolute left-1/2 top-full z-20 mt-2 w-56 -translate-x-1/2 rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-700 shadow-lg">
+                            <div className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-l border-t border-slate-200 bg-white" />
+                            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Description</p>
+                            <p className="max-h-24 overflow-y-auto break-words">{activeDescriptionText}</p>
+                          </div>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-2">
                       <div className="flex items-center justify-center gap-2">
                         <Button
@@ -642,18 +709,18 @@ export function AccountingMasterForm() {
               )}
             </tbody>
           </table>
-        </div>
-        <div className="floating-add-action spare-parts-add-action">
-          <Button
-            type="button"
-            onClick={handleAddNew}
-            className="global-bottom-btn-add"
-            variant="ghost"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add New
-          </Button>
-        </div>
+      </div>
+
+      <div className="shrink-0">
+        <Button
+          type="button"
+          onClick={handleAddNew}
+          className="global-bottom-btn-add"
+          variant="ghost"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add New
+        </Button>
       </div>
 
       <Dialog

@@ -102,6 +102,7 @@ const createSparePartRow = (jobcardDate?: string): SparePartRow => ({
 const createSparePartReturnRow = (): SparePartReturnRow => ({
   id: generateRowId(),
   billNumber: "",
+  returnedItem: "",
   returnDate: "",
   returnAmount: 0,
 })
@@ -153,6 +154,7 @@ const isSparePartRowTouched = (row: SparePartRow) =>
 const isSparePartReturnRowTouched = (row: SparePartReturnRow) =>
   Boolean(
     row.billNumber.trim() ||
+      row.returnedItem.trim() ||
       row.returnDate.trim() ||
       Number(row.returnAmount || 0) > 0
   )
@@ -1083,6 +1085,7 @@ export function UpdateJobCardForm({
         .map((item: any) => ({
           id: `ret-${item.id}`,
           billNumber: item.billNumber ?? "",
+          returnedItem: item.returnedItem ?? "",
           returnDate: formatDateDDMMYY(item.returnedDate),
           returnAmount: Number(item.returnAmount || 0),
         })) as SparePartReturnRow[]
@@ -1382,6 +1385,10 @@ export function UpdateJobCardForm({
             throw new Error("Select Bill Number in Spare Part Return form")
           }
 
+          if (!row.returnedItem.trim()) {
+            throw new Error("Enter Returned Item in Spare Part Return form")
+          }
+
           const normalizedReturnDate = parseDDMMYYToISO(row.returnDate)
           if (row.returnDate.trim() && !normalizedReturnDate) {
             throw new Error("Return Date must be in dd-mm-yy format")
@@ -1390,6 +1397,7 @@ export function UpdateJobCardForm({
           return {
             ...row,
             billNumber: row.billNumber.trim(),
+            returnedItem: row.returnedItem.trim(),
             returnDate: normalizedReturnDate || "",
           }
         })
@@ -1409,6 +1417,7 @@ export function UpdateJobCardForm({
         return {
           ...row,
           isReturn: true,
+          returnedItem: returnRow.returnedItem,
           returnDate: returnRow.returnDate,
           returnAmount: Number(returnRow.returnAmount || 0),
           paid: Number(row.paid || 0),

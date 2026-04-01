@@ -30,7 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { RefreshCw, Plus, Search } from "lucide-react"
+import { RefreshCw, Plus } from "lucide-react"
 import { notify } from "@/components/ui/notify"
 import DatePickerInput from "@/components/ui/date-picker-input"
 import { formatDateDDMMYY } from "@/lib/utils"
@@ -61,11 +61,13 @@ const NoteForm = ({
   defaultTaxRate,
   label,
   entries,
+  searchTerm = "",
 }: {
   onAdd: (entry: NoteEntry) => Promise<void> | void
   defaultTaxRate: number
   label: "Credit" | "Debit"
   entries: NoteEntry[]
+  searchTerm?: string
 }) => {
   const today = formatDateDDMMYY(new Date())
   const [form, setForm] = useState({
@@ -80,41 +82,15 @@ const NoteForm = ({
   })
   const [submitting, setSubmitting] = useState(false)
   const [isNewModalOpen, setIsNewModalOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [searchHighlight, setSearchHighlight] = useState(0)
-  const [isSearchOpen, setIsSearchOpen] = useState(false)
 
   const filteredEntries = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-    if (!q) return entries.slice(0, 50)
+    const q = searchTerm.trim().toLowerCase()
+    if (!q) return entries
     return entries.filter((entry) => {
       const haystack = `${entry.noteNumber} ${entry.party} ${entry.reference} ${entry.reason} ${entry.date}`.toLowerCase()
       return haystack.includes(q)
     })
-  }, [entries, searchQuery])
-
-  useEffect(() => {
-    if (!isSearchOpen) return
-    setSearchHighlight((prev) => {
-      const max = Math.max(0, filteredEntries.length - 1)
-      return Math.min(prev, max)
-    })
-  }, [filteredEntries.length, isSearchOpen])
-
-  const loadEntryToForm = (entry: NoteEntry) => {
-    setForm({
-      noteNumber: entry.noteNumber,
-      date: entry.date,
-      party: entry.party,
-      reference: entry.reference,
-      amount: String(entry.amount),
-      taxRate: String(entry.taxRate),
-      reason: entry.reason,
-      gstin: entry.gstin || "",
-    })
-    setIsSearchOpen(false)
-    setIsNewModalOpen(true)
-  }
+  }, [entries, searchTerm])
 
   const handleSubmit = async () => {
     const amount = Number(form.amount || 0)
@@ -165,65 +141,6 @@ const NoteForm = ({
 
   return (
     <Card className="border-0 bg-transparent p-0 shadow-none">
-      <div className="mb-4 flex items-center justify-end gap-2">
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <Input
-            value={searchQuery}
-            onFocus={() => setIsSearchOpen(true)}
-            onChange={(e) => {
-              setSearchQuery(e.target.value)
-              setSearchHighlight(0)
-              setIsSearchOpen(true)
-            }}
-            onKeyDown={(e) => {
-              if (!isSearchOpen) return
-              if (filteredEntries.length === 0) return
-              if (e.key === "ArrowDown") {
-                e.preventDefault()
-                setSearchHighlight((h) => Math.min(h + 1, filteredEntries.length - 1))
-              } else if (e.key === "ArrowUp") {
-                e.preventDefault()
-                setSearchHighlight((h) => Math.max(h - 1, 0))
-              } else if (e.key === "Enter") {
-                e.preventDefault()
-                const selected = filteredEntries[searchHighlight]
-                if (selected) loadEntryToForm(selected)
-              } else if (e.key === "Escape") {
-                e.preventDefault()
-                setIsSearchOpen(false)
-              }
-            }}
-            onBlur={() => setTimeout(() => setIsSearchOpen(false), 120)}
-            placeholder={`Search by note #, party, reference, date, reason...`}
-            className="pl-9"
-          />
-
-          {isSearchOpen && (
-            <div className="dropdown-container">
-              <div className="dropdown-scroll">
-                {filteredEntries.length === 0 ? (
-                  <div className="dropdown-empty-state">No notes found.</div>
-                ) : (
-                  filteredEntries.map((entry, idx) => (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      className={`dropdown-item ${idx === searchHighlight ? "selected" : ""}`}
-                      onMouseDown={() => loadEntryToForm(entry)}
-                      onMouseEnter={() => setSearchHighlight(idx)}
-                    >
-                      <span className="font-medium">{entry.noteNumber}</span>
-                      <span className="ml-2 text-xs text-slate-400">{entry.party}</span>
-                      <span className="ml-2 text-xs text-slate-400">{entry.date}</span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
 
       <Dialog open={isNewModalOpen} onOpenChange={setIsNewModalOpen}>
         <DialogContent className="max-w-[46rem]">
@@ -334,7 +251,7 @@ const NoteForm = ({
         </DialogContent>
       </Dialog>
 
-      <div className="mt-4 inventory-pos-table-wrapper">
+      <div className="inventory-pos-table-wrapper shrink-0">
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-white">
             <TableRow>
@@ -352,14 +269,14 @@ const NoteForm = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {entries.length === 0 && (
+            {filteredEntries.length === 0 && (
               <TableRow>
                 <TableCell colSpan={11} className="text-center text-sm text-muted-foreground">
-                  No entries yet. Add a note to get started.
+                  {entries.length === 0 ? "No entries yet. Add a note to get started." : "No notes match your search."}
                 </TableCell>
               </TableRow>
             )}
-            {entries.map((entry) => {
+            {filteredEntries.map((entry) => {
               const gstAmount = (entry.amount * entry.taxRate) / 100
               const isIntra = deriveStateCode(entry.gstin) === shopStateCode
               const cgst = isIntra ? gstAmount / 2 : 0
@@ -387,7 +304,7 @@ const NoteForm = ({
         </Table>
       </div>
 
-      <div className="shrink-0 mt-4">
+      <div className="shrink-0 mt-6">
         <Button
           type="button"
           onClick={() => setIsNewModalOpen(true)}
@@ -442,18 +359,18 @@ const NoteSummary = ({ title, entries }: { title: string; entries: NoteEntry[] }
   )
 }
 
-export function CreditNoteTab({ entries, onAdd }: { entries: NoteEntry[]; onAdd: (entry: NoteEntry) => void }) {
+export function CreditNoteTab({ entries, onAdd, searchTerm }: { entries: NoteEntry[]; onAdd: (entry: NoteEntry) => void; searchTerm?: string }) {
   return (
     <div className="space-y-4">
-      <NoteForm onAdd={onAdd} defaultTaxRate={18} label="Credit" entries={entries} />
+      <NoteForm onAdd={onAdd} defaultTaxRate={18} label="Credit" entries={entries} searchTerm={searchTerm} />
     </div>
   )
 }
 
-export function DebitNoteTab({ entries, onAdd }: { entries: NoteEntry[]; onAdd: (entry: NoteEntry) => void }) {
+export function DebitNoteTab({ entries, onAdd, searchTerm }: { entries: NoteEntry[]; onAdd: (entry: NoteEntry) => void; searchTerm?: string }) {
   return (
     <div className="space-y-4">
-      <NoteForm onAdd={onAdd} defaultTaxRate={18} label="Debit" entries={entries} />
+      <NoteForm onAdd={onAdd} defaultTaxRate={18} label="Debit" entries={entries} searchTerm={searchTerm} />
     </div>
   )
 }
@@ -507,7 +424,28 @@ export function GstReportTab({ creditNotes, debitNotes }: { creditNotes: NoteEnt
     fetchReport(filters)
   }, [])
 
-  const handleLoad = () => fetchReport(filters)
+  useEffect(() => {
+    const handleFooterLoad = () => {
+      void fetchReport(filters)
+    }
+    const handleFooterReset = () => {
+      setFilters({ startDate: "", endDate: "" })
+      void fetchReport({ startDate: "", endDate: "" })
+    }
+    const handleFooterExport = () => {
+      exportCsv()
+    }
+
+    window.addEventListener("inventoryPosGst:load", handleFooterLoad)
+    window.addEventListener("inventoryPosGst:reset", handleFooterReset)
+    window.addEventListener("inventoryPosGst:export", handleFooterExport)
+
+    return () => {
+      window.removeEventListener("inventoryPosGst:load", handleFooterLoad)
+      window.removeEventListener("inventoryPosGst:reset", handleFooterReset)
+      window.removeEventListener("inventoryPosGst:export", handleFooterExport)
+    }
+  }, [filters, report])
 
   const exportCsv = () => {
     if (!report) return
@@ -613,13 +551,11 @@ export function GstReportTab({ creditNotes, debitNotes }: { creditNotes: NoteEnt
   }, [filteredNotes])
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-0 h-full flex-col gap-6">
+      <div className="min-h-0 flex-1 overflow-y-auto space-y-6 pb-6">
       <Card className="border-0 bg-transparent p-0 shadow-none">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">GSTR-1 Snapshot</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-4 lg:grid-cols-5 items-end">
+        <CardContent className="space-y-6 px-0 pt-0">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4 items-end">
             <div className="space-y-2">
               <Label htmlFor="report-start">From</Label>
               <DatePickerInput id="report-start" value={filters.startDate} onChange={(e) => setFilters((p) => ({ ...p, startDate: e }))} />
@@ -627,19 +563,6 @@ export function GstReportTab({ creditNotes, debitNotes }: { creditNotes: NoteEnt
             <div className="space-y-2">
               <Label htmlFor="report-end">To</Label>
               <DatePickerInput id="report-end" value={filters.endDate} onChange={(e) => setFilters((p) => ({ ...p, endDate: e }))} />
-            </div>
-            <div className="flex gap-2">
-              <Button className="w-full" onClick={handleLoad} disabled={loading}>
-                {loading ? "Loading..." : "Load report"}
-              </Button>
-              <Button variant="outline" className="w-full" onClick={() => fetchReport({ startDate: "", endDate: "" })} disabled={loading}>
-                Reset
-              </Button>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="secondary" className="w-full" onClick={exportCsv} disabled={!report || loading}>
-                Export Excel (CSV)
-              </Button>
             </div>
           </div>
 
@@ -792,10 +715,10 @@ export function GstReportTab({ creditNotes, debitNotes }: { creditNotes: NoteEnt
       </Card>
 
       <Card className="border-0 bg-transparent p-0 shadow-none">
-        <CardHeader className="pb-3">
+        <CardHeader className="px-0 pb-3">
           <CardTitle className="text-base">Adjustment Notes (Credit / Debit)</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6 px-0">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card className="bg-blue-50">
               <CardContent className="pt-4">
@@ -917,6 +840,8 @@ export function GstReportTab({ creditNotes, debitNotes }: { creditNotes: NoteEnt
           </Card>
         </CardContent>
       </Card>
+      </div>
+
     </div>
   )
 }

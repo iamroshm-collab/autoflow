@@ -40,16 +40,17 @@ export function SparePartReturnTable({
         <table className="w-full text-xs table-fixed">
           <thead className="sticky top-0 z-20">
             <tr>
-              <th className="text-center" style={{ width: "40%" }}>Bill Number</th>
-              <th className="text-center" style={{ width: "26%" }}>Return Date (dd-mm-yy)</th>
-              <th className="text-center" style={{ width: "26%" }}>Return Amount</th>
+              <th className="text-center" style={{ width: "28%" }}>Bill Number</th>
+              <th className="text-center" style={{ width: "28%" }}>Returned Item</th>
+              <th className="text-center" style={{ width: "18%" }}>Return Date (dd-mm-yy)</th>
+              <th className="text-center" style={{ width: "18%" }}>Return Amount</th>
               <th className="text-center" style={{ width: "8%" }}>Action</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td className="p-3 text-sm text-muted-foreground" colSpan={4}>
+                <td className="p-3 text-sm text-muted-foreground" colSpan={5}>
                   No spare parts returns added.
                 </td>
               </tr>
@@ -73,6 +74,16 @@ export function SparePartReturnTable({
                         ))}
                       </SelectContent>
                     </Select>
+                  </td>
+                  <td>
+                    <Input
+                      value={row.returnedItem}
+                      onChange={(e) => onChange(row.id, "returnedItem", e.target.value)}
+                      onFocus={() => onRowFocus(row.id)}
+                      disabled={isLoading}
+                      className="h-10 w-full px-2 text-sm"
+                      placeholder="Enter returned item"
+                    />
                   </td>
                   <td>
                     <DatePickerInput

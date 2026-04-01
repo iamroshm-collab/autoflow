@@ -13,9 +13,10 @@ import { notify } from "@/components/ui/notify"
 interface InventoryPosModuleProps {
 	activeTab: "purchase" | "sales" | "inventory" | "stock-movement" | "credit-notes" | "debit-notes" | "gst-report"
 	onRecordsCountChange?: (count: number) => void
+	searchTerm?: string
 }
 
-export function InventoryPosModule({ activeTab, onRecordsCountChange }: InventoryPosModuleProps) {
+export function InventoryPosModule({ activeTab, onRecordsCountChange, searchTerm = "" }: InventoryPosModuleProps) {
 
 	const [creditNotes, setCreditNotes] = useState<NoteEntry[]>([])
 	const [debitNotes, setDebitNotes] = useState<NoteEntry[]>([])
@@ -209,7 +210,7 @@ export function InventoryPosModule({ activeTab, onRecordsCountChange }: Inventor
 
 	return (
 		<div className="global-subform-table-content flex min-h-0 flex-col">
-			<Tabs value={activeTab} className="space-y-0">
+			<Tabs value={activeTab} className="space-y-0 min-h-0 flex-1 flex flex-col">
 				<TabsContent value="purchase" className="space-y-4">
 					<PurchaseEntryForm />
 				</TabsContent>
@@ -228,15 +229,15 @@ export function InventoryPosModule({ activeTab, onRecordsCountChange }: Inventor
 
 				<TabsContent value="credit-notes" className="space-y-4">
 					{notesLoading && <div className="text-sm text-muted-foreground">Loading notes...</div>}
-					<CreditNoteTab entries={creditNotes} onAdd={handleAddCreditNote} />
+					<CreditNoteTab entries={creditNotes} onAdd={handleAddCreditNote} searchTerm={searchTerm} />
 				</TabsContent>
 
 				<TabsContent value="debit-notes" className="space-y-4">
 					{notesLoading && <div className="text-sm text-muted-foreground">Loading notes...</div>}
-					<DebitNoteTab entries={debitNotes} onAdd={handleAddDebitNote} />
+					<DebitNoteTab entries={debitNotes} onAdd={handleAddDebitNote} searchTerm={searchTerm} />
 				</TabsContent>
 
-				<TabsContent value="gst-report" className="space-y-4">
+				<TabsContent value="gst-report" className="mt-0 space-y-4 min-h-0 flex-1 flex flex-col">
 					{notesLoading && <div className="text-sm text-muted-foreground">Loading notes...</div>}
 					<GstReportTab creditNotes={creditNotes} debitNotes={debitNotes} />
 				</TabsContent>

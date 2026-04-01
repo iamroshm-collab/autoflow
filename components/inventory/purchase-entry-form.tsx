@@ -631,7 +631,7 @@ export default function PurchaseEntryForm() {
             <DialogDescription>Choose supplier, bill number, and date before adding products.</DialogDescription>
           </DialogHeader>
 
-          <div className="border border-slate-200 rounded-lg bg-white p-4 space-y-3 max-h-[75vh] overflow-y-auto">
+          <div className="border border-slate-200 rounded-lg bg-white p-4 space-y-3 min-h-[180px]">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="space-y-2" ref={newSupplierDropdownRef}>
                 <Label htmlFor="new-purchase-supplier">Supplier</Label>

@@ -75,9 +75,13 @@ const isVehicleRowTouched = (row: VehicleRow) =>
 
 interface CustomerVehicleManagementProps {
   initialSearch?: string
+  onRecordsCountChange?: (count: number) => void
 }
 
-export function CustomerVehicleManagement({ initialSearch = "" }: CustomerVehicleManagementProps) {
+export function CustomerVehicleManagement({
+  initialSearch = "",
+  onRecordsCountChange,
+}: CustomerVehicleManagementProps) {
   const [globalSearch, setGlobalSearch] = useState(initialSearch)
   const [customers, setCustomers] = useState<CustomerRecord[]>([])
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false)
@@ -158,6 +162,10 @@ export function CustomerVehicleManagement({ initialSearch = "" }: CustomerVehicl
       if (debounceRef.current) window.clearTimeout(debounceRef.current)
     }
   }, [globalSearch, loadCustomers])
+
+  useEffect(() => {
+    onRecordsCountChange?.(customers.length)
+  }, [customers.length, onRecordsCountChange])
 
   const loadCustomer = async (customerId: string) => {
     try {
@@ -533,9 +541,8 @@ export function CustomerVehicleManagement({ initialSearch = "" }: CustomerVehicl
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <div className="form-table-wrapper">
+    <div className="global-subform-table-content flex min-h-0 flex-col">
+      <div className="form-table-wrapper form-table-wrapper--independent-tl customer-table-wrapper shrink-0">
           <table className="w-full text-sm">
             <thead className="bg-slate-100/80">
               <tr>
@@ -613,18 +620,17 @@ export function CustomerVehicleManagement({ initialSearch = "" }: CustomerVehicl
           </table>
         </div>
 
-        <div className="floating-add-action spare-parts-add-action">
-          <Button
-            type="button"
-            onClick={handleOpenCustomerModalForAdd}
-            disabled={isSavingCustomer || isSavingVehicles}
-            className="global-bottom-btn-add"
-            variant="ghost"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Customer
-          </Button>
-        </div>
+      <div className="shrink-0">
+        <Button
+          type="button"
+          onClick={handleOpenCustomerModalForAdd}
+          disabled={isSavingCustomer || isSavingVehicles}
+          className="global-bottom-btn-add"
+          variant="ghost"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Customer
+        </Button>
       </div>
 
       <Dialog

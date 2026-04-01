@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Pencil, Trash2, RotateCcw, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ShopAutocomplete } from "@/components/ShopAutocomplete"
@@ -26,6 +25,7 @@ interface LedgerRow {
   billDate: string
   billNumber: string
   item: string
+  returnedItem: string
   amount: number
   return: boolean
   returnDate: string | null
@@ -39,6 +39,7 @@ type NewLedgerRecordDraft = {
   billDate: string
   billNumber: string
   item: string
+  returnedItem: string
   amount: string
   returnAmount: string
   returnDate: string
@@ -61,24 +62,30 @@ const toInputDate = (value: string | null | undefined) => {
   return parsed.toISOString().slice(0, 10)
 }
 
-const getRecordTypeLabel = (row: LedgerRow) => {
-  const hasReturn = row.return || Number(row.returnAmount || 0) > 0 || Boolean(row.returnDate)
-  const hasPayment = Number(row.paidAmount || 0) > 0 || Boolean(row.paidDate)
+type PaymentStatus = "fully-paid" | "partial-pay" | "unpaid"
 
-  if (hasReturn && hasPayment) return "Return + Payment"
-  if (hasReturn) return "Return"
-  if (hasPayment) return "Payment"
-  return "Purchase"
+const getPaymentStatusLabel = (status: PaymentStatus) => {
+  if (status === "fully-paid") return "Fully Paid"
+  if (status === "partial-pay") return "Partial Pay"
+  return "Unpaid"
 }
 
-const getRecordTypeClassName = (row: LedgerRow) => {
-  const hasReturn = row.return || Number(row.returnAmount || 0) > 0 || Boolean(row.returnDate)
-  const hasPayment = Number(row.paidAmount || 0) > 0 || Boolean(row.paidDate)
+const getPaymentBadge = (status: PaymentStatus) => {
+  if (status === "fully-paid") {
+    return { label: "Fully Paid", className: "bg-emerald-100 text-emerald-800" }
+  }
+  if (status === "partial-pay") {
+    return { label: "Partial Pay", className: "bg-yellow-100 text-yellow-800" }
+  }
+  return { label: "Unpaid", className: "bg-red-100 text-red-800" }
+}
 
-  if (hasReturn && hasPayment) return "bg-amber-100 text-amber-800"
-  if (hasReturn) return "bg-blue-100 text-blue-800"
-  if (hasPayment) return "bg-emerald-100 text-emerald-800"
-  return "bg-slate-100 text-slate-700"
+const getReturnBadge = (row: LedgerRow) => {
+  const returned = Number(row.returnAmount || 0)
+  const amount = Number(row.amount || 0)
+  if (returned <= 0) return { label: "No", className: "bg-slate-100 text-slate-700" }
+  if (amount > 0 && returned >= amount) return { label: "Full Return", className: "bg-blue-100 text-blue-800" }
+  return { label: "Partial Return", className: "bg-orange-100 text-orange-800" }
 }
 
 const createNewLedgerRecordDraft = (): NewLedgerRecordDraft => ({
@@ -86,6 +93,7 @@ const createNewLedgerRecordDraft = (): NewLedgerRecordDraft => ({
   billDate: toInputDate(new Date().toISOString()),
   billNumber: "",
   item: "",
+  returnedItem: "",
   amount: "0",
   returnAmount: "0",
   returnDate: toInputDate(new Date().toISOString()),
@@ -100,6 +108,8 @@ interface SparePartsPurchaseLedgerProps {
   shopID: string
   startDate: string
   endDate: string
+  searchTerm?: string
+  onRecordsCountChange?: (count: number) => void
   onTabChange?: (tab: SparePartsLedgerTab) => void
   onShopFilterChange?: (shop: string) => void
   onStartDateChange?: (date: string) => void
@@ -111,6 +121,8 @@ export function SparePartsPurchaseLedger({
   shopID,
   startDate,
   endDate,
+  searchTerm = "",
+  onRecordsCountChange,
   onTabChange,
   onShopFilterChange,
   onStartDateChange,
@@ -232,6 +244,140 @@ export function SparePartsPurchaseLedger({
     [filteredRows]
   )
 
+  const paymentStatusByRowId = useMemo(() => {
+    const statusByRowId: Record<string, PaymentStatus> = {}
+    const rowsByShop = new Map<string, LedgerRow[]>()
+
+    filteredRows.forEach((row) => {
+      const shopKey = row.shopName.trim().toLowerCase()
+      const current = rowsByShop.get(shopKey) ?? []
+      current.push(row)
+      rowsByShop.set(shopKey, current)
+    })
+
+    rowsByShop.forEach((shopRows) => {
+      const totalPaidForShop = shopRows.reduce((sum, row) => sum + Math.max(0, Number(row.paidAmount || 0)), 0)
+      let remainingPaid = totalPaidForShop
+
+      const orderedRows = [...shopRows].sort((a, b) => {
+        const dateDiff = new Date(a.billDate).getTime() - new Date(b.billDate).getTime()
+        if (dateDiff !== 0) return dateDiff
+
+        const billDiff = (a.billNumber || "").localeCompare(b.billNumber || "")
+        if (billDiff !== 0) return billDiff
+
+        return a.id.localeCompare(b.id)
+      })
+
+      orderedRows.forEach((row) => {
+        const billAmount = Math.max(0, Number(row.amount || 0))
+
+        if (billAmount <= 0) {
+          statusByRowId[row.id] = "unpaid"
+          return
+        }
+
+        if (remainingPaid >= billAmount) {
+          statusByRowId[row.id] = "fully-paid"
+          remainingPaid -= billAmount
+          return
+        }
+
+        if (remainingPaid > 0) {
+          statusByRowId[row.id] = "partial-pay"
+          remainingPaid = 0
+          return
+        }
+
+        statusByRowId[row.id] = "unpaid"
+      })
+    })
+
+    return statusByRowId
+  }, [filteredRows])
+
+  const normalizedSearch = searchTerm.trim().toLowerCase()
+
+  const visibleAllRows = useMemo(() => {
+    if (!normalizedSearch) {
+      return filteredRows
+    }
+
+    return filteredRows.filter((row) =>
+      {
+        const paymentStatus = paymentStatusByRowId[row.id] ?? "unpaid"
+        const paymentStatusText = getPaymentStatusLabel(paymentStatus)
+        const returnStatusText = getReturnBadge(row).label
+
+        return [
+          row.shopName,
+          row.billNumber,
+          row.item,
+          paymentStatusText,
+          returnStatusText,
+          String(row.amount || 0),
+          String(row.returnAmount || 0),
+          String(row.paidAmount || 0),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedSearch)
+      }
+    )
+  }, [filteredRows, normalizedSearch, paymentStatusByRowId])
+
+  const visibleReturnedRows = useMemo(() => {
+    if (!normalizedSearch) {
+      return returnedRows
+    }
+
+    return returnedRows.filter((row) =>
+      [
+        row.shopName,
+        row.billNumber,
+        row.item,
+        String(row.returnAmount || 0),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedSearch)
+    )
+  }, [normalizedSearch, returnedRows])
+
+  const visiblePaymentRows = useMemo(() => {
+    if (!normalizedSearch) {
+      return paymentRows
+    }
+
+    return paymentRows.filter((row) =>
+      [
+        row.shopName,
+        row.billNumber,
+        row.item,
+        String(row.paidAmount || 0),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedSearch)
+    )
+  }, [normalizedSearch, paymentRows])
+
+  useEffect(() => {
+    const count =
+      activeTab === "all"
+        ? visibleAllRows.length
+        : activeTab === "returned"
+          ? visibleReturnedRows.length
+          : visiblePaymentRows.length
+    onRecordsCountChange?.(count)
+  }, [
+    activeTab,
+    onRecordsCountChange,
+    visibleAllRows.length,
+    visiblePaymentRows.length,
+    visibleReturnedRows.length,
+  ])
+
   const formatNumberValue = (value: number | string | undefined | null) =>
     value === null || value === undefined ? "" : String(value)
 
@@ -250,9 +396,15 @@ export function SparePartsPurchaseLedger({
     const shopName = draft.shopName.trim()
     const billNumber = draft.billNumber.trim()
     const item = draft.item.trim()
+    const returnedItem = draft.returnedItem.trim()
+    const resolvedItem = type === "payment" ? item || "Payment Entry" : item
 
-    if (!shopName || !billNumber || !item || !draft.billDate) {
-      throw new Error("Shop name, bill date, bill number, and item are required")
+    if (!shopName || !billNumber || !draft.billDate || (type === "return" && (!item || !returnedItem))) {
+      throw new Error(
+        type === "return"
+          ? "Shop name, bill date, bill number, item, and returned item are required"
+          : "Shop name, bill date, and bill number are required"
+      )
     }
 
     const response = await fetch("/api/spare-parts-ledger", {
@@ -263,7 +415,8 @@ export function SparePartsPurchaseLedger({
         shopName,
         billDate: new Date(`${draft.billDate}T00:00:00`).toISOString(),
         billNumber,
-        item,
+        item: resolvedItem,
+        returnedItem: type === "return" ? returnedItem : null,
         amount: parseAmount(draft.amount, "amount"),
         returnAmount: parseAmount(draft.returnAmount, "return amount"),
         returnDate: draft.returnDate
@@ -297,6 +450,7 @@ export function SparePartsPurchaseLedger({
           shopName: newReturnDraft.shopName.trim(),
           billNumber: newReturnDraft.billNumber.trim(),
           itemDescription: newReturnDraft.item.trim(),
+          returnedItem: newReturnDraft.returnedItem.trim(),
           billDate: new Date(`${newReturnDraft.billDate}T00:00:00`).toISOString(),
           amount: parseAmount(newReturnDraft.amount, "amount"),
           returnAmount: parseAmount(newReturnDraft.returnAmount, "return amount"),
@@ -331,7 +485,7 @@ export function SparePartsPurchaseLedger({
         const payload = {
           shopName: newPaymentDraft.shopName.trim(),
           billNumber: newPaymentDraft.billNumber.trim(),
-          itemDescription: newPaymentDraft.item.trim(),
+          itemDescription: newPaymentDraft.item.trim() || "Payment Entry",
           billDate: new Date(`${newPaymentDraft.billDate}T00:00:00`).toISOString(),
           amount: parseAmount(newPaymentDraft.amount, "amount"),
           paidAmount: parseAmount(newPaymentDraft.paidAmount, "paid amount"),
@@ -364,7 +518,10 @@ export function SparePartsPurchaseLedger({
 
   const handleAddBillPayment = () => {
     setEditingPaymentRowId(null)
-    setNewPaymentDraft(createNewLedgerRecordDraft())
+    setNewPaymentDraft({
+      ...createNewLedgerRecordDraft(),
+      item: "Payment Entry",
+    })
     setIsPaymentModalOpen(true)
   }
 
@@ -375,6 +532,7 @@ export function SparePartsPurchaseLedger({
       billDate: toInputDate(row.billDate),
       billNumber: row.billNumber || "",
       item: row.item || "",
+      returnedItem: row.returnedItem || "",
       amount: formatNumberValue(row.amount),
       returnAmount: formatNumberValue(row.returnAmount),
       returnDate: toInputDate(row.returnDate),
@@ -391,6 +549,7 @@ export function SparePartsPurchaseLedger({
       billDate: toInputDate(row.billDate),
       billNumber: row.billNumber || "",
       item: row.item || "",
+      returnedItem: row.returnedItem || "",
       amount: formatNumberValue(row.amount),
       returnAmount: formatNumberValue(row.returnAmount),
       returnDate: toInputDate(row.returnDate),
@@ -427,9 +586,28 @@ export function SparePartsPurchaseLedger({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="bg-white p-4 rounded-lg border border-border space-y-4">
-        <div className="flex flex-wrap items-end gap-3">
+    <div className="global-subform-table-content flex min-h-0 flex-col">
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+            <p className="text-sm text-muted-foreground">Total Purchase</p>
+            <p className="text-2xl font-semibold text-blue-600">{toCurrency(totalPurchase)}</p>
+          </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="text-sm text-muted-foreground">Total Return</p>
+            <p className="text-2xl font-semibold text-amber-600">{toCurrency(totalReturn)}</p>
+          </div>
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+            <p className="text-sm text-muted-foreground">Total Payment</p>
+            <p className="text-2xl font-semibold text-emerald-600">{toCurrency(totalPayment)}</p>
+          </div>
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+            <p className="text-sm text-muted-foreground">Balance</p>
+            <p className="text-2xl font-semibold text-red-600">{toCurrency(balance)}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
           <div className="flex flex-col gap-1">
             <Label htmlFor="sparePartsShopFilter" className="text-xs">
               Shop Name
@@ -465,55 +643,40 @@ export function SparePartsPurchaseLedger({
             />
           </div>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              onShopFilterChange?.("")
-              onStartDateChange?.("")
-              onEndDateChange?.("")
-            }}
-            className="text-red-600 hover:text-red-800 h-8 w-8"
-            aria-label="Clear Filters"
-          >
-            <RotateCcw className="h-5 w-5" />
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Card className="bg-blue-50 p-4">
-            <p className="text-sm font-medium text-gray-600">Total Purchase</p>
-            <p className="mt-2 text-2xl font-bold text-blue-600">{toCurrency(totalPurchase)}</p>
-          </Card>
-          <Card className="bg-yellow-50 p-4">
-            <p className="text-sm font-medium text-gray-600">Total Return</p>
-            <p className="mt-2 text-2xl font-bold text-yellow-600">{toCurrency(totalReturn)}</p>
-          </Card>
-          <Card className="bg-green-50 p-4">
-            <p className="text-sm font-medium text-gray-600">Total Payment</p>
-            <p className="mt-2 text-2xl font-bold text-green-600">{toCurrency(totalPayment)}</p>
-          </Card>
-          <Card className="bg-red-50 p-4">
-            <p className="text-sm font-medium text-gray-600">Balance</p>
-            <p className="mt-2 text-2xl font-bold text-red-600">{toCurrency(balance)}</p>
-          </Card>
+          <div className="flex flex-col gap-1 items-start">
+            <Label className="text-xs opacity-0 select-none" aria-hidden="true">
+              Action
+            </Label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                onShopFilterChange?.("")
+                onStartDateChange?.("")
+                onEndDateChange?.("")
+              }}
+              className="text-red-600 hover:text-red-800 h-8 w-8"
+              aria-label="Clear Filters"
+            >
+              <RotateCcw className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
       {activeTab === "all" && (
-        <div className="mt-4 space-y-6">
-          <h3 className="text-base font-semibold">Ledger Records</h3>
-          <div className="form-table-wrapper">
+        <div className="space-y-6">
+          <div className="form-table-wrapper form-table-wrapper--independent-tl spare-parts-ledger-table-wrapper shrink-0">
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-20">
                 <tr>
-                  <th className="text-center" style={{ width: "9%" }}>Type</th>
+                  <th className="text-center" style={{ width: "10%" }}>Type</th>
                     <th className="text-center" style={{ width: "12%" }}>Shop Name</th>
                     <th className="text-center" style={{ width: "10%" }}>Bill Date</th>
                     <th className="text-center" style={{ width: "11%" }}>Bill Number</th>
-                    <th className="text-center" style={{ width: "26%" }}>Item</th>
+                    <th className="text-center" style={{ width: "24%" }}>Item</th>
                     <th className="text-center" style={{ width: "10%" }}>Amount</th>
-                    <th className="text-center" style={{ width: "8%" }}>Return</th>
+                    <th className="text-center" style={{ width: "10%" }}>Return</th>
                     <th className="text-center" style={{ width: "10%" }}>Return Date</th>
                     <th className="text-center" style={{ width: "7%" }}>Return Amount</th>
                     <th className="text-center" style={{ width: "7%" }}>Paid Amount</th>
@@ -526,28 +689,39 @@ export function SparePartsPurchaseLedger({
                         Loading ledger data...
                       </td>
                     </tr>
-                  ) : filteredRows.length === 0 ? (
+                  ) : visibleAllRows.length === 0 ? (
                     <tr>
                       <td colSpan={10} className="p-3 text-muted-foreground">
                         No records found for the selected criteria.
                       </td>
                     </tr>
                   ) : (
-                    filteredRows.map((row) => (
+                    visibleAllRows.map((row) => (
                       <tr key={row.id}>
                         <td className="text-center">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getRecordTypeClassName(row)}`}
-                          >
-                            {getRecordTypeLabel(row)}
-                          </span>
+                          <div className="flex flex-col items-center gap-0.5">
+                            {(() => {
+                              const paymentStatus = paymentStatusByRowId[row.id] ?? "unpaid"
+                              const b = getPaymentBadge(paymentStatus)
+                              return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${b.className}`}>{b.label}</span>
+                            })()}
+                          </div>
                         </td>
                         <td className="text-center">{row.shopName}</td>
                         <td className="text-center">{formatDateDDMMYY(row.billDate) || "-"}</td>
                         <td className="text-center">{row.billNumber}</td>
                         <td className="text-center">{row.item}</td>
                         <td className="text-center">{toCurrency(row.amount)}</td>
-                        <td className="text-center">{row.return ? "Yes" : "No"}</td>
+                        <td className="text-center">
+                          {(() => {
+                            const b = getReturnBadge(row)
+                            return (
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${b.className}`}>
+                                {b.label}
+                              </span>
+                            )
+                          })()}
+                        </td>
                         <td className="text-center">
                           {formatDateDDMMYY(row.returnDate) || "-"}
                         </td>
@@ -563,15 +737,16 @@ export function SparePartsPurchaseLedger({
       )}
 
       {activeTab === "returned" && (
-        <div className="mt-4 space-y-4">
-          <div className="form-table-wrapper">
+        <div className="space-y-6">
+          <div className="form-table-wrapper form-table-wrapper--independent-tl spare-parts-ledger-table-wrapper spare-parts-ledger-table-wrapper--5 shrink-0">
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-20">
                 <tr>
                   <th className="text-center" style={{ width: "16%" }}>Shop Name</th>
                     <th className="text-center" style={{ width: "12%" }}>Bill Date</th>
                     <th className="text-center" style={{ width: "14%" }}>Bill Number</th>
-                    <th className="text-center" style={{ width: "26%" }}>Item</th>
+                    <th className="text-center" style={{ width: "18%" }}>Item</th>
+                    <th className="text-center" style={{ width: "18%" }}>Returned Item</th>
                     <th className="text-center" style={{ width: "12%" }}>Return Date</th>
                     <th className="text-center" style={{ width: "10%" }}>Return Amount</th>
                     <th className="text-center" style={{ width: "10%" }}>Actions</th>
@@ -580,24 +755,25 @@ export function SparePartsPurchaseLedger({
                 <tbody>
                   {isLoading ? (
                     <tr>
-                      <td colSpan={7} className="p-3 text-muted-foreground">
+                      <td colSpan={8} className="p-3 text-muted-foreground">
                         Loading returned bills...
                       </td>
                     </tr>
-                  ) : returnedRows.length === 0 ? (
+                  ) : visibleReturnedRows.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="p-3 text-muted-foreground">
+                      <td colSpan={8} className="p-3 text-muted-foreground">
                         No returned bills found.
                       </td>
                     </tr>
                   ) : (
-                    returnedRows.map((row) => {
+                    visibleReturnedRows.map((row) => {
                       return (
                         <tr key={row.id}>
                           <td className="text-center">{row.shopName || "-"}</td>
                           <td className="text-center">{formatDateDDMMYY(row.billDate) || "-"}</td>
                           <td className="text-center">{row.billNumber || "-"}</td>
                           <td className="text-center">{row.item || "-"}</td>
+                          <td className="text-center">{row.returnedItem || "-"}</td>
                           <td className="text-center">{formatDateDDMMYY(row.returnDate) || "-"}</td>
                           <td className="text-center">{toCurrency(row.returnAmount)}</td>
                           <td className="text-center">
@@ -631,10 +807,10 @@ export function SparePartsPurchaseLedger({
               </tbody>
             </table>
           </div>
-          <div className="sticky-form-actions">
+          <div className="shrink-0">
             <Button
               type="button"
-              className="w-full border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
+              className="global-bottom-btn-add"
               variant="ghost"
               onClick={handleAddReturnedBill}
               disabled={isCreatingReturn}
@@ -647,8 +823,8 @@ export function SparePartsPurchaseLedger({
       )}
 
       {activeTab === "payments" && (
-        <div className="mt-4 space-y-4">
-          <div className="form-table-wrapper">
+        <div className="space-y-6">
+          <div className="form-table-wrapper form-table-wrapper--independent-tl spare-parts-ledger-table-wrapper spare-parts-ledger-table-wrapper--5 shrink-0">
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-20">
                 <tr>
@@ -668,14 +844,14 @@ export function SparePartsPurchaseLedger({
                         Loading bill payments...
                       </td>
                     </tr>
-                  ) : paymentRows.length === 0 ? (
+                  ) : visiblePaymentRows.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="p-3 text-muted-foreground">
                         No bill payments found.
                       </td>
                     </tr>
                   ) : (
-                    paymentRows.map((row) => {
+                    visiblePaymentRows.map((row) => {
                       return (
                         <tr key={row.id}>
                           <td className="text-center">{row.shopName || "-"}</td>
@@ -715,10 +891,10 @@ export function SparePartsPurchaseLedger({
               </tbody>
             </table>
           </div>
-          <div className="sticky-form-actions">
+          <div className="shrink-0">
             <Button
               type="button"
-              className="w-full border border-dashed border-emerald-500 text-emerald-500 hover:bg-green-50 bg-transparent px-3 py-2 rounded-md text-sm"
+              className="global-bottom-btn-add"
               variant="ghost"
               onClick={handleAddBillPayment}
               disabled={isCreatingPayment}
@@ -738,7 +914,7 @@ export function SparePartsPurchaseLedger({
           if (!open) setEditingReturnRowId(null)
         }}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl overflow-hidden">
           <DialogHeader>
             <DialogTitle className="text-2xl font-semibold">
               {editingReturnRowId ? "Edit Returned Bill" : "Add Returned Bill"}
@@ -750,7 +926,7 @@ export function SparePartsPurchaseLedger({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="global-form-shell space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 items-start">
               <div className="space-y-2">
                 <Label htmlFor="ret-shop-name">Shop Name *</Label>
@@ -798,6 +974,17 @@ export function SparePartsPurchaseLedger({
                     setNewReturnDraft((prev) => ({ ...prev, item: event.target.value }))
                   }
                   placeholder="Enter item description"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ret-returned-item">Returned Item *</Label>
+                <Input
+                  id="ret-returned-item"
+                  value={newReturnDraft.returnedItem}
+                  onChange={(event) =>
+                    setNewReturnDraft((prev) => ({ ...prev, returnedItem: event.target.value }))
+                  }
+                  placeholder="Enter returned item"
                 />
               </div>
               <div className="space-y-2">
@@ -862,7 +1049,7 @@ export function SparePartsPurchaseLedger({
           if (!open) setEditingPaymentRowId(null)
         }}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl overflow-hidden">
           <DialogHeader>
             <DialogTitle className="text-2xl font-semibold">
               {editingPaymentRowId ? "Edit Bill Payment" : "Add Bill Payment"}
@@ -874,7 +1061,7 @@ export function SparePartsPurchaseLedger({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="global-form-shell space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 items-start">
               <div className="space-y-2">
                 <Label htmlFor="pay-shop-name">Shop Name *</Label>
@@ -911,17 +1098,6 @@ export function SparePartsPurchaseLedger({
                     setNewPaymentDraft((prev) => ({ ...prev, billNumber: event.target.value }))
                   }
                   placeholder="Enter bill number"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="pay-item">Item *</Label>
-                <Input
-                  id="pay-item"
-                  value={newPaymentDraft.item}
-                  onChange={(event) =>
-                    setNewPaymentDraft((prev) => ({ ...prev, item: event.target.value }))
-                  }
-                  placeholder="Enter item description"
                 />
               </div>
               <div className="space-y-2">

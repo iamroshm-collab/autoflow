@@ -12,7 +12,9 @@
       "Bash(node -e \"const rw = require\\(''react-window''\\); console.log\\(Object.keys\\(rw\\)\\)\")",
       "Bash(node -e \"const a = require\\(''''react-virtualized-auto-sizer''''\\); console.log\\(Object.keys\\(a\\)\\)\")",
       "Bash(node -e \"const rw = require\\(''react-window''\\); const L = rw.List; console.log\\(typeof L\\)\")",
-      "Bash(node -e \"const rw = require\\(''''react-window''''\\); const L = rw.List; console.log\\(L.toString\\(\\).substring\\(0, 200\\)\\)\")"
+      "Bash(node -e \"const rw = require\\(''''react-window''''\\); const L = rw.List; console.log\\(L.toString\\(\\).substring\\(0, 200\\)\\)\")",
+      "Bash(grep -r spare-parts c:UsersThakkuduDesktopnew-garage-app/app --include=*.tsx)",
+      "Bash(grep -r \"TabsList\\\\|TabsTrigger\\\\|TabsContent\" c:UsersThakkuduDesktopnew-garage-app/components/dashboard --include=*.tsx)"
     ]
   }
 }

@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { notify } from "@/components/ui/notify"
 import { startAction, successAction, errorAction } from "@/lib/action-feedback"
@@ -430,17 +429,20 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
 
   if (isFetching) {
     return (
-      <Card className="p-6">
+      <div className="p-6">
         <div className="flex items-center justify-center py-8">
           <div className="text-muted-foreground">Loading spare part shops...</div>
         </div>
-      </Card>
+      </div>
     )
   }
 
   return (
     <div className="h-full min-h-0">
-      <Card className={`global-settings-panel ${panelCornerClass}`}>
+      <div
+        className={`global-settings-panel settings-list-panel ${panelCornerClass}`}
+        style={{ "--visible-rows": 9 } as React.CSSProperties}
+      >
 
         <Dialog open={isAdding} onOpenChange={(open) => { 
           setIsAdding(open)
@@ -454,7 +456,7 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
             setShowAddStateDropdown(false)
           }
         }}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl overflow-hidden">
             <DialogHeader>
               <DialogTitle className="text-2xl font-semibold">Add New Shop</DialogTitle>
               <DialogDescription>Enter the spare part shop details to create a new shop record.</DialogDescription>
@@ -462,222 +464,212 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
 
             <div className="border border-slate-200 rounded-lg bg-white p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-              <div className="space-y-2">
-                <Label htmlFor="add-shopName">Shop Name *</Label>
-                <Input
-                  id="add-shopName"
-                  name="shopName"
-                  value={addForm.shopName}
-                  onChange={(e) => setAddForm({ ...addForm, shopName: e.target.value })}
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="add-mobile">Mobile</Label>
-                <Input
-                  id="add-mobile"
-                  value={addForm.mobile}
-                  onChange={(e) => setAddForm({ ...addForm, mobile: normalizeMobileNumber(e.target.value) })}
-                  inputMode="numeric"
-                  maxLength={10}
-                  pattern="[0-9]{10}"
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="space-y-2 relative">
-                <Label htmlFor="add-state">State Name</Label>
-                <div className="relative w-full">
+                <div className="space-y-2">
+                  <Label htmlFor="add-shopName">Shop Name *</Label>
                   <Input
-                    id="add-state"
-                    placeholder="Search and select state..."
-                    value={addStateFilter}
-                    onChange={(e) => {
-                      setAddStateFilter(e.target.value)
-                      setAddForm((prev) => ({ ...prev, stateId: "" }))
-                      setShowAddStateDropdown(true)
-                      setAddStateSelectedIndex(-1)
-                    }}
-                    onKeyDown={(e) => {
-                      if (!showAddStateDropdown) return
+                    id="add-shopName"
+                    name="shopName"
+                    value={addForm.shopName}
+                    onChange={(e) => setAddForm({ ...addForm, shopName: e.target.value })}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="add-mobile">Mobile</Label>
+                  <Input
+                    id="add-mobile"
+                    value={addForm.mobile}
+                    onChange={(e) => setAddForm({ ...addForm, mobile: normalizeMobileNumber(e.target.value) })}
+                    inputMode="numeric"
+                    maxLength={10}
+                    pattern="[0-9]{10}"
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2 relative md:col-span-2">
+                  <Label htmlFor="add-state">State Name</Label>
+                  <div className="relative w-full">
+                    <Input
+                      id="add-state"
+                      placeholder="Search and select state..."
+                      value={addStateFilter}
+                      onChange={(e) => {
+                        setAddStateFilter(e.target.value)
+                        setAddForm((prev) => ({ ...prev, stateId: "" }))
+                        setShowAddStateDropdown(true)
+                        setAddStateSelectedIndex(-1)
+                      }}
+                      onKeyDown={(e) => {
+                        if (!showAddStateDropdown) return
 
-                      const filteredStates = states.filter(state =>
-                        state.id && (
-                          addStateFilter === "" ||
-                          state.stateName.toLowerCase().includes(addStateFilter.toLowerCase()) ||
-                          state.stateCode.toLowerCase().includes(addStateFilter.toLowerCase())
-                        )
-                      )
-
-                      switch (e.key) {
-                        case "ArrowDown":
-                          e.preventDefault()
-                          setAddStateSelectedIndex(prev =>
-                            prev < filteredStates.length - 1 ? prev + 1 : prev
+                        const filteredStates = states.filter(state =>
+                          state.id && (
+                            addStateFilter === "" ||
+                            state.stateName.toLowerCase().includes(addStateFilter.toLowerCase()) ||
+                            state.stateCode.toLowerCase().includes(addStateFilter.toLowerCase())
                           )
-                          break
-                        case "ArrowUp":
-                          e.preventDefault()
-                          setAddStateSelectedIndex(prev => (prev > 0 ? prev - 1 : -1))
-                          break
-                        case "Enter":
-                          e.preventDefault()
-                          if (addStateSelectedIndex >= 0 && filteredStates[addStateSelectedIndex]) {
-                            const state = filteredStates[addStateSelectedIndex]
-                            setAddForm({ ...addForm, stateId: state.id })
-                            setAddStateFilter(state.stateName)
+                        )
+
+                        switch (e.key) {
+                          case "ArrowDown":
+                            e.preventDefault()
+                            setAddStateSelectedIndex(prev =>
+                              prev < filteredStates.length - 1 ? prev + 1 : prev
+                            )
+                            break
+                          case "ArrowUp":
+                            e.preventDefault()
+                            setAddStateSelectedIndex(prev => (prev > 0 ? prev - 1 : -1))
+                            break
+                          case "Enter":
+                            e.preventDefault()
+                            if (addStateSelectedIndex >= 0 && filteredStates[addStateSelectedIndex]) {
+                              const state = filteredStates[addStateSelectedIndex]
+                              setAddForm({ ...addForm, stateId: state.id })
+                              setAddStateFilter(`${state.stateName} - ${state.stateCode}`)
+                              setShowAddStateDropdown(false)
+                              setAddStateSelectedIndex(-1)
+                            }
+                            break
+                          case "Escape":
+                            e.preventDefault()
                             setShowAddStateDropdown(false)
                             setAddStateSelectedIndex(-1)
-                          }
-                          break
-                        case "Escape":
-                          e.preventDefault()
-                          setShowAddStateDropdown(false)
-                          setAddStateSelectedIndex(-1)
-                          break
-                      }
-                    }}
-                    onClick={() => {
-                      setShowAddStateDropdown((prev) => {
-                        if (prev) {
-                          setAddStateSelectedIndex(-1)
+                            break
                         }
-                        return !prev
-                      })
-                    }}
-                    disabled={isLoading}
-                    autoComplete="off"
-                  />
-                  {showAddStateDropdown && (
-                    <div
-                      ref={addStateListRef}
-                      className="absolute top-full left-0 right-0 mt-1 dropdown-scroll z-[300]"
-                      onWheel={(e) => {
-                        const el = addStateListRef.current
-                        if (!el) return
-                        el.scrollTop += e.deltaY
-                        e.preventDefault()
-                        e.stopPropagation()
                       }}
-                    >
-                      {states.length > 0 ? (
-                        <>
-                          {states
-                            .filter(state =>
-                              state.id && (
-                                addStateFilter === "" ||
+                      onClick={() => {
+                        setShowAddStateDropdown((prev) => {
+                          if (prev) {
+                            setAddStateSelectedIndex(-1)
+                          }
+                          return !prev
+                        })
+                      }}
+                      disabled={isLoading}
+                      autoComplete="off"
+                    />
+                    {showAddStateDropdown && (
+                      <div
+                        ref={addStateListRef}
+                        className="absolute top-full left-0 right-0 mt-1 dropdown-scroll z-[300]"
+                        onWheel={(e) => {
+                          const el = addStateListRef.current
+                          if (!el) return
+                          el.scrollTop += e.deltaY
+                          e.preventDefault()
+                          e.stopPropagation()
+                        }}
+                      >
+                        {states.length > 0 ? (
+                          <>
+                            {states
+                              .filter(state =>
+                                state.id && (
+                                  addStateFilter === "" ||
+                                  state.stateName.toLowerCase().includes(addStateFilter.toLowerCase()) ||
+                                  state.stateCode.toLowerCase().includes(addStateFilter.toLowerCase())
+                                )
+                              )
+                              .map((state, index) => (
+                                <button
+                                  key={state.id}
+                                  ref={(el) => {
+                                    addStateOptionRefs.current[index] = el
+                                  }}
+                                  onClick={() => {
+                                    setAddForm({ ...addForm, stateId: state.id })
+                                    setAddStateFilter(`${state.stateName} - ${state.stateCode}`)
+                                    setShowAddStateDropdown(false)
+                                    setAddStateSelectedIndex(-1)
+                                  }}
+                                  className={`dropdown-item ${
+                                    index === addStateSelectedIndex ? "selected" : ""
+                                  }`}
+                                >
+                                  {state.stateName} - {state.stateCode}
+                                </button>
+                              ))}
+                            {states.filter(state =>
+                              addStateFilter === "" || (
                                 state.stateName.toLowerCase().includes(addStateFilter.toLowerCase()) ||
                                 state.stateCode.toLowerCase().includes(addStateFilter.toLowerCase())
                               )
-                            )
-                            .map((state, index) => (
-                              <button
-                                key={state.id}
-                                ref={(el) => {
-                                  addStateOptionRefs.current[index] = el
-                                }}
-                                onClick={() => {
-                                  setAddForm({ ...addForm, stateId: state.id })
-                                  setAddStateFilter(state.stateName)
-                                  setShowAddStateDropdown(false)
-                                  setAddStateSelectedIndex(-1)
-                                }}
-                                className={`dropdown-item ${
-                                  index === addStateSelectedIndex ? "selected" : ""
-                                }`}
-                              >
-                                {state.stateName}
-                              </button>
-                            ))}
-                          {states.filter(state =>
-                            addStateFilter === "" || (
-                              state.stateName.toLowerCase().includes(addStateFilter.toLowerCase()) ||
-                              state.stateCode.toLowerCase().includes(addStateFilter.toLowerCase())
-                            )
-                          ).length === 0 && (
-                            <div className="dropdown-empty-state">No states found</div>
-                          )}
-                        </>
-                      ) : (
-                        <div className="dropdown-empty-state">Loading states...</div>
-                      )}
-                    </div>
-                  )}
+                            ).length === 0 && (
+                              <div className="dropdown-empty-state">No states found</div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="dropdown-empty-state">Loading states...</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="add-address-line-1">Address Line 1</Label>
+                  <Input
+                    id="add-address-line-1"
+                    value={addForm.addressLine1 || ""}
+                    onChange={(e) => setAddForm({ ...addForm, addressLine1: e.target.value })}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="add-address-line-2">Address Line 2</Label>
+                  <Input
+                    id="add-address-line-2"
+                    value={addForm.addressLine2 || ""}
+                    onChange={(e) => setAddForm({ ...addForm, addressLine2: e.target.value })}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="add-city">City</Label>
+                  <Input
+                    id="add-city"
+                    value={addForm.city || ""}
+                    onChange={(e) => setAddForm({ ...addForm, city: e.target.value })}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="add-district">District</Label>
+                  <Input
+                    id="add-district"
+                    value={addForm.district || ""}
+                    onChange={(e) => setAddForm({ ...addForm, district: e.target.value })}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="add-postal">Postal Code</Label>
+                  <Input
+                    id="add-postal"
+                    value={addForm.postalCode || ""}
+                    onChange={(e) => setAddForm({ ...addForm, postalCode: e.target.value })}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="add-pan">PAN</Label>
+                  <Input
+                    id="add-pan"
+                    value={addForm.pan}
+                    onChange={(e) => setAddForm({ ...addForm, pan: e.target.value.toUpperCase() })}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="add-gstin">GSTIN</Label>
+                  <Input
+                    id="add-gstin"
+                    value={addForm.gstin}
+                    onChange={(e) => setAddForm({ ...addForm, gstin: e.target.value.toUpperCase() })}
+                    disabled={isLoading}
+                  />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="add-stateCode">State Code</Label>
-                <Input
-                  id="add-stateCode"
-                  value={getStateCode(addForm.stateId)}
-                  disabled
-                  className="bg-slate-50 text-slate-600"
-                  placeholder="Auto populated"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="add-address-line-1">Address Line 1</Label>
-                <Input
-                  id="add-address-line-1"
-                  value={addForm.addressLine1 || ""}
-                  onChange={(e) => setAddForm({ ...addForm, addressLine1: e.target.value })}
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="add-address-line-2">Address Line 2</Label>
-                <Input
-                  id="add-address-line-2"
-                  value={addForm.addressLine2 || ""}
-                  onChange={(e) => setAddForm({ ...addForm, addressLine2: e.target.value })}
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="add-city">City</Label>
-                <Input
-                  id="add-city"
-                  value={addForm.city || ""}
-                  onChange={(e) => setAddForm({ ...addForm, city: e.target.value })}
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="add-district">District</Label>
-                <Input
-                  id="add-district"
-                  value={addForm.district || ""}
-                  onChange={(e) => setAddForm({ ...addForm, district: e.target.value })}
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="add-postal">Postal Code</Label>
-                <Input
-                  id="add-postal"
-                  value={addForm.postalCode || ""}
-                  onChange={(e) => setAddForm({ ...addForm, postalCode: e.target.value })}
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="add-pan">PAN</Label>
-                <Input
-                  id="add-pan"
-                  value={addForm.pan}
-                  onChange={(e) => setAddForm({ ...addForm, pan: e.target.value.toUpperCase() })}
-                  disabled={isLoading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="add-gstin">GSTIN</Label>
-                <Input
-                  id="add-gstin"
-                  value={addForm.gstin}
-                  onChange={(e) => setAddForm({ ...addForm, gstin: e.target.value.toUpperCase() })}
-                  disabled={isLoading}
-                />
-              </div>
-            </div>
             </div>
 
             <DialogFooter className="flex gap-4 justify-end mt-4">
@@ -697,7 +689,7 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
         <Dialog open={isEditingModal} onOpenChange={(open) => {
           if (!open) cancelEdit()
         }}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl overflow-hidden">
             <DialogHeader>
               <DialogTitle className="text-2xl font-semibold">Edit Shop</DialogTitle>
               <DialogDescription>Update the spare part shop details.</DialogDescription>
@@ -767,7 +759,7 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
                           if (editStateSelectedIndex >= 0 && filteredStates[editStateSelectedIndex]) {
                             const state = filteredStates[editStateSelectedIndex]
                             setEditForm({ ...editForm, stateId: state.id })
-                            setEditStateFilter(state.stateName)
+                            setEditStateFilter(`${state.stateName} - ${state.stateCode}`)
                             setShowEditStateDropdown(false)
                             setEditStateSelectedIndex(-1)
                           }
@@ -820,7 +812,7 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
                                 }}
                                 onClick={() => {
                                   setEditForm({ ...editForm, stateId: state.id })
-                                  setEditStateFilter(state.stateName)
+                                  setEditStateFilter(`${state.stateName} - ${state.stateCode}`)
                                   setShowEditStateDropdown(false)
                                   setEditStateSelectedIndex(-1)
                                 }}
@@ -828,7 +820,7 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
                                   index === editStateSelectedIndex ? "selected" : ""
                                 }`}
                               >
-                                {state.stateName}
+                                {state.stateName} - {state.stateCode}
                               </button>
                             ))}
                           {states.filter(state =>
@@ -846,16 +838,6 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
                     </div>
                   )}
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-stateCode">State Code</Label>
-                <Input
-                  id="edit-stateCode"
-                  value={getStateCode(editForm.stateId)}
-                  disabled
-                  className="bg-slate-50 text-slate-600"
-                  placeholder="Auto populated"
-                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-address-line-1">Address Line 1</Label>
@@ -936,105 +918,101 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
           </DialogContent>
         </Dialog>
 
-        <div className="global-list-form-content">
+        {/* Table content wrapper with subform styling */}
+        <div className="global-subform-table-content flex min-h-0 flex-col">
           {shops.length === 0 ? (
             <div className="text-center p-6 text-muted-foreground">No spare part shops found. Click "Add Shop" to create one.</div>
           ) : (
-            <>
-              <div className="global-list-viewport">
-                <div className="global-list-sticky-header bg-muted/30">
-                  <div className="global-spare-shops-header flex items-center justify-between">
-                    <div className="flex-1 flex gap-4">
-                      <div className="min-w-[220px] text-center">
-                        <Label className="text-sm font-semibold">Shop Name</Label>
-                      </div>
-                      <div className="min-w-[140px] text-center">
-                        <Label className="text-sm font-semibold">Mobile</Label>
-                      </div>
-                      <div className="min-w-[160px] text-center">
-                        <Label className="text-sm font-semibold">State Name</Label>
-                      </div>
-                      <div className="min-w-[100px] text-center">
-                        <Label className="text-sm font-semibold">PAN</Label>
-                      </div>
-                      <div className="min-w-[120px] text-center">
-                        <Label className="text-sm font-semibold">GSTIN</Label>
-                      </div>
-                      <div className="min-w-[200px] text-center">
-                        <Label className="text-sm font-semibold">Address</Label>
-                      </div>
+            <div className="global-list-viewport settings-list-viewport">
+              <div className="global-list-sticky-header bg-muted/30">
+                <div className="global-spare-shops-header flex items-center justify-between">
+                  <div className="flex-1 flex gap-4">
+                    <div className="min-w-[220px] text-center">
+                      <Label className="text-sm font-semibold">Shop Name</Label>
                     </div>
-                    <div className="min-w-[120px] flex flex-col items-center justify-center">
-                      <Label className="text-sm font-semibold">Actions</Label>
+                    <div className="min-w-[140px] text-center">
+                      <Label className="text-sm font-semibold">Mobile</Label>
+                    </div>
+                    <div className="min-w-[160px] text-center">
+                      <Label className="text-sm font-semibold">State Name</Label>
+                    </div>
+                    <div className="min-w-[100px] text-center">
+                      <Label className="text-sm font-semibold">PAN</Label>
+                    </div>
+                    <div className="min-w-[120px] text-center">
+                      <Label className="text-sm font-semibold">GSTIN</Label>
+                    </div>
+                    <div className="min-w-[200px] text-center">
+                      <Label className="text-sm font-semibold">Address</Label>
                     </div>
                   </div>
-                </div>
-                {shops.map((shop) => (
-                <div key={shop.id} className="border-b last:border-b-0">
-                  <div className="global-spare-shops-row flex items-center justify-between">
-                    <div className="flex-1 flex gap-4 items-center">
-                      <div className="min-w-[220px] text-center">
-                        <div className="text-sm text-slate-700">{shop.shopName || "—"}</div>
-                      </div>
-
-                      <div className="min-w-[140px] text-center">
-                        <div className="text-sm text-slate-700">{shop.mobile || "—"}</div>
-                      </div>
-
-                      <div className="min-w-[160px] text-center">
-                        <div className="text-sm font-medium text-slate-700">{shop.state?.stateName || (() => {
-                          const state = states.find(s => s.id === shop.stateId || s.stateCode === shop.stateId)
-                          return state?.stateName || "—"
-                        })()}</div>
-                        <div className="text-xs text-muted-foreground">{shop.state?.stateCode || getStateCode(shop.stateId) || "—"}</div>
-                      </div>
-
-                      <div className="min-w-[100px] text-center">
-                        <div className="text-sm text-slate-700">{shop.pan || "—"}</div>
-                      </div>
-
-                      <div className="min-w-[120px] text-center">
-                        <div className="text-sm text-slate-700">{shop.gstin || "—"}</div>
-                      </div>
-
-                      <div className="min-w-[200px] text-center">
-                        <div className="text-sm text-slate-700">{shop.address || "—"}</div>
-                      </div>
-                    </div>
-
-                    <div className="min-w-[120px] flex items-center justify-center">
-                      <div className="w-28 flex items-center justify-center">
-                        <div className="flex items-center gap-2">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button onClick={() => startEdit(shop)} disabled={isLoading} variant="ghost" size="icon" className="text-blue-600 hover:text-blue-800" aria-label={`Edit ${shop.shopName}`}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" align="center">Edit</TooltipContent>
-                          </Tooltip>
-
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button onClick={() => handleDelete(shop.id)} disabled={isLoading} variant="ghost" size="icon" className="text-red-600 hover:bg-red-50 hover:text-red-700" aria-label={`Delete ${shop.shopName}`}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" align="center">Delete</TooltipContent>
-                          </Tooltip>
-                        </div>
-                      </div>
-                    </div>
+                  <div className="min-w-[120px] flex flex-col items-center justify-center">
+                    <Label className="text-sm font-semibold">Actions</Label>
                   </div>
                 </div>
-              ))}
               </div>
-              </>
-          )}
-        </div>
+              {shops.map((shop) => (
+              <div key={shop.id} className="border-b last:border-b-0">
+                <div className="global-spare-shops-row flex items-center justify-between">
+                  <div className="flex-1 flex gap-4 items-center">
+                    <div className="min-w-[220px] text-center">
+                      <div className="text-sm text-slate-700">{shop.shopName || "—"}</div>
+                    </div>
 
-        {/* Add Shop Button - Fixed footer row */}
-        <div className="flex shrink-0 justify-center">
+                    <div className="min-w-[140px] text-center">
+                      <div className="text-sm text-slate-700">{shop.mobile || "—"}</div>
+                    </div>
+
+                    <div className="min-w-[160px] text-center">
+                      <div className="text-sm font-medium text-slate-700">{shop.state?.stateName || (() => {
+                        const state = states.find(s => s.id === shop.stateId || s.stateCode === shop.stateId)
+                        return state?.stateName || "—"
+                      })()}</div>
+                      <div className="text-xs text-muted-foreground">{shop.state?.stateCode || getStateCode(shop.stateId) || "—"}</div>
+                    </div>
+
+                    <div className="min-w-[100px] text-center">
+                      <div className="text-sm text-slate-700">{shop.pan || "—"}</div>
+                    </div>
+
+                    <div className="min-w-[120px] text-center">
+                      <div className="text-sm text-slate-700">{shop.gstin || "—"}</div>
+                    </div>
+
+                    <div className="min-w-[200px] text-center">
+                      <div className="text-sm text-slate-700">{shop.address || "—"}</div>
+                    </div>
+                  </div>
+
+                  <div className="min-w-[120px] flex items-center justify-center">
+                    <div className="w-28 flex items-center justify-center">
+                      <div className="flex items-center gap-2">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button onClick={() => startEdit(shop)} disabled={isLoading} variant="ghost" size="icon" className="text-blue-600 hover:text-blue-800" aria-label={`Edit ${shop.shopName}`}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" align="center">Edit</TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button onClick={() => handleDelete(shop.id)} disabled={isLoading} variant="ghost" size="icon" className="text-red-600 hover:bg-red-50 hover:text-red-700" aria-label={`Delete ${shop.shopName}`}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" align="center">Delete</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            </div>
+          )}
+        <div className="shrink-0">
           {!isAdding && (
             <Button
               onClick={() => setIsAdding(true)}
@@ -1046,7 +1024,8 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
             </Button>
           )}
         </div>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }

@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { notify } from "@/components/ui/notify"
 import { startAction, successAction, errorAction } from "@/lib/action-feedback"
@@ -166,17 +165,20 @@ export default function GSTStatesForm({ panelCornerClass = "" }: { panelCornerCl
 
   if (isFetching) {
     return (
-      <Card className="p-6">
+      <div className="p-6">
         <div className="flex items-center justify-center py-8">
           <div className="text-muted-foreground">Loading states...</div>
         </div>
-      </Card>
+      </div>
     )
   }
 
   return (
     <div className="h-full min-h-0">
-      <Card className={`global-settings-panel ${panelCornerClass}`}>
+      <div
+        className={`global-settings-panel settings-list-panel ${panelCornerClass}`}
+        style={{ "--visible-rows": 9 } as React.CSSProperties}
+      >
 
         <Dialog open={isAdding} onOpenChange={(open) => { 
           setIsAdding(open)
@@ -184,7 +186,7 @@ export default function GSTStatesForm({ panelCornerClass = "" }: { panelCornerCl
             setAddForm(emptyState)
           }
         }}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl overflow-hidden">
             <DialogHeader>
               <DialogTitle>Add New State</DialogTitle>
               <DialogDescription>Enter the state details to create a new state record.</DialogDescription>
@@ -229,132 +231,130 @@ export default function GSTStatesForm({ panelCornerClass = "" }: { panelCornerCl
           </DialogContent>
         </Dialog>
 
-        <div className="global-list-form-content">
+        {/* Table content wrapper with subform styling */}
+        <div className="global-subform-table-content flex min-h-0 flex-col">
           {states.length === 0 ? (
             <div className="text-center p-6 text-muted-foreground">No states found. Click "Add State" to create one.</div>
           ) : (
-            <div className="global-list-viewport">
-                <div className="global-list-sticky-header">
-                  <div className="global-settings-list-header flex items-center justify-between">
-                    <div className="flex-1 flex gap-4">
-                      <div className="min-w-[320px] text-center">
-                        <Label className="text-sm font-semibold">State Name</Label>
-                      </div>
-                      <div className="min-w-[140px] text-center">
-                        <Label className="text-sm font-semibold">State Code</Label>
-                      </div>
+            <div className="global-list-viewport settings-list-viewport">
+              <div className="global-list-sticky-header">
+                <div className="global-settings-list-header flex items-center justify-between">
+                  <div className="flex-1 flex gap-4">
+                    <div className="min-w-[320px] text-center">
+                      <Label className="text-sm font-semibold">State Name</Label>
                     </div>
-                    <div className="min-w-[120px] flex flex-col items-center justify-center">
-                      <Label className="text-sm font-semibold">Actions</Label>
+                    <div className="min-w-[140px] text-center">
+                      <Label className="text-sm font-semibold">State Code</Label>
+                    </div>
+                  </div>
+                  <div className="min-w-[120px] flex flex-col items-center justify-center">
+                    <Label className="text-sm font-semibold">Actions</Label>
+                  </div>
+                </div>
+              </div>
+
+              {states.map((state) => (
+                <div key={state.stateId} className="border-b last:border-b-0">
+                  <div className="global-settings-list-row flex items-center justify-between">
+                    <div className="flex-1 flex gap-4 items-center">
+                      {editingId === state.stateId ? (
+                        <>
+                          <div className="min-w-[320px] text-center">
+                            <Input
+                              name="stateName"
+                              value={editForm.stateName}
+                              onChange={(e) => setEditForm({ ...editForm, stateName: e.target.value })}
+                              disabled={isLoading}
+                              className="h-9 text-center"
+                            />
+                          </div>
+                          <div className="min-w-[140px] text-center">
+                            <Input
+                              name="stateCode"
+                              value={editForm.stateCode}
+                              onChange={(e) => setEditForm({ ...editForm, stateCode: e.target.value })}
+                              disabled={isLoading}
+                              className="h-9 text-center"
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="min-w-[320px] text-center">
+                            <div className="text-sm text-slate-700">{state.stateName}</div>
+                          </div>
+                          <div className="min-w-[140px] text-center">
+                            <div className="text-sm text-slate-700">{state.stateCode}</div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="min-w-[120px] flex items-center justify-center">
+                      {editingId === state.stateId ? (
+                        <div className="w-28 flex items-center justify-center gap-1">
+                          <Button
+                            onClick={() => handleUpdate(state.stateId)}
+                            disabled={isLoading}
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                          >
+                            <Save className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            onClick={cancelEdit}
+                            disabled={isLoading}
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="w-28 flex items-center justify-center">
+                          <div className="flex items-center gap-2">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  onClick={() => startEdit(state)}
+                                  disabled={isLoading || editingId !== null}
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-blue-600 hover:text-blue-800"
+                                  aria-label={`Edit ${state.stateName}`}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" align="center">Edit</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  onClick={() => handleDelete(state.stateId)}
+                                  disabled={isLoading || editingId !== null}
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                  aria-label={`Delete ${state.stateName}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" align="center">Delete</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-
-                {states.map((state) => (
-                  <div key={state.stateId} className="border-b last:border-b-0">
-                    <div className="global-settings-list-row flex items-center justify-between">
-                      <div className="flex-1 flex gap-4 items-center">
-                        {editingId === state.stateId ? (
-                          <>
-                            <div className="min-w-[320px] text-center">
-                              <Input
-                                name="stateName"
-                                value={editForm.stateName}
-                                onChange={(e) => setEditForm({ ...editForm, stateName: e.target.value })}
-                                disabled={isLoading}
-                                className="h-9 text-center"
-                              />
-                            </div>
-                            <div className="min-w-[140px] text-center">
-                              <Input
-                                name="stateCode"
-                                value={editForm.stateCode}
-                                onChange={(e) => setEditForm({ ...editForm, stateCode: e.target.value })}
-                                disabled={isLoading}
-                                className="h-9 text-center"
-                              />
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="min-w-[320px] text-center">
-                              <div className="text-sm text-slate-700">{state.stateName}</div>
-                            </div>
-                            <div className="min-w-[140px] text-center">
-                              <div className="text-sm text-slate-700">{state.stateCode}</div>
-                            </div>
-                          </>
-                        )}
-                      </div>
-
-                      <div className="min-w-[120px] flex items-center justify-center">
-                        {editingId === state.stateId ? (
-                          <div className="w-28 flex items-center justify-center gap-1">
-                            <Button
-                              onClick={() => handleUpdate(state.stateId)}
-                              disabled={isLoading}
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 w-8 p-0"
-                            >
-                              <Save className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              onClick={cancelEdit}
-                              disabled={isLoading}
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 w-8 p-0"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="w-28 flex items-center justify-center">
-                            <div className="flex items-center gap-2">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    onClick={() => startEdit(state)}
-                                    disabled={isLoading || editingId !== null}
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-blue-600 hover:text-blue-800"
-                                    aria-label={`Edit ${state.stateName}`}
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" align="center">Edit</TooltipContent>
-                              </Tooltip>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    onClick={() => handleDelete(state.stateId)}
-                                    disabled={isLoading || editingId !== null}
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                                    aria-label={`Delete ${state.stateName}`}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" align="center">Delete</TooltipContent>
-                              </Tooltip>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              ))}
             </div>
           )}
-        </div>
-
-        {/* Add State Button - Sticky footer */}
-        <div className="flex shrink-0 justify-center">
+        <div className="shrink-0">
           {!isAdding && (
             <Button
               onClick={() => setIsAdding(true)}
@@ -366,7 +366,8 @@ export default function GSTStatesForm({ panelCornerClass = "" }: { panelCornerCl
             </Button>
           )}
         </div>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }

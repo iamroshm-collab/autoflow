@@ -14,6 +14,7 @@ interface SparePartPayload {
   billDate: string
   billNumber: string
   item: string
+  returnedItem?: string
   amount: number
   paid?: number
   paidDate?: string
@@ -357,6 +358,7 @@ export async function PUT(
             paid: Number(item.paid || 0),
             paidDate: item.paidDate ? new Date(item.paidDate) : null,
             itemDescription: item.item || null,
+            returnedItem: item.returnedItem || null,
             billReturned:
               Boolean(item.isReturn) ||
               Number(item.returnAmount || 0) > 0 ||

@@ -1616,7 +1616,7 @@ export function NewJobCardForm() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="global-form-shell space-y-4">
+          <div className="border border-slate-200 rounded-lg bg-white p-6 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="modal-registration">Registration Number</Label>
               <Input
@@ -1945,7 +1945,7 @@ export function NewJobCardForm() {
             </div>
           </div>
 
-          <DialogFooter className="flex gap-5 justify-end pt-4">
+          <DialogFooter className="flex gap-5 justify-end">
             <Button
               variant="outline"
               onClick={() => handleAddVehicleCustomerModalOpenChange(false)}

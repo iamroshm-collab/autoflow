@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
       const existing = await prismaClient.appUser.findFirst({
         where: { mobile },
-        select: { id: true, approvalStatus: true },
+        select: { id: true, approvalStatus: true, name: true },
       })
 
       if (!existing) {
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
         try {
           await createRoleNotifications(["admin"], {
             title: "Registration Approval Required",
-            body: `New registration with mobile ${mobile} is waiting for approval`,
+            body: `${existing.name || "Unknown"} (${mobile}) is waiting for registration approval`,
             url: "/approvals",
             type: "approval_request",
           })

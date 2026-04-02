@@ -5,7 +5,6 @@ const accessMap: Record<UserRole, string[]> = {
     "dashboard",
     "new-job-card",
     "update-job-card",
-    "technician-task-details",
     "delivered",
     "maintenance-tracker",
     "employee",
@@ -17,12 +16,12 @@ const accessMap: Record<UserRole, string[]> = {
     "spare-parts",
     "whatsapp-messages",
     "settings",
+    "all-notifications",
   ],
   manager: [
     "dashboard",
     "new-job-card",
     "update-job-card",
-    "technician-task-details",
     "delivered",
     "maintenance-tracker",
     "attendance-payroll",
@@ -31,11 +30,12 @@ const accessMap: Record<UserRole, string[]> = {
     "customers",
     "income-expense",
     "spare-parts",
+    "all-notifications",
   ],
   technician: [
     "dashboard",
     "attendance-payroll",
-    "technician-task-details",
+    "all-notifications",
   ],
 }
 

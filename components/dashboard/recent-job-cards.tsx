@@ -147,7 +147,7 @@ export const RecentJobCards = memo(function RecentJobCards({ jobs }: RecentJobCa
             Recent Job Cards
           </h3>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto border border-border rounded-lg">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">

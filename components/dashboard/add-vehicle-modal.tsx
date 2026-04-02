@@ -523,7 +523,7 @@ export function AddVehicleModal({
           </div>
         </div>
 
-          <DialogFooter className="flex gap-5 justify-end pt-4">
+          <DialogFooter className="flex gap-5 justify-end">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}

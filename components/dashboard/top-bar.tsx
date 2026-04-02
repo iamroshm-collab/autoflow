@@ -113,13 +113,19 @@ export function TopBar({
       onNotificationNavigate(item.targetForm)
     } else if (item.url) {
       window.location.href = item.url
+    } else if (onNotificationNavigate) {
+      onNotificationNavigate("all-notifications")
     } else {
       window.location.href = "/notifications"
     }
   }
 
   const goToNotifications = () => {
-    window.location.href = "/notifications"
+    if (onNotificationNavigate) {
+      onNotificationNavigate("all-notifications")
+    } else {
+      window.location.href = "/notifications"
+    }
   }
 
   return (
@@ -166,7 +172,7 @@ export function TopBar({
         </div>
       ) : null}
       {customSearch ? (
-        <div className="flex items-center gap-2 w-[17.5rem] max-w-[17.5rem] min-w-0 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {customSearch}
         </div>
       ) : null}

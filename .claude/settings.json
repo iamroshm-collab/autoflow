@@ -14,7 +14,13 @@
       "Bash(node -e \"const rw = require\\(''react-window''\\); const L = rw.List; console.log\\(typeof L\\)\")",
       "Bash(node -e \"const rw = require\\(''''react-window''''\\); const L = rw.List; console.log\\(L.toString\\(\\).substring\\(0, 200\\)\\)\")",
       "Bash(grep -r spare-parts c:UsersThakkuduDesktopnew-garage-app/app --include=*.tsx)",
-      "Bash(grep -r \"TabsList\\\\|TabsTrigger\\\\|TabsContent\" c:UsersThakkuduDesktopnew-garage-app/components/dashboard --include=*.tsx)"
+      "Bash(grep -r \"TabsList\\\\|TabsTrigger\\\\|TabsContent\" c:UsersThakkuduDesktopnew-garage-app/components/dashboard --include=*.tsx)",
+      "Bash(xargs grep:*)",
+      "Bash(head -20 grep -n \"dropdown\\\\|Dropdown\\\\|dropdown-item\\\\|showDropdown\\\\|isOpen\" \"c:/Users/Thakkudu/Desktop/new-garage-app/components/inventory/purchase-entry-form.tsx\")",
+      "Bash(head -15 grep -n \"dropdown\\\\|Dropdown\\\\|dropdown-item\\\\|showDropdown\\\\|isOpen\" \"c:/Users/Thakkudu/Desktop/new-garage-app/components/settings/shop-settings-form.tsx\")",
+      "Read(//dev/**)",
+      "Bash(head -15 grep -n \"onPartiesChange\\\\|interface.*Props\" \"c:/Users/Thakkudu/Desktop/new-garage-app/components/dashboard/inventory-pos-module.tsx\")",
+      "Bash(head -20 echo \"---\" grep -n \"billHistory\\\\|salesHistory\\\\|sales\\\\b\\\\|allSales\\\\|invoices\" \"c:/Users/Thakkudu/Desktop/new-garage-app/components/inventory/pos-sales.tsx\")"
     ]
   }
 }

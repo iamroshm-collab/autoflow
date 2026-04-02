@@ -36,7 +36,6 @@ export type MenuItem = {
 export const menuItems: MenuItem[] = [
   { id: "new-job-card", label: "New Job Card", icon: FilePlus },
   { id: "update-job-card", label: "Under Service", icon: Wrench },
-  { id: "technician-task-details", label: "Technician Tasks", icon: ClipboardCheck },
   { id: "delivered", label: "Ready for Delivery", icon: Truck },
   { id: "maintenance-tracker", label: "Maintenance Tracker", icon: Package },
   { id: "employee", label: "Employee", icon: User },

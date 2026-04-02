@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import PurchaseEntryForm from "@/components/inventory/purchase-entry-form"
 import { POSSalesForm } from "@/components/inventory/pos-sales"
@@ -13,10 +13,11 @@ import { notify } from "@/components/ui/notify"
 interface InventoryPosModuleProps {
 	activeTab: "purchase" | "sales" | "inventory" | "stock-movement" | "credit-notes" | "debit-notes" | "gst-report"
 	onRecordsCountChange?: (count: number) => void
+	onPartiesChange?: (parties: string[]) => void
 	searchTerm?: string
 }
 
-export function InventoryPosModule({ activeTab, onRecordsCountChange, searchTerm = "" }: InventoryPosModuleProps) {
+export function InventoryPosModule({ activeTab, onRecordsCountChange, onPartiesChange, searchTerm = "" }: InventoryPosModuleProps) {
 
 	const [creditNotes, setCreditNotes] = useState<NoteEntry[]>([])
 	const [debitNotes, setDebitNotes] = useState<NoteEntry[]>([])
@@ -181,6 +182,17 @@ export function InventoryPosModule({ activeTab, onRecordsCountChange, searchTerm
 		const id = setInterval(fetchCounts, 30000)
 		return () => clearInterval(id)
 	}, [])
+
+	const allParties = useMemo(() => {
+		const set = new Set<string>()
+		creditNotes.forEach((n) => { if (n.party?.trim()) set.add(n.party.trim()) })
+		debitNotes.forEach((n) => { if (n.party?.trim()) set.add(n.party.trim()) })
+		return Array.from(set).sort((a, b) => a.localeCompare(b))
+	}, [creditNotes, debitNotes])
+
+	useEffect(() => {
+		onPartiesChange?.(allParties)
+	}, [allParties, onPartiesChange])
 
 	useEffect(() => {
 		const count =

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react"
-import { Bell, Search, UserCircle, Menu } from "lucide-react"
+import { Bell, Search, UserCircle, Menu, X } from "lucide-react"
 import { type UserRole } from "@/lib/access-control"
 import { Input } from "@/components/ui/input"
 
@@ -24,7 +24,7 @@ type HeaderNotification = {
   createdAt: string
 }
 
-type WhatsAppMessage = { status?: string | null }
+type WhatsAppMessage = { status?: string | null; phoneNumber?: string | null }
 type WhatsAppMessagesResponse = { messages?: WhatsAppMessage[] }
 
 const isUnreadWhatsAppStatus = (status: string | null | undefined) => {
@@ -53,6 +53,7 @@ interface TopBarProps {
   onToggleSidebar?: () => void
   searchInputRef?: RefObject<HTMLInputElement | null>
   onSearchFocusChange?: (focused: boolean) => void
+  showMobileActionIcons?: boolean
 }
 
 export function TopBar({
@@ -69,9 +70,11 @@ export function TopBar({
   onToggleSidebar,
   searchInputRef,
   onSearchFocusChange,
+  showMobileActionIcons = false,
 }: TopBarProps) {
   const [notifications, setNotifications] = useState<HeaderNotification[]>([])
   const [whatsAppUnreadCount, setWhatsAppUnreadCount] = useState(0)
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const hasLoggedError = useRef(false)
 
   const unreadCount = notifications.filter((n) => !n.isRead).length
@@ -90,7 +93,13 @@ export function TopBar({
         if (wr.ok) {
           const wd = (await wr.json()) as WhatsAppMessagesResponse
           const wRows = Array.isArray(wd.messages) ? wd.messages : []
-          if (mounted) setWhatsAppUnreadCount(wRows.filter((m) => isUnreadWhatsAppStatus(m.status)).length)
+          // Count unique contacts with at least one unread/unreplied message
+          const unreadPhones = new Set(
+            wRows
+              .filter((m) => isUnreadWhatsAppStatus(m.status) && m.phoneNumber)
+              .map((m) => m.phoneNumber as string)
+          )
+          if (mounted) setWhatsAppUnreadCount(unreadPhones.size)
         }
         if (mounted) { setNotifications(rows); hasLoggedError.current = false }
       } catch (err) {
@@ -139,8 +148,8 @@ export function TopBar({
         <Menu className="w-5 h-5 text-slate-500" />
       </button>
 
-      {/* Page title */}
-      <div className="flex items-center gap-2 shrink-0">
+      {/* Page title — hidden on mobile when search is open */}
+      <div className={`flex items-center gap-2 shrink-0 ${mobileSearchOpen ? "hidden" : ""}`}>
         {PageIcon && <PageIcon className="w-5 h-5 text-slate-400" />}
         <h1 className="text-base font-semibold text-slate-800 whitespace-nowrap">{pageTitle}</h1>
         {pageSubtitle && (
@@ -151,40 +160,106 @@ export function TopBar({
         )}
       </div>
 
-      <div className="flex-1" />
+      <div className={mobileSearchOpen ? "hidden" : "flex-1"} />
 
       {/* Search — context-aware, pinned to right before action icons */}
       {searchConfig ? (
-        <div className="flex items-center gap-2">
-          {searchConfig.suffix ?? null}
-          <div className="relative w-[17.5rem]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
-            <Input
-              ref={searchInputRef}
-              value={searchConfig.value}
-              onChange={(e) => searchConfig.onChange(e.target.value)}
-              onFocus={() => onSearchFocusChange?.(true)}
-              onBlur={() => onSearchFocusChange?.(false)}
-              placeholder={searchConfig.placeholder}
-              className="global-topbar-search pl-8"
-            />
+        <>
+          {/* Mobile: icon toggles search input */}
+          <div className={`sm:hidden flex items-center ${mobileSearchOpen ? "flex-1" : ""}`}>
+            {mobileSearchOpen ? (
+              <div className="flex items-center gap-1 w-full">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                  <Input
+                    ref={searchInputRef}
+                    autoFocus
+                    value={searchConfig.value}
+                    onChange={(e) => searchConfig.onChange(e.target.value)}
+                    onFocus={() => onSearchFocusChange?.(true)}
+                    onBlur={() => onSearchFocusChange?.(false)}
+                    placeholder={searchConfig.placeholder}
+                    className="global-topbar-search !pl-8"
+                  />
+                </div>
+                <button
+                  onClick={() => { setMobileSearchOpen(false); searchConfig.onChange("") }}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"
+                  aria-label="Close search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setMobileSearchOpen(true)}
+                className="p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-500"
+                aria-label="Search"
+              >
+                <Search className="w-5 h-5" />
+              </button>
+            )}
           </div>
-        </div>
+          {/* Desktop: always show full search */}
+          <div className="hidden sm:flex items-center gap-2">
+            {searchConfig.suffix ?? null}
+            <div className="relative w-[17.5rem]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+              <Input
+                ref={searchInputRef}
+                value={searchConfig.value}
+                onChange={(e) => searchConfig.onChange(e.target.value)}
+                onFocus={() => onSearchFocusChange?.(true)}
+                onBlur={() => onSearchFocusChange?.(false)}
+                placeholder={searchConfig.placeholder}
+                className="global-topbar-search pl-8"
+              />
+            </div>
+          </div>
+        </>
       ) : null}
       {customSearch ? (
-        <div className="flex items-center gap-2 shrink-0">
-          {customSearch}
-        </div>
+        <>
+          {/* Mobile: icon toggles full-width customSearch */}
+          <div className={`sm:hidden flex items-center ${mobileSearchOpen ? "flex-1" : ""}`}>
+            {mobileSearchOpen ? (
+              <div className="flex items-center gap-1 w-full">
+                <div className="flex-1 min-w-0 [&>*]:!w-full [&>*>*]:!w-full [&>*>*>input]:!pl-8">
+                  {customSearch}
+                </div>
+                <button
+                  onClick={() => setMobileSearchOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 shrink-0"
+                  aria-label="Close search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setMobileSearchOpen(true)}
+                className="p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-500"
+                aria-label="Search"
+              >
+                <Search className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+          {/* Desktop: always show */}
+          <div className="hidden sm:flex items-center gap-2 shrink-0">
+            {customSearch}
+          </div>
+        </>
       ) : null}
 
-      {/* Action icons */}
-      <div className="flex items-center gap-1">
+      {/* Action icons — hidden on mobile when search is open */}
+      <div className={`flex items-center gap-0 ${mobileSearchOpen ? "hidden sm:flex" : ""}`}>
 
         {/* WhatsApp */}
         {whatsAppAllowed && (
           <button
             onClick={onWhatsApp}
-            className="relative p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-700"
+            className={`relative p-1.5 rounded-xl hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-700 ${showMobileActionIcons ? "" : "hidden sm:flex"}`}
             title="WhatsApp Messages"
           >
             <WhatsAppIcon className="w-5 h-5" />
@@ -199,7 +274,7 @@ export function TopBar({
         {/* Notifications — click goes directly to notifications page / form */}
         <button
           onClick={goToNotifications}
-          className="relative p-2 rounded-xl hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-700"
+          className={`relative p-1.5 rounded-xl hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-700 ${showMobileActionIcons ? "" : "hidden sm:flex"}`}
           title="Notifications"
         >
           <Bell className="w-5 h-5" />
@@ -211,8 +286,8 @@ export function TopBar({
         </button>
 
         {/* User info (read-only, no logout) */}
-        <div className="flex items-center gap-2 ml-2 pl-3 border-l border-slate-100">
-          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+        <div className="flex items-center gap-2 ml-1 pl-2 border-l border-slate-100">
+          <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
             <UserCircle className="w-5 h-5 text-slate-400" />
           </div>
           <div className="hidden md:flex md:flex-col leading-tight">

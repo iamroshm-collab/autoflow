@@ -84,6 +84,8 @@ type AppNotification = {
   url?: string | null
   targetForm?: string | null
   isRead: boolean
+  refType?: string | null
+  refId?: string | null
   createdAt: string
 }
 
@@ -200,7 +202,8 @@ function parseApprovalInfo(
   // fallback: extract bare mobile and look up name from pending users map
   const mobileMatch = n.body.match(/\b(\d{10})\b/)
   const mobile = mobileMatch ? mobileMatch[1] : "-"
-  const name = mobile !== "-" ? (nameMap[mobile] ?? "-") : "-"
+  const normKey = mobile !== "-" ? mobile.replace(/\D/g, "").slice(-10) : ""
+  const name = normKey ? (nameMap[normKey] ?? "-") : "-"
   return { name, mobile }
 }
 
@@ -225,8 +228,10 @@ export function AllNotificationsModule({
   const [notifsLoading, setNotifsLoading] = useState(true)
   const [notifBusy, setNotifBusy] = useState(false)
   const [notifError, setNotifError] = useState<string | null>(null)
-  // mobile → name map for approval notifications
+  // mobile → name map for approval notifications (left panel display)
   const [approvalNameMap, setApprovalNameMap] = useState<Record<string, string>>({})
+  // mobile → userId map for opening the exact approval form
+  const [approvalUserIdMap, setApprovalUserIdMap] = useState<Record<string, string>>({})
 
   // Selection state (unified)
   const [selectedItem, setSelectedItem] = useState<
@@ -301,21 +306,32 @@ export function AllNotificationsModule({
   }, [loadNotifications])
 
   // ── Fetch pending user names for approval notifications ───────────────────────
+  const normMobile = (m?: string | null) => {
+    if (!m) return ""
+    const digits = String(m).replace(/\D/g, "")
+    return digits.length <= 10 ? digits : digits.slice(-10)
+  }
+
   useEffect(() => {
     const hasApproval = notifications.some(isApprovalNotification)
     if (!hasApproval) return
     fetch("/api/auth/pending-users", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
-        const map: Record<string, string> = {}
+        const nameMap: Record<string, string> = {}
+        const idMap: Record<string, string> = {}
         const all = [
           ...(Array.isArray(data.requests) ? data.requests : []),
           ...(Array.isArray(data.deviceRequests) ? data.deviceRequests : []),
         ]
-        all.forEach((u: { mobile?: string | null; name?: string | null }) => {
-          if (u.mobile && u.name) map[String(u.mobile).trim()] = String(u.name).trim()
+        all.forEach((u: { id?: string | null; mobile?: string | null; name?: string | null }) => {
+          const key = normMobile(u.mobile)
+          if (!key) return
+          if (u.name) nameMap[key] = String(u.name).trim()
+          if (u.id) idMap[key] = String(u.id).trim()
         })
-        setApprovalNameMap(map)
+        setApprovalNameMap(nameMap)
+        setApprovalUserIdMap(idMap)
       })
       .catch(() => {})
   }, [notifications])
@@ -740,7 +756,7 @@ export function AllNotificationsModule({
                     onClick={() =>
                       setSelectedItem({ kind: "jobcard", jobCardId: group.jobCardId })
                     }
-                    className={`w-full rounded-xl border p-3 text-left transition ${
+                    className={`w-full max-w-[18rem] mx-auto rounded-xl border p-3 text-left transition ${
                       isSelected
                         ? "border-sky-300 bg-sky-50 shadow-sm shadow-sky-100"
                         : "border-slate-200 bg-slate-50/70 shadow-sm hover:bg-sky-100/60 hover:shadow"
@@ -750,12 +766,12 @@ export function AllNotificationsModule({
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold text-slate-900">
                           {group.vehicleNumber}
-                          {(`${group.vehicleMake} ${group.vehicleModel}`.trim()) && (
-                            <span className="ml-1.5 font-normal text-slate-500">
-                              {`${group.vehicleMake} ${group.vehicleModel}`.trim()}
-                            </span>
-                          )}
                         </p>
+                        {(`${group.vehicleMake} ${group.vehicleModel}`.trim()) && (
+                          <p className="mt-0.5 truncate text-xs text-slate-500">
+                            {`${group.vehicleMake} ${group.vehicleModel}`.trim()}
+                          </p>
+                        )}
                         <p className="mt-1 text-[11px] text-slate-400">
                           {formatDateTime(
                             group.jobCardUpdatedAt || group.serviceDate || group.jobCardCreatedAt
@@ -783,8 +799,14 @@ export function AllNotificationsModule({
                 <button
                   key={`notif-${item.id}`}
                   type="button"
-                  onClick={() => setSelectedItem({ kind: "notification", id: item.id })}
-                  className={`w-full rounded-xl border p-3 text-left transition ${
+                  onClick={() => {
+                    setSelectedItem({ kind: "notification", id: item.id })
+                    if (!item.isRead) void markRead(item.id)
+                    // Auto-remove jobcard notifications when opened — they are replaced
+                    // by new events for the same job card, so reading = done.
+                    if (item.refType === "jobcard") void deleteNotification(item.id)
+                  }}
+                  className={`w-full max-w-[18rem] mx-auto rounded-xl border p-3 text-left transition ${
                     isSelected
                       ? "border-sky-300 bg-sky-50 shadow-sm shadow-sky-100"
                       : item.isRead
@@ -984,14 +1006,18 @@ export function AllNotificationsModule({
         ) : null}
 
         {/* Notification detail view — approval */}
-        {selectedNotification && isApprovalNotification(selectedNotification) ? (
-          <ApprovalsModule
-            filterMobile={(() => {
-              const info = parseApprovalInfo(selectedNotification, approvalNameMap)
-              return info.mobile !== "-" ? info.mobile : undefined
-            })()}
-          />
-        ) : null}
+        {selectedNotification && isApprovalNotification(selectedNotification) ? (() => {
+          const info = parseApprovalInfo(selectedNotification, approvalNameMap)
+          const mobileNorm = normMobile(info.mobile !== "-" ? info.mobile : null)
+          const userId = mobileNorm ? (approvalUserIdMap[mobileNorm] ?? null) : null
+          return (
+            <ApprovalsModule
+              key={selectedNotification.id}
+              filterUserId={userId ?? undefined}
+              filterMobile={!userId && mobileNorm ? mobileNorm : undefined}
+            />
+          )
+        })() : null}
 
         {/* Notification detail view — generic */}
         {selectedNotification && !isApprovalNotification(selectedNotification) ? (

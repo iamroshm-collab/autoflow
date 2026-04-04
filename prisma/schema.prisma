@@ -827,22 +827,25 @@ model NotificationDevice {
 }
 
 model AppNotification {
-  id          String    @id @default(cuid())
-  title       String
-  body        String
-  type        String    @default("info")
-  targetRole  String?
+  id           String    @id @default(cuid())
+  title        String
+  body         String
+  type         String    @default("info")
+  targetRole   String?
   targetUserId String?
-  targetForm  String?
-  url         String?
-  isRead      Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  targetUser  AppUser?  @relation("NotificationTargetUser", fields: [targetUserId], references: [id], onDelete: Cascade)
+  targetForm   String?
+  url          String?
+  isRead       Boolean   @default(false)
+  refType      String?   // e.g. "jobcard" | "access_request" | "device_approval_request"
+  refId        String?   // e.g. jobCard.id or appUser.id
+  createdAt    DateTime  @default(now())
+  targetUser   AppUser?  @relation("NotificationTargetUser", fields: [targetUserId], references: [id], onDelete: Cascade)
 
   @@index([targetRole])
   @@index([targetUserId])
   @@index([isRead])
   @@index([createdAt])
+  @@index([refType, refId])
 }
 
 model AdminAuthProfile {

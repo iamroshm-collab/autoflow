@@ -768,18 +768,6 @@ export default function MaintenanceTracker({
 
       {externalActiveTab !== undefined ? (
         <>
-          <div className="mb-2 mobile-only-tab-select">
-            <Select value={externalActiveTab} onValueChange={(v) => onTabChange?.(v)}>
-              <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Select section" /></SelectTrigger>
-              <SelectContent className="rounded-md">
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="oil">Oil Change</SelectItem>
-                <SelectItem value="filter">Filters</SelectItem>
-                <SelectItem value="general">General Maint.</SelectItem>
-                <SelectItem value="pending">Pending Payments</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">Loading...</div>
           ) : externalActiveTab === "all" ? (

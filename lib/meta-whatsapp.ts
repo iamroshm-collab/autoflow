@@ -184,6 +184,24 @@ export async function sendMetaWhatsappOtp(mobile: string, otp: string) {
 }
 
 /**
+ * Notify an approved user that their login has been approved.
+ * Reads META_WHATSAPP_LOGIN_APPROVED_TEMPLATE_NAME, falls back to "login_approved".
+ * Template body: "Hello {{1}},\nYour login to the AutoFlow Garage Management System has been approved."
+ *   {{1}} = user name
+ */
+export async function sendMetaWhatsappLoginApproved(mobile: string, name: string) {
+  const templateName =
+    String(process.env.META_WHATSAPP_LOGIN_APPROVED_TEMPLATE_NAME || "").trim() || "login_approved"
+
+  return sendMetaWhatsappTemplate({
+    to: mobile,
+    templateName,
+    languageCode: "en",
+    bodyParams: [name],
+  })
+}
+
+/**
  * Notify a customer about their vehicle / job card status change.
  * Requires META_WHATSAPP_JOBCARD_TEMPLATE_NAME — a template with body parameters:
  *   {{1}} = customer name, {{2}} = vehicle number, {{3}} = status, {{4}} = job card number

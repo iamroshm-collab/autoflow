@@ -14,6 +14,8 @@ type AppNotification = {
   targetForm?: string | null
   isRead: boolean
   createdAt: string
+  refType?: string | null
+  refId?: string | null
 }
 
 export default function NotificationsPage() {
@@ -72,6 +74,20 @@ export default function NotificationsPage() {
     }
 
     if (item.url) {
+      // For approvals, prefer opening the specific request if ref info exists
+      if (item.url === "/approvals") {
+        if (item.refId) {
+          router.push(`/approvals?userId=${encodeURIComponent(item.refId)}`)
+          return
+        }
+        // try to extract mobile from body
+        const m = (item.body || "").match(/\b(\d{10})\b/)?.[1]
+        if (m) {
+          router.push(`/approvals?mobile=${encodeURIComponent(m)}`)
+          return
+        }
+      }
+
       router.push(item.url)
     }
   }

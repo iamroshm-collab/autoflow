@@ -65,7 +65,8 @@ const formatTimeOnly = (timestamp: string | null) => {
   return parsed.toLocaleTimeString("en-IN", {
     hour: "2-digit",
     minute: "2-digit",
-    hour12: true
+    hour12: true,
+    timeZone: "Asia/Kolkata"
   })
 }
 
@@ -79,25 +80,26 @@ const formatDateSeparator = (timestamp: string | null) => {
     return "-"
   }
 
-  const today = new Date()
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
+  const toISTDateKey = (d: Date) =>
+    d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }) // YYYY-MM-DD
 
-  const isSameDay = (d1: Date, d2: Date) =>
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate()
+  const parsedKey = toISTDateKey(parsed)
+  const todayKey = toISTDateKey(new Date())
+  const yesterdayDate = new Date()
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+  const yesterdayKey = toISTDateKey(yesterdayDate)
 
-  if (isSameDay(parsed, today)) {
+  if (parsedKey === todayKey) {
     return "Today"
-  } else if (isSameDay(parsed, yesterday)) {
+  } else if (parsedKey === yesterdayKey) {
     return "Yesterday"
   } else {
     return parsed.toLocaleDateString("en-IN", {
       weekday: "short",
       year: "numeric",
       month: "short",
-      day: "2-digit"
+      day: "2-digit",
+      timeZone: "Asia/Kolkata"
     })
   }
 }
@@ -110,12 +112,35 @@ const getDayKey = (timestamp: string | null) => {
   if (Number.isNaN(parsed.getTime())) {
     return "unknown"
   }
-  return `${parsed.getFullYear()}-${parsed.getMonth()}-${parsed.getDate()}`
+  return parsed.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
 }
 
 const isUnreadStatus = (status: string) => {
   const normalized = status.toLowerCase()
   return normalized.includes("receive") || normalized.includes("new")
+}
+
+const MessageTick = ({ status }: { status: string }) => {
+  const s = status.toLowerCase()
+  const isRead = s.includes("read")
+  const isDelivered = isRead || s.includes("deliver")
+  const color = isRead ? "var(--blue)" : "#8696a0"
+
+  if (isDelivered) {
+    // Double tick ✓✓ — delivered or read
+    return (
+      <span aria-label={isRead ? "Read" : "Delivered"} style={{ color, fontSize: "13px", flexShrink: 0, letterSpacing: "-2px", fontWeight: 600, lineHeight: 1 }}>
+        ✓✓
+      </span>
+    )
+  }
+
+  // Single tick ✓ — sent
+  return (
+    <span aria-label="Sent" style={{ color, fontSize: "13px", flexShrink: 0, fontWeight: 600, lineHeight: 1 }}>
+      ✓
+    </span>
+  )
 }
 
 export default function LiveChatMonitorPage({ onContactChange }: { onContactChange?: (name: string | null) => void } = {}) {
@@ -132,6 +157,7 @@ export default function LiveChatMonitorPage({ onContactChange }: { onContactChan
   const [activeFilter, setActiveFilter] = useState<"all" | "unread" | "favorites" | "groups">("all")
   const [viewedConversations, setViewedConversations] = useState<Set<string>>(new Set())
   const [favoriteContacts, setFavoriteContacts] = useState<Set<string>>(new Set())
+  const [mobileShowChat, setMobileShowChat] = useState(false)
   const mountedRef = useRef(true)
   const previousContactKeyRef = useRef<string | null>(null)
   const lastSendTimeRef = useRef<number>(0)
@@ -395,6 +421,7 @@ export default function LiveChatMonitorPage({ onContactChange }: { onContactChan
       setSendNotification({ type: "success", text: "Message sent successfully." })
     } catch (sendError) {
       const messageText = sendError instanceof Error ? sendError.message : "Failed to send WhatsApp reply"
+      console.error("[WHATSAPP_SEND]", messageText)
       setSendNotification({ type: "error", text: messageText })
     } finally {
       setIsSending(false)
@@ -402,7 +429,7 @@ export default function LiveChatMonitorPage({ onContactChange }: { onContactChan
   }
 
   useEffect(() => {
-    if (!sendNotification) {
+    if (!sendNotification || sendNotification.type === "error") {
       return
     }
 
@@ -453,12 +480,21 @@ export default function LiveChatMonitorPage({ onContactChange }: { onContactChan
         ::-webkit-scrollbar { width: 8px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+        @media (max-width: 767px) {
+          .wa-left-panel { width: 100% !important; min-width: 0 !important; border-right: none !important; }
+          .wa-left-panel.mobile-hidden { display: none !important; }
+          .wa-right-panel { position: absolute !important; inset: 0 !important; display: none !important; }
+          .wa-right-panel.mobile-visible { display: flex !important; }
+          .wa-mobile-header { display: flex !important; }
+          .wa-send-btn { width: 46px !important; height: 46px !important; }
+          .wa-send-btn svg { width: 22px !important; height: 22px !important; min-width: 22px !important; min-height: 22px !important; }
+        }
       `}</style>
       
-      <div style={{ display: "flex", width: "100%", height: "100%", flex: 1, background: "var(--panel)", overflow: "hidden" }}>
-        
+      <div style={{ display: "flex", width: "100%", height: "100%", flex: 1, background: "var(--panel)", overflow: "hidden", position: "relative" }}>
+
         {/* LEFT PANEL */}
-        <div style={{
+        <div className={`wa-left-panel${mobileShowChat ? " mobile-hidden" : ""}`} style={{
           width: "420px",
           minWidth: "310px",
           flexShrink: 0,
@@ -653,7 +689,7 @@ export default function LiveChatMonitorPage({ onContactChange }: { onContactChan
                   <button
                     key={contact.key}
                     type="button"
-                    onClick={() => setSelectedContactKey(contact.key)}
+                    onClick={() => { setSelectedContactKey(contact.key); setMobileShowChat(true) }}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -794,7 +830,7 @@ export default function LiveChatMonitorPage({ onContactChange }: { onContactChan
         </div>
 
         {/* RIGHT PANEL */}
-        <section style={{
+        <section className={`wa-right-panel${mobileShowChat ? " mobile-visible" : ""}`} style={{
           flex: 1,
           display: "flex",
           flexDirection: "column",
@@ -802,6 +838,34 @@ export default function LiveChatMonitorPage({ onContactChange }: { onContactChan
           minWidth: 0,
           position: "relative"
         }}>
+          {/* Mobile chat header — back button + contact name */}
+          <div style={{
+            display: "none",
+            alignItems: "center",
+            gap: "10px",
+            padding: "10px 14px",
+            background: "var(--g)",
+            color: "#fff",
+            flexShrink: 0,
+            zIndex: 3
+          }} className="wa-mobile-header">
+            <button
+              type="button"
+              onClick={() => setMobileShowChat(false)}
+              style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", padding: "4px", display: "flex", alignItems: "center" }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M12 5l-7 7 7 7" />
+              </svg>
+            </button>
+            <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg style={{ width: "20px", height: "20px", fill: "#fff" }} viewBox="0 0 24 24">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+              </svg>
+            </div>
+            <span style={{ fontSize: "16px", fontWeight: 600 }}>{selectedContact?.senderName || ""}</span>
+          </div>
+
           {/* Background Pattern */}
           <div style={{
             content: '""',
@@ -879,15 +943,15 @@ export default function LiveChatMonitorPage({ onContactChange }: { onContactChan
                         style={{
                           display: "flex",
                           justifyContent: isOutgoing ? "flex-end" : "flex-start",
-                          marginBottom: "1px",
+                          marginBottom: "0px",
                           width: "100%"
                         }}
                       >
                         <div style={{
-                          padding: "8px 12px 20px 12px",
-                          borderRadius: "18px",
-                          borderTopLeftRadius: isOutgoing ? "18px" : "4px",
-                          borderTopRightRadius: isOutgoing ? "4px" : "18px",
+                          padding: "5px 12px 16px 12px",
+                          borderRadius: "10px",
+                          borderTopLeftRadius: isOutgoing ? "10px" : "4px",
+                          borderTopRightRadius: isOutgoing ? "4px" : "10px",
                           position: "relative",
                           fontSize: "14px",
                           lineHeight: "1.4",
@@ -913,10 +977,7 @@ export default function LiveChatMonitorPage({ onContactChange }: { onContactChan
                             flexShrink: 0
                           }}>
                             {formatTimeOnly(message.timestamp)}
-                            <span style={{
-                              fontSize: "11px",
-                              color: "var(--blue)"
-                            }}>✓✓</span>
+                            {isOutgoing && <MessageTick status={message.status} />}
                           </div>
                         </div>
                       </div>
@@ -931,11 +992,12 @@ export default function LiveChatMonitorPage({ onContactChange }: { onContactChan
           <div style={{
             display: "flex",
             alignItems: "center",
-            gap: "8px",
-            padding: "8px 16px",
+            gap: "6px",
+            padding: "8px 8px",
             background: "#f0f2f5",
             zIndex: 2,
-            flexShrink: 0
+            flexShrink: 0,
+            minWidth: 0
           }}>
             <button
               type="button"
@@ -1018,9 +1080,10 @@ export default function LiveChatMonitorPage({ onContactChange }: { onContactChan
               onClick={handleSendReply}
               disabled={!selectedContact || !draftReply.trim() || isSending}
               style={{
-                width: "40px",
-                height: "40px",
+                width: "44px",
+                height: "44px",
                 borderRadius: "50%",
+                flexShrink: 0,
                 border: "none",
                 background: !selectedContact || !draftReply.trim() || isSending ? "rgba(0, 168, 132, 0.4)" : "var(--g)",
                 display: "flex",
@@ -1034,9 +1097,10 @@ export default function LiveChatMonitorPage({ onContactChange }: { onContactChan
               onMouseEnter={(e) => !(!selectedContact || !draftReply.trim() || isSending) && (e.currentTarget.style.background = "var(--gd)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = !(!selectedContact || !draftReply.trim() || isSending) ? "var(--g)" : "rgba(0, 168, 132, 0.4)")}
               title="Send reply"
+              className="wa-send-btn"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="5,3 19,12 5,21" />
+              <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: "20px", height: "20px" }}>
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
               </svg>
             </button>
           </div>
@@ -1049,9 +1113,21 @@ export default function LiveChatMonitorPage({ onContactChange }: { onContactChan
               color: sendNotification.type === "success" ? "#155724" : "#721c24",
               borderTop: `1px solid ${sendNotification.type === "success" ? "#c3e6cb" : "#f5c6cb"}`,
               fontSize: "12px",
-              zIndex: 2
+              zIndex: 2,
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "8px"
             }}>
-              {sendNotification.text}
+              <span style={{ flex: 1, wordBreak: "break-word" }}>{sendNotification.text}</span>
+              {sendNotification.type === "error" && (
+                <button
+                  type="button"
+                  onClick={() => setSendNotification(null)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: "14px", lineHeight: 1, padding: 0, flexShrink: 0 }}
+                >
+                  ✕
+                </button>
+              )}
             </div>
           )}
         </section>

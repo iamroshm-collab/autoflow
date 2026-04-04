@@ -1,0 +1,63 @@
+{
+  "user": {
+    "id": "cmnivcndc0000od44jtj71aj6",
+    "name": "Roshmon mohanan",
+    "email": null,
+    "passwordHash": null,
+    "mobile": "9496538284",
+    "phoneNumber": "9496538284",
+    "whatsappId": null,
+    "role": "technician",
+    "address": "Roshvilla, Pada. north, Karunagappally, Kollam, 690518",
+    "idNumber": "554864574309",
+    "designation": null,
+    "employeeRefId": null,
+    "emailVerificationStatus": "pending",
+    "approvalStatus": "pending",
+    "approvedById": null,
+    "approvedAt": null,
+    "requestedDeviceId": "web-11ede2a1-e9c6-4075-99d7-f5baeecbd350",
+    "requestedDeviceIp": "103.74.137.241",
+    "pendingDeviceId": null,
+    "pendingDeviceIp": null,
+    "approvedDeviceId": null,
+    "approvedDeviceIp": null,
+    "deviceApprovalStatus": "none",
+    "lastLoginAt": null,
+    "createdAt": "2026-04-03T12:17:33.264Z",
+    "updatedAt": "2026-04-03T12:17:43.889Z"
+  },
+  "sessions": [],
+  "whatsappOtps": [
+    {
+      "id": "cmnivcng70002od44j0ujwakc",
+      "employeeId": "cmnivcndc0000od44jtj71aj6",
+      "mobile": "9496538284",
+      "otpHash": "$2b$10$DpiBZum.PRoi/m7X7Q8X/uE7BKANhkALMbd95Wa064thEc3Vi4uza",
+      "purpose": "register",
+      "expiresAt": "2026-04-03T12:22:33.361Z",
+      "consumedAt": "2026-04-03T12:17:43.866Z",
+      "createdAt": "2026-04-03T12:17:33.367Z"
+    }
+  ],
+  "notificationsByBody": [
+    {
+      "id": "cmnivcvko0003od44tklkfhdi",
+      "title": "Registration Approval Required",
+      "body": "Roshmon mohanan (9496538284) is waiting for registration approval",
+      "type": "approval_request",
+      "targetRole": "admin",
+      "targetUserId": null,
+      "targetForm": null,
+      "url": "/approvals",
+      "isRead": false,
+      "refType": "access_request",
+      "refId": "cmnivcndc0000od44jtj71aj6",
+      "createdAt": "2026-04-03T12:17:43.897Z"
+    }
+  ],
+  "notificationsByUser": [],
+  "employees": [],
+  "notificationDevices": [],
+  "deviceTokens": []
+}

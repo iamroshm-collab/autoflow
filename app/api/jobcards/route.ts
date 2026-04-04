@@ -89,6 +89,8 @@ export async function POST(request: NextRequest) {
       targetForm: "update-job-card",
       url: `/?form=update-job-card&jobCardId=${encodeURIComponent(jobCard.id)}`,
       type: "job_created",
+      refType: "jobcard",
+      refId: jobCard.id,
     })
 
     return NextResponse.json(jobCard, { status: 201 })

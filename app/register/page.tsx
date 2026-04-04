@@ -10,10 +10,12 @@ import { authService, AuthServiceError } from "@/services/authService"
 import { enableApprovalPushAlias } from "@/lib/onesignal-web"
 import { normalizeMobileNumber } from "@/lib/mobile-validation"
 
+type RegistrationRole = "technician" | "customer"
+
 function RegisterForm() {
   const searchParams = useSearchParams()
   const nameInputRef = useRef<HTMLInputElement>(null)
-  
+
   const [name, setName] = useState("")
   const [aadhar, setAadhar] = useState("")
   const [addressLine1, setAddressLine1] = useState("")
@@ -22,6 +24,7 @@ function RegisterForm() {
   const [district, setDistrict] = useState("")
   const [postalCode, setPostalCode] = useState("")
   const [mobile, setMobile] = useState("")
+  const [role, setRole] = useState<RegistrationRole>("technician")
   const [otp, setOtp] = useState("")
   const [otpRequested, setOtpRequested] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -55,7 +58,7 @@ function RegisterForm() {
         aadhar,
         address: composeAddress(),
         mobile: normalizeMobileNumber(mobile),
-        role: "technician",
+        role,
       })
       setOtpRequested(true)
       setMessage("OTP sent to your WhatsApp number. Enter OTP to complete registration.")
@@ -187,6 +190,34 @@ function RegisterForm() {
         </div>
 
         <div className="space-y-2">
+          <Label>Account Type</Label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setRole("technician")}
+              className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                role === "technician"
+                  ? "border-sky-600 bg-sky-50 text-sky-700"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+              }`}
+            >
+              Employee
+            </button>
+            <button
+              type="button"
+              onClick={() => setRole("customer")}
+              className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                role === "customer"
+                  ? "border-sky-600 bg-sky-50 text-sky-700"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+              }`}
+            >
+              Customer
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
           <Label htmlFor="mobile">WhatsApp Number</Label>
           <Input
             id="mobile"
@@ -238,7 +269,7 @@ function RegisterForm() {
         )}
 
         <p className="text-sm text-slate-500 text-center">
-          <Link href="/admin-login" className="text-sky-700 hover:text-sky-800">Login</Link>
+          <Link href="/login" className="text-sky-700 hover:text-sky-800">Login</Link>
         </p>
       </div>
     </main>

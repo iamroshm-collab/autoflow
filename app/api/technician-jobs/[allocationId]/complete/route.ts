@@ -32,6 +32,8 @@ export async function POST(
       body: `${allocation.employee?.empName || "Technician"} completed ${allocation.jobCard?.vehicle?.registrationNumber || "a job"}`,
       url: `/job/${allocation.jobId}`,
       type: "job_completed",
+      refType: "jobcard",
+      refId: allocation.jobId,
     });
 
     void sendTechnicianCompletedNotification(serverUrl, {

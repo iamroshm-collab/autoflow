@@ -2099,7 +2099,6 @@ export function UpdateJobCardForm({
                 onCheckedChange={(v) => handleTaxableToggle(Boolean(v))}
                 disabled={isLoading}
                 aria-label="Taxable"
-                className="w-4 h-4 aspect-square"
               />
               <span className="text-sm text-muted-foreground">
                 {!!formData.taxable ? "Yes" : "No"}
@@ -2117,7 +2116,6 @@ export function UpdateJobCardForm({
                 disabled={isLoading || formData.jobcardStatus === "Completed"}
                 aria-label="External Shop"
                 title={formData.jobcardStatus === "Completed" ? "Cannot modify when job card is completed" : ""}
-                className="w-4 h-4 aspect-square"
               />
               <span className="text-sm text-muted-foreground">
                 {!!formData.externalShop ? "Yes" : "No"}

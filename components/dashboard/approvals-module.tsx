@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { parseAddress } from "@/lib/address-utils"
 import { notify } from "@/components/ui/notify"
@@ -58,10 +57,11 @@ const createEmptyProfile = (): ApprovalProfile => ({
 })
 
 interface ApprovalsModuleProps {
+  filterUserId?: string | null
   filterMobile?: string | null
 }
 
-export function ApprovalsModule({ filterMobile }: ApprovalsModuleProps = {}) {
+export function ApprovalsModule({ filterUserId, filterMobile }: ApprovalsModuleProps = {}) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [requests, setRequests] = useState<PendingUser[]>([])
@@ -166,7 +166,7 @@ export function ApprovalsModule({ filterMobile }: ApprovalsModuleProps = {}) {
     }
   }, [cameraStream])
 
-  const loadRequests = async () => {
+  const loadRequests = async (fId?: string | null, fm?: string | null) => {
     setLoading(true)
     setError("")
     try {
@@ -178,12 +178,28 @@ export function ApprovalsModule({ filterMobile }: ApprovalsModuleProps = {}) {
       const incomingDeviceRequests: DeviceRequestUser[] = Array.isArray(data.deviceRequests) ? data.deviceRequests : []
       const incomingActiveDevices: DeviceRequestUser[] = Array.isArray(data.activeDevices) ? data.activeDevices : []
 
-      const filteredRequests = filterMobile
-        ? incomingRequests.filter((u) => String(u.mobile || "").trim() === filterMobile.trim())
-        : incomingRequests
+      // Normalize mobiles to compare only digit sequences (last 10 digits)
+      const normalizeMobile = (m?: string | null) => {
+        if (!m) return ""
+        const digits = String(m).replace(/\D/g, "")
+        return digits.length <= 10 ? digits : digits.slice(-10)
+      }
+
+      let filteredRequests: PendingUser[]
+      if (fId) {
+        // filter by exact database ID — most reliable
+        const match = incomingRequests.find((u) => u.id === fId)
+        filteredRequests = match ? [match] : []
+      } else if (fm) {
+        const fmNorm = normalizeMobile(fm)
+        const match = incomingRequests.find((u) => normalizeMobile(u.mobile) === fmNorm)
+        filteredRequests = match ? [match] : []
+      } else {
+        filteredRequests = incomingRequests
+      }
       setRequests(filteredRequests)
-      setDeviceRequests(incomingDeviceRequests)
-      setActiveDevices(filterMobile ? [] : incomingActiveDevices)
+      setDeviceRequests(fId || fm ? [] : incomingDeviceRequests)
+      setActiveDevices(fId || fm ? [] : incomingActiveDevices)
       setProfiles((prev) => {
         const next = { ...prev }
         filteredRequests.forEach((item) => {
@@ -211,7 +227,7 @@ export function ApprovalsModule({ filterMobile }: ApprovalsModuleProps = {}) {
     }
   }
 
-  useEffect(() => { void loadRequests() }, [filterMobile])
+  useEffect(() => { void loadRequests(filterUserId, filterMobile) }, [filterUserId, filterMobile])
 
   const handleAction = async (userId: string, action: "approve" | "reject") => {
     const profile = profiles[userId] || createEmptyProfile()
@@ -229,7 +245,7 @@ export function ApprovalsModule({ filterMobile }: ApprovalsModuleProps = {}) {
       const data = await response.json()
       if (!response.ok) { notify.error(data.error || "Failed action"); return }
       notify.success(action === "approve" ? "Registration approved" : "Registration rejected")
-      await loadRequests()
+      await loadRequests(filterUserId, filterMobile)
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "Failed action")
     }
@@ -245,7 +261,7 @@ export function ApprovalsModule({ filterMobile }: ApprovalsModuleProps = {}) {
       const data = await response.json()
       if (!response.ok) { notify.error(data.error || "Failed device action"); return }
       notify.success(action === "approve-device" ? "Device approved" : "Device de-registered")
-      await loadRequests()
+      await loadRequests(filterUserId, filterMobile)
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "Failed device action")
     }
@@ -254,23 +270,24 @@ export function ApprovalsModule({ filterMobile }: ApprovalsModuleProps = {}) {
   if (loading) return <p className="text-sm text-slate-500">Loading requests...</p>
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50/70 p-4 gap-4">
+    <div className="flex h-full min-h-0 flex-col overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50/70 p-4 pb-4">
       {error ? <p className="text-sm text-rose-600">{error}</p> : null}
 
       {/* Registration requests */}
       {requests.length === 0 ? (
         <p className="text-sm text-slate-500">
-          {filterMobile
+          {filterUserId || filterMobile
             ? "This request has already been approved or rejected."
             : "No pending registration requests."}
         </p>
       ) : (
-        <div className="space-y-4">
+        <div className={`space-y-4 ${requests.length === 1 ? "h-full" : ""}`}>
           {requests.map((item) => {
             const profile = profiles[item.id] || createEmptyProfile()
+            const singleCardClass = requests.length === 1 ? "h-full flex flex-col justify-between" : ""
             return (
-              <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-4">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div key={item.id} className={`rounded-xl border border-slate-200 bg-white p-4 ${singleCardClass}`}>
+                 <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 ${requests.length === 1 ? 'flex-1' : ''}`}>
                   {/* Left: requester info */}
                   <div className="space-y-2 text-sm">
                     <div>
@@ -292,7 +309,7 @@ export function ApprovalsModule({ filterMobile }: ApprovalsModuleProps = {}) {
                     <h3 className="text-sm font-semibold text-slate-800">Employee Details</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 
-                      <div className="space-y-1 md:col-span-2">
+                      <div className="space-y-1">
                         <Label htmlFor={`access-role-${item.id}`} className="text-xs">Role</Label>
                         <select
                           id={`access-role-${item.id}`}
@@ -335,15 +352,6 @@ export function ApprovalsModule({ filterMobile }: ApprovalsModuleProps = {}) {
                         </select>
                       </div>
 
-                      <div className="space-y-1">
-                        <Label htmlFor={`mobile-${item.id}`} className="text-xs">Mobile</Label>
-                        <Input
-                          id={`mobile-${item.id}`}
-                          value={profile.mobile}
-                          onChange={(e) => updateProfile(item.id, { mobile: e.target.value.replace(/\D/g, "").slice(0, 10) })}
-                        />
-                      </div>
-
                       {/* Photo capture */}
                       <div className="space-y-2 md:col-span-2">
                         <Label className="text-xs">Employee Photo (Mandatory — Live Capture Only)</Label>
@@ -381,29 +389,9 @@ export function ApprovalsModule({ filterMobile }: ApprovalsModuleProps = {}) {
                         </div>
                       </div>
 
-                      <div className="space-y-1 md:col-span-2">
-                        <Label htmlFor={`addr1-${item.id}`} className="text-xs">Address Line 1</Label>
-                        <Input id={`addr1-${item.id}`} value={profile.addressLine1} onChange={(e) => updateProfile(item.id, { addressLine1: e.target.value })} />
-                      </div>
-                      <div className="space-y-1 md:col-span-2">
-                        <Label htmlFor={`addr2-${item.id}`} className="text-xs">Address Line 2</Label>
-                        <Input id={`addr2-${item.id}`} value={profile.addressLine2} onChange={(e) => updateProfile(item.id, { addressLine2: e.target.value })} />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor={`city-${item.id}`} className="text-xs">City</Label>
-                        <Input id={`city-${item.id}`} value={profile.city} onChange={(e) => updateProfile(item.id, { city: e.target.value })} />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor={`state-${item.id}`} className="text-xs">State</Label>
-                        <Input id={`state-${item.id}`} value={profile.state} onChange={(e) => updateProfile(item.id, { state: e.target.value })} />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor={`postal-${item.id}`} className="text-xs">Postal Code</Label>
-                        <Input id={`postal-${item.id}`} value={profile.postalCode} onChange={(e) => updateProfile(item.id, { postalCode: e.target.value })} />
-                      </div>
                     </div>
 
-                    <div className="flex items-center justify-end gap-2 pt-1">
+                    <div className={requests.length === 1 ? "flex items-center justify-end gap-2 mt-0" : "flex items-center justify-end gap-2 mt-8"}>
                       <Button
                         size="sm"
                         className="bg-green-600 text-white hover:bg-green-700"

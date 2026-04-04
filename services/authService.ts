@@ -2,18 +2,20 @@ import { getOrCreateDeviceId } from "@/lib/device-identity"
 
 export class AuthServiceError extends Error {
   status: number
+  data: Record<string, unknown>
 
-  constructor(message: string, status = 500) {
+  constructor(message: string, status = 500, data: Record<string, unknown> = {}) {
     super(message)
     this.name = "AuthServiceError"
     this.status = status
+    this.data = data
   }
 }
 
 const readJson = async (response: Response) => {
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
-    throw new AuthServiceError(String(data?.error || "Request failed"), response.status)
+    throw new AuthServiceError(String(data?.error || "Request failed"), response.status, data)
   }
 
   return data

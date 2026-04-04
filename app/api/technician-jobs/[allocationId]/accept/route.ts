@@ -29,6 +29,8 @@ export async function POST(
       body: `${allocation.employee?.empName || "Technician"} accepted ${allocation.jobCard?.vehicle?.registrationNumber || "a job"}`,
       url: `/job/${allocation.jobId}`,
       type: "job_accepted",
+      refType: "jobcard",
+      refId: allocation.jobId,
     });
 
     void sendTechnicianAcceptedNotification(serverUrl, {

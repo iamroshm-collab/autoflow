@@ -21,6 +21,10 @@
       "Read(//dev/**)",
       "Bash(head -15 grep -n \"onPartiesChange\\\\|interface.*Props\" \"c:/Users/Thakkudu/Desktop/new-garage-app/components/dashboard/inventory-pos-module.tsx\")",
       "Bash(head -20 echo \"---\" grep -n \"billHistory\\\\|salesHistory\\\\|sales\\\\b\\\\|allSales\\\\|invoices\" \"c:/Users/Thakkudu/Desktop/new-garage-app/components/inventory/pos-sales.tsx\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Thakkudu\\Desktop\\new-garage-app\\prisma\\migrations",
+      "C:\\Users\\Thakkudu\\Desktop\\new-garage-app\\app\\api\\auth"
     ]
   }
 }

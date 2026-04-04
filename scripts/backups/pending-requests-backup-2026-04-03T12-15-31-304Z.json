@@ -1,0 +1,220 @@
+{
+  "meta": {
+    "createdAt": "2026-04-03T12:15:31.303Z",
+    "count": 7
+  },
+  "users": [
+    {
+      "id": "cmn39rg8v0000odqkynkz0kkg",
+      "name": "Manager OK",
+      "mobile": "9702214315",
+      "approvalStatus": "otp_pending",
+      "deviceApprovalStatus": "none",
+      "requestedDeviceId": null,
+      "pendingDeviceId": null
+    },
+    {
+      "id": "cmn39rihw0003odqkrobsyz2w",
+      "name": "Tech OK",
+      "mobile": "8804536908",
+      "approvalStatus": "otp_pending",
+      "deviceApprovalStatus": "none",
+      "requestedDeviceId": null,
+      "pendingDeviceId": null
+    },
+    {
+      "id": "cmn2w5c9i0005odgobruf0oj3",
+      "name": "Soorya raj u k",
+      "mobile": "8547957114",
+      "approvalStatus": "approved",
+      "deviceApprovalStatus": "pending",
+      "requestedDeviceId": "web-b2815039-561f-41a2-b86e-927f6fc4bb37",
+      "pendingDeviceId": "web-11ede2a1-e9c6-4075-99d7-f5baeecbd350"
+    },
+    {
+      "id": "cmn2w4k720002odgozm2e07lz",
+      "name": "Soorya raj u k",
+      "mobile": "9074136793",
+      "approvalStatus": "pending",
+      "deviceApprovalStatus": "none",
+      "requestedDeviceId": "web-b2815039-561f-41a2-b86e-927f6fc4bb37",
+      "pendingDeviceId": null
+    },
+    {
+      "id": "cmn2q0fnw0000od1wfs8evn3r",
+      "name": "Guest bsuid:deploy:smoke:user",
+      "mobile": null,
+      "approvalStatus": "pending",
+      "deviceApprovalStatus": "none",
+      "requestedDeviceId": null,
+      "pendingDeviceId": null
+    },
+    {
+      "id": "cmn20tape0006odgsj6oiyucp",
+      "name": "Test User",
+      "mobile": "8547957115",
+      "approvalStatus": "pending",
+      "deviceApprovalStatus": "none",
+      "requestedDeviceId": "web-test-device",
+      "pendingDeviceId": null
+    },
+    {
+      "id": "cmniumigg000eodc4r42107d6",
+      "name": "Roshmon mohanan",
+      "mobile": "9496538284",
+      "approvalStatus": "pending",
+      "deviceApprovalStatus": "none",
+      "requestedDeviceId": "web-11ede2a1-e9c6-4075-99d7-f5baeecbd350",
+      "pendingDeviceId": null
+    }
+  ],
+  "sessions": [
+    {
+      "id": "cmn2xlsxv0005odn473xcc1oc",
+      "token": "1a458bb5-699a-49c9-b23c-f57d954764c8",
+      "userId": "cmn2w5c9i0005odgobruf0oj3",
+      "expiresAt": "2026-04-22T08:36:20.802Z",
+      "createdAt": "2026-03-23T08:36:20.804Z"
+    },
+    {
+      "id": "cmniqkk0b000bodc4bz6j1m86",
+      "token": "890ed770-bcff-48dc-ace3-4c00bbabcfe0",
+      "userId": "cmn2w5c9i0005odgobruf0oj3",
+      "expiresAt": "2026-05-03T10:03:44.073Z",
+      "createdAt": "2026-04-03T10:03:44.075Z"
+    }
+  ],
+  "whatsappOtps": [
+    {
+      "id": "cmn20tarz0008odgsfh5h6338",
+      "employeeId": "cmn20tape0006odgsj6oiyucp",
+      "mobile": "8547957115",
+      "otpHash": "$2b$10$s8ipwoCeXOIwON.vSfTBL.3.zTxQuoSScmS/fyLFk3wLBU6.iTqZq",
+      "purpose": "register",
+      "expiresAt": "2026-03-22T17:23:23.181Z",
+      "consumedAt": null,
+      "createdAt": "2026-03-22T17:18:23.184Z"
+    },
+    {
+      "id": "cmn2w4kbb0004odgo24egnmrl",
+      "employeeId": "cmn2w4k720002odgozm2e07lz",
+      "mobile": "9074136793",
+      "otpHash": "$2b$10$ciFkNP4meQyuT8WPIs1.eutTJFbVBFwlptJ0DUkpyFANVbsnyotwi",
+      "purpose": "register",
+      "expiresAt": "2026-03-23T07:59:56.850Z",
+      "consumedAt": null,
+      "createdAt": "2026-03-23T07:54:56.856Z"
+    },
+    {
+      "id": "cmn2w5cda0007odgoekznwlcc",
+      "employeeId": "cmn2w5c9i0005odgobruf0oj3",
+      "mobile": "8547957114",
+      "otpHash": "$2b$10$mCvoOuIQgfxMog4YqB4pHOx.nChpMfuUQq1eKbwfiul29N8twi0EO",
+      "purpose": "register",
+      "expiresAt": "2026-03-23T08:00:33.209Z",
+      "consumedAt": "2026-03-23T07:55:48.590Z",
+      "createdAt": "2026-03-23T07:55:33.214Z"
+    },
+    {
+      "id": "cmn2xlh190003odn4wfah846z",
+      "employeeId": "cmn2w5c9i0005odgobruf0oj3",
+      "mobile": "8547957114",
+      "otpHash": "$2b$10$aMk/ZT/cPYBXKITW6/.wNeyGN/wUWO1mT34fVRH8.c9DtB8/z7kMy",
+      "purpose": "login",
+      "expiresAt": "2026-03-23T08:41:05.365Z",
+      "consumedAt": "2026-03-23T08:36:20.797Z",
+      "createdAt": "2026-03-23T08:36:05.374Z"
+    },
+    {
+      "id": "cmn39rgh10002odqkur3r1jgt",
+      "employeeId": "cmn39rg8v0000odqkynkz0kkg",
+      "mobile": "9702214315",
+      "otpHash": "$2b$10$236AspbYk8MhG1UKb3ir.Opa/q9ttytAy6L6DPLPZ8F4K0j6HMFre",
+      "purpose": "register",
+      "expiresAt": "2026-03-23T14:21:39.941Z",
+      "consumedAt": null,
+      "createdAt": "2026-03-23T14:16:39.973Z"
+    },
+    {
+      "id": "cmn39riks0005odqk0dg9zrev",
+      "employeeId": "cmn39rihw0003odqkrobsyz2w",
+      "mobile": "8804536908",
+      "otpHash": "$2b$10$QJ/.6AfDqGYE8vUerTgDs.hjf3jQgTAV.D/EfK39Uzcsh414tbt.6",
+      "purpose": "register",
+      "expiresAt": "2026-03-23T14:21:42.694Z",
+      "consumedAt": null,
+      "createdAt": "2026-03-23T14:16:42.700Z"
+    },
+    {
+      "id": "cmniqjxjy0005odc4wj6663ri",
+      "employeeId": "cmn2w5c9i0005odgobruf0oj3",
+      "mobile": "8547957114",
+      "otpHash": "$2b$10$U1y7H19PcIQcmt9MrFR8N.JUehiSb5dcgMjBT5Qgvyo8rP.G0Ro2u",
+      "purpose": "login",
+      "expiresAt": "2026-04-03T10:08:14.968Z",
+      "consumedAt": "2026-04-03T10:03:44.044Z",
+      "createdAt": "2026-04-03T10:03:14.974Z"
+    },
+    {
+      "id": "cmniu1cph000dodc4drugaaqk",
+      "employeeId": "cmn2w5c9i0005odgobruf0oj3",
+      "mobile": "8547957114",
+      "otpHash": "$2b$10$pFYckuqI3YwdIQPgTk3MSeQknLQ1tK5uD0HkAJY/6gxT5CWeDo0mq",
+      "purpose": "login",
+      "expiresAt": "2026-04-03T11:45:46.608Z",
+      "consumedAt": null,
+      "createdAt": "2026-04-03T11:40:46.613Z"
+    },
+    {
+      "id": "cmniumijd000godc4q76z217l",
+      "employeeId": "cmniumigg000eodc4r42107d6",
+      "mobile": "9496538284",
+      "otpHash": "$2b$10$vFJ0aXSUOQpSbbVIfE31POx/hIH2TmBcG1CP7r2F6/HavqM5TFjWW",
+      "purpose": "register",
+      "expiresAt": "2026-04-03T12:02:13.940Z",
+      "consumedAt": "2026-04-03T11:57:26.438Z",
+      "createdAt": "2026-04-03T11:57:13.945Z"
+    }
+  ],
+  "adminTrustedDevices": [
+    {
+      "id": "cmniqkjzo0007odc4h8sp4dcb",
+      "appUserId": "cmn2w5c9i0005odgobruf0oj3",
+      "deviceId": "web-050c771e-d984-42da-b71d-b174c0a2f456",
+      "deviceIp": "127.0.0.1",
+      "firstVerifiedAt": "2026-04-03T10:03:44.052Z",
+      "lastUsedAt": "2026-04-03T10:03:44.052Z",
+      "isActive": true
+    }
+  ],
+  "notifications": [
+    {
+      "id": "cmn2xfmh70001odn4gdigd17g",
+      "title": "Registration Approved",
+      "body": "Your account is approved. You can log in now.",
+      "type": "approval_result",
+      "targetRole": null,
+      "targetUserId": "cmn2w5c9i0005odgobruf0oj3",
+      "targetForm": null,
+      "url": "/login",
+      "isRead": false,
+      "refType": null,
+      "refId": null,
+      "createdAt": "2026-03-23T08:31:32.491Z"
+    },
+    {
+      "id": "cmniv6ep80000odg408b2mdor",
+      "title": "Registration Approval Required",
+      "body": "Roshmon mohanan (9496538284) has requested registration",
+      "type": "approval_request",
+      "targetRole": "admin",
+      "targetUserId": null,
+      "targetForm": null,
+      "url": "/approvals",
+      "isRead": true,
+      "refType": null,
+      "refId": null,
+      "createdAt": "2026-04-03T12:12:42.092Z"
+    }
+  ]
+}

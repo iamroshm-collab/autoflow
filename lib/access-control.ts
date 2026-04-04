@@ -1,4 +1,7 @@
-export type UserRole = "admin" | "manager" | "technician"
+export type UserRole = "admin" | "manager" | "technician" | "supervisor" | "accountant" | "office_staff" | "customer"
+
+/** Roles that bypass the full dashboard and only access the mobile attendance form. */
+export const OFFICE_ATTENDANCE_ROLES: UserRole[] = ["manager", "supervisor", "accountant", "office_staff"]
 
 const accessMap: Record<UserRole, string[]> = {
   admin: [
@@ -37,10 +40,24 @@ const accessMap: Record<UserRole, string[]> = {
     "attendance-payroll",
     "all-notifications",
   ],
+  // Office roles — attendance only; the UI redirects them to /mobile-attendance
+  supervisor: ["attendance-payroll"],
+  accountant: ["attendance-payroll"],
+  office_staff: ["attendance-payroll"],
+  // Customers have no dashboard access
+  customer: [],
 }
 
 export const isValidRole = (role: string): role is UserRole => {
-  return role === "admin" || role === "manager" || role === "technician"
+  return (
+    role === "admin" ||
+    role === "manager" ||
+    role === "technician" ||
+    role === "supervisor" ||
+    role === "accountant" ||
+    role === "office_staff" ||
+    role === "customer"
+  )
 }
 
 export const getAllowedMenuIds = (role: UserRole) => {

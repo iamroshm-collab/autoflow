@@ -30,10 +30,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No approved user found with this mobile number." }, { status: 404 })
     }
 
-    // Admins must use /api/auth/admin-login, not this employee path
+    // Admin accounts use the /api/auth/admin-login flow — signal the client to switch
     if (String(user.role || "").toLowerCase() === "admin") {
       return NextResponse.json(
-        { error: "Admin accounts must use the admin login page." },
+        { error: "Admin account — use OTP login.", isAdmin: true },
         { status: 403 }
       )
     }
@@ -92,6 +92,8 @@ export async function POST(request: NextRequest) {
               body: `${user.name} requested login from a new device and needs approval.`,
               url: "/approvals",
               type: "device_approval_request",
+              refType: "device_approval_request",
+              refId: user.id,
             })
           } catch (notificationError) {
             console.warn("[AUTH_LOGIN_DEVICE_NOTIFICATION_FAILED]", notificationError)
@@ -106,6 +108,8 @@ export async function POST(request: NextRequest) {
           {
             error: errorMessage,
             approvalStatus: "device_pending",
+            // True when the user has a different already-approved device (lost device scenario)
+            hasExistingDevice: Boolean(approvedDeviceId),
           },
           { status: 403 }
         )

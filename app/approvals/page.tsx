@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -263,9 +264,29 @@ export default function ApprovalsPage() {
       const incomingActiveDevices = Array.isArray(data.activeDevices) ? data.activeDevices : []
       
       if (isMountedRef.current) {
-        setRequests(incomingRequests)
-        setDeviceRequests(incomingDeviceRequests)
-        setActiveDevices(incomingActiveDevices)
+        // Apply optional query filters if supplied
+        const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+        const qUserId = params.get('userId')
+        const qMobile = params.get('mobile')
+
+        let filteredRequests = incomingRequests
+        if (qUserId) {
+          const match = incomingRequests.find((u) => u.id === qUserId)
+          filteredRequests = match ? [match] : []
+        } else if (qMobile) {
+          const normalizeMobile = (m?: string | null) => {
+            if (!m) return ""
+            const digits = String(m).replace(/\D/g, "")
+            return digits.length <= 10 ? digits : digits.slice(-10)
+          }
+          const qNorm = normalizeMobile(qMobile)
+          const match = incomingRequests.find((u) => normalizeMobile(u.mobile) === qNorm)
+          filteredRequests = match ? [match] : []
+        }
+
+        setRequests(filteredRequests)
+        setDeviceRequests(qUserId || qMobile ? [] : incomingDeviceRequests)
+        setActiveDevices(qUserId || qMobile ? [] : incomingActiveDevices)
 
         setProfiles((prev) => {
           const next = { ...prev }

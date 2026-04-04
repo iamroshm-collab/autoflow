@@ -147,8 +147,8 @@ export const RecentJobCards = memo(function RecentJobCards({ jobs }: RecentJobCa
             Recent Job Cards
           </h3>
         </div>
-        <div className="overflow-x-auto border border-border rounded-lg">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto md:overflow-x-visible border border-border rounded-lg">
+          <table className="min-w-[800px] md:min-w-full w-full text-sm">
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left py-3 px-2 font-medium text-muted-foreground">Vehicle</th>

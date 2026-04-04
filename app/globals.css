@@ -314,7 +314,7 @@
     width: 100%;
     height: calc(100vh - 12rem);
     min-height: 0;
-    overflow-y: hidden;
+    overflow-y: auto;
     overflow-x: hidden;
   }
 
@@ -490,6 +490,23 @@
   }
 
   @media (max-width: 767px) {
+    .global-tab-form-shell {
+      padding-top: 0.75rem !important;
+    }
+
+    .global-tab-form-shell.is-first,
+    .update-job-card-shell.is-first,
+    .global-tabs-frame.is-first {
+      border-top-left-radius: 1rem !important;
+    }
+
+    /* Push the mobile tab dropdown away from the form-main-wrapper's
+       overflow:hidden + border-radius clip zone (16px corners).
+       Horizontal padding matches the form shell so the dropdown aligns. */
+    .global-tabs-wrap {
+      padding: 0.75rem var(--master-gap) 0 !important;
+    }
+
     .mobile-only-tab-select {
       display: block !important;
       border-bottom: 1px solid hsl(var(--border));

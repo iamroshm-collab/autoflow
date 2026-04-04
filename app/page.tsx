@@ -17,7 +17,7 @@ import { useDropdownKeyboardNav } from "@/hooks/use-dropdown-keyboard-nav"
 import { useInventorySupplierSearch } from "@/hooks/useInventorySupplierSearch"
 import { useSparePartsSearch } from "@/hooks/useSparePartsSearch"
 import { useIncomeExpenseSearch } from "@/hooks/useIncomeExpenseSearch"
-import { canAccessMenu, type UserRole } from "@/lib/access-control"
+import { canAccessMenu, OFFICE_ATTENDANCE_ROLES, type UserRole } from "@/lib/access-control"
 import { getOrCreateDeviceId } from "@/lib/device-identity"
 import { getTodayISODateInIndia } from "@/lib/utils"
 import { SupplierAutocomplete } from "@/components/SupplierAutocomplete"
@@ -499,6 +499,14 @@ function PageContent() {
               localStorage.removeItem("gms_employee_id")
             }
           }
+
+          // Redirect office-only roles directly to the mobile attendance page
+          const userRole = String(data.user.role || "") as UserRole
+          if (OFFICE_ATTENDANCE_ROLES.includes(userRole)) {
+            router.replace("/mobile-attendance")
+            return
+          }
+
           setCurrentUser(data.user)
         }
       } catch (error) {
@@ -1380,6 +1388,7 @@ function PageContent() {
           onToggleSidebar={() => setSidebarOpen(true)}
           searchInputRef={searchInputRef}
           onSearchFocusChange={setSearchInputFocused}
+          showMobileActionIcons={activeItem === "dashboard"}
         />
 
         <main className="mt-[1mm] flex flex-1 min-h-0 flex-col gap-[1mm]">
@@ -1482,6 +1491,15 @@ function PageContent() {
                   inventoryTab === "suppliers" ? "is-first" : "is-offset"
                 }`}
               >
+                <div className="mb-2 mobile-only-tab-select">
+                  <Select value={inventoryTab} onValueChange={(value) => setInventoryTab(value as "suppliers" | "products")}>
+                    <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Select section" /></SelectTrigger>
+                    <SelectContent className="rounded-md">
+                      <SelectItem value="suppliers">Suppliers</SelectItem>
+                      <SelectItem value="products">Products</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-6">
                   <Tabs
                     value={inventoryTab}
@@ -1515,6 +1533,20 @@ function PageContent() {
                   inventoryPosTab === "purchase" ? "is-first" : "is-offset"
                 }`}
               >
+                <div className="mb-2 mobile-only-tab-select">
+                  <Select value={inventoryPosTab} onValueChange={(value) => setInventoryPosTab(value as "purchase" | "sales" | "inventory" | "stock-movement" | "credit-notes" | "debit-notes" | "gst-report")}>
+                    <SelectTrigger className="h-10 w-full"><SelectValue placeholder="Select section" /></SelectTrigger>
+                    <SelectContent className="rounded-md">
+                      <SelectItem value="purchase">Purchase Entry</SelectItem>
+                      <SelectItem value="sales">POS Sales</SelectItem>
+                      <SelectItem value="inventory">Inventory Report</SelectItem>
+                      <SelectItem value="stock-movement">Stock Movement</SelectItem>
+                      <SelectItem value="credit-notes">Credit Notes</SelectItem>
+                      <SelectItem value="debit-notes">Debit Notes</SelectItem>
+                      <SelectItem value="gst-report">GST Report</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Tabs
                   value={inventoryPosTab}
                   onValueChange={(value) =>
@@ -1804,8 +1836,17 @@ function PageContent() {
           {/* Footer */}
           <footer className={`w-full shrink-0 h-14 bg-white border border-slate-100 px-4 rounded-2xl ${activeItem === "whatsapp-messages" ? "hidden" : ""}`}>
             <div className="flex h-full items-center justify-between gap-4">
-              <p className="text-xs text-muted-foreground">
-                &copy; {new Date().getFullYear()} AutoFlow Garage Management System | All Rights Reserved.
+              <p className={`text-xs text-muted-foreground ${
+                (activeItem === "update-job-card" ||
+                 activeItem === "delivered" ||
+                 (activeItem === "settings" && settingsTab === "shop") ||
+                 (activeItem === "inventory-pos" && (inventoryPosTab === "gst-report" || inventoryPosTab === "purchase" || inventoryPosTab === "sales" || inventoryPosTab === "inventory")) ||
+                 (activeItem === "inventory" && inventoryTab === "products"))
+                  ? "invisible sm:visible"
+                  : ""
+              }`}>
+                <span className="block md:inline">&copy; {new Date().getFullYear()} AutoFlow Garage Management System |</span>
+                <span className="block md:inline">All Rights Reserved.</span>
               </p>
               {activeItem === "settings" && settingsTab === "shop" && (
                 <div className="flex items-center gap-3">

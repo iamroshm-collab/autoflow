@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const address = addressRaw || [addressLine1, addressLine2, city, state, postalCode].filter(Boolean).join(", ")
     const mobile = normalizeMobileNumber(body?.mobile)
     const otp = String(body?.otp || "").trim()
-    const roleRaw = String(body?.role || "technician").trim().toLowerCase()
+    const roleRaw = String(body?.role || "technician").trim().toLowerCase().replace(/-/g, "_")
     const requestedDeviceId = String(body?.deviceId || "").trim().slice(0, 120)
     const requestedDeviceIp = getClientIpAddress(request)
     const aadhar = String(body?.aadhar || "").replace(/\D/g, "").slice(0, 12) || null
@@ -60,6 +60,8 @@ export async function POST(request: NextRequest) {
             body: `${existing.name || "Unknown"} (${mobile}) is waiting for registration approval`,
             url: "/approvals",
             type: "approval_request",
+            refType: "access_request",
+            refId: existing.id,
           })
         } catch (notificationError) {
           console.warn("[AUTH_REGISTER_NOTIFICATION_FAILED]", notificationError)
@@ -87,9 +89,9 @@ export async function POST(request: NextRequest) {
 
     const role = roleRaw
 
-    if (role === "admin") {
+    if (role === "admin" || role === "manager") {
       return NextResponse.json(
-        { error: "Admin registration is disabled. Use /dev/admin-bootstrap for controlled admin setup." },
+        { error: "Admin and manager registration is disabled. Contact your administrator." },
         { status: 403 }
       )
     }

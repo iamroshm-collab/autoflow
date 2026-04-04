@@ -1,0 +1,166 @@
+{
+  "user": {
+    "id": "cmmwxun9x0006odh4y6k41orp",
+    "name": "Roshmon mohanan",
+    "email": null,
+    "passwordHash": null,
+    "mobile": "9496538284",
+    "phoneNumber": "9496538284",
+    "whatsappId": "919496538284",
+    "role": "technician",
+    "address": "Roshvilla, Pada. north, Karunagappally, Jollam, 690518",
+    "idNumber": "554864574309",
+    "designation": null,
+    "employeeRefId": null,
+    "emailVerificationStatus": "pending",
+    "approvalStatus": "approved",
+    "approvedById": null,
+    "approvedAt": null,
+    "requestedDeviceId": "web-11ede2a1-e9c6-4075-99d7-f5baeecbd350",
+    "requestedDeviceIp": "103.74.137.241",
+    "pendingDeviceId": "web-11ede2a1-e9c6-4075-99d7-f5baeecbd350",
+    "pendingDeviceIp": "103.74.137.241",
+    "approvedDeviceId": null,
+    "approvedDeviceIp": null,
+    "deviceApprovalStatus": "pending",
+    "lastLoginAt": "2026-03-27T04:50:22.177Z",
+    "createdAt": "2026-03-19T03:56:36.309Z",
+    "updatedAt": "2026-04-03T11:54:07.779Z"
+  },
+  "sessions": [
+    {
+      "id": "cmnipw8a50001odcwr5j9nk1q",
+      "token": "33141aab-8c11-46b1-8471-c73149bbb39a",
+      "userId": "cmmwxun9x0006odh4y6k41orp",
+      "expiresAt": "2026-05-03T09:44:49.130Z",
+      "createdAt": "2026-04-03T09:44:49.133Z"
+    }
+  ],
+  "whatsappOtps": [
+    {
+      "id": "cmmwyw32e0003od4kvzxea264",
+      "employeeId": "cmmwxun9x0006odh4y6k41orp",
+      "mobile": "9496538284",
+      "otpHash": "$2b$10$lN23j0r12T7fhvH399aVz.Ca8upQsxJZf7tt.TlMZw7TR3nd0MhiO",
+      "purpose": "login",
+      "expiresAt": "2026-03-19T04:30:43.026Z",
+      "consumedAt": "2026-03-19T04:25:43.176Z",
+      "createdAt": "2026-03-19T04:25:43.047Z"
+    },
+    {
+      "id": "cmmwywr450007od4kjw0zr67v",
+      "employeeId": "cmmwxun9x0006odh4y6k41orp",
+      "mobile": "9496538284",
+      "otpHash": "$2b$10$mcM2z4mhRMy2EGpY9I0SgOHtUKC3gbbr6k831Ycu0ppIxRP1Y8e/G",
+      "purpose": "login",
+      "expiresAt": "2026-03-19T04:31:14.204Z",
+      "consumedAt": "2026-03-19T04:26:24.653Z",
+      "createdAt": "2026-03-19T04:26:14.213Z"
+    },
+    {
+      "id": "cmmwznbhf0001odl0v390qotp",
+      "employeeId": "cmmwxun9x0006odh4y6k41orp",
+      "mobile": "9496538284",
+      "otpHash": "$2b$10$sHLVX8ybNM6WODq.ypFSfecaTRsg2wCONQubDZPxUCQVTTydDTEni",
+      "purpose": "login",
+      "expiresAt": "2026-03-19T04:51:53.612Z",
+      "consumedAt": "2026-03-19T04:47:02.061Z",
+      "createdAt": "2026-03-19T04:46:53.660Z"
+    },
+    {
+      "id": "cmmyk4orr0001od9kaemzi6za",
+      "employeeId": "cmmwxun9x0006odh4y6k41orp",
+      "mobile": "9496538284",
+      "otpHash": "$2b$10$jzc9MHb.WqhSL1gEm6JogOE4nW6HT.X79zDI23ksDBvQzQyXn3HzC",
+      "purpose": "login",
+      "expiresAt": "2026-03-20T07:13:02.439Z",
+      "consumedAt": "2026-03-20T07:08:10.830Z",
+      "createdAt": "2026-03-20T07:08:02.531Z"
+    },
+    {
+      "id": "cmmyk5vdl0005od9k0zmuj6o5",
+      "employeeId": "cmmwxun9x0006odh4y6k41orp",
+      "mobile": "9496538284",
+      "otpHash": "$2b$10$L3onXOlvEueEJl76WvHvAu9Tb3twalm1jRkUJFELhprDUzgUh78E.",
+      "purpose": "login",
+      "expiresAt": "2026-03-20T07:13:57.746Z",
+      "consumedAt": "2026-03-20T07:09:08.258Z",
+      "createdAt": "2026-03-20T07:08:57.753Z"
+    },
+    {
+      "id": "cmn1ukg5d0001odm0pntrpns4",
+      "employeeId": "cmmwxun9x0006odh4y6k41orp",
+      "mobile": "9496538284",
+      "otpHash": "$2b$10$4nNsgRiwdQzpWRfAqcjDkOHBKeM5yCKc0my/FqVTPEi4Imrg8F8lS",
+      "purpose": "login",
+      "expiresAt": "2026-03-22T14:28:32.444Z",
+      "consumedAt": "2026-03-22T14:24:00.735Z",
+      "createdAt": "2026-03-22T14:23:32.539Z"
+    },
+    {
+      "id": "cmn2wygio0001ode4nm8szuom",
+      "employeeId": "cmmwxun9x0006odh4y6k41orp",
+      "mobile": "9496538284",
+      "otpHash": "$2b$10$czrgbvCUbH4qPiZAQIXViOehhwXNhH6..yNGii2L5pFxJcwbzF0M6",
+      "purpose": "login",
+      "expiresAt": "2026-03-23T08:23:11.605Z",
+      "consumedAt": "2026-03-23T08:18:21.385Z",
+      "createdAt": "2026-03-23T08:18:11.616Z"
+    },
+    {
+      "id": "cmn3g9vc70001odus4jfwbr5f",
+      "employeeId": "cmmwxun9x0006odh4y6k41orp",
+      "mobile": "9496538284",
+      "otpHash": "$2b$10$sTBYN2QQ4V/0UvvcZ5wjL.p1/ikWT9xTG0hoVVOeLLp3Traieswiy",
+      "purpose": "login",
+      "expiresAt": "2026-03-23T17:23:56.714Z",
+      "consumedAt": "2026-03-23T17:19:55.233Z",
+      "createdAt": "2026-03-23T17:18:56.740Z"
+    },
+    {
+      "id": "cmn45yegr0001odwgi1nhi8op",
+      "employeeId": "cmmwxun9x0006odh4y6k41orp",
+      "mobile": "9496538284",
+      "otpHash": "$2b$10$mbFgZG70x507bjiJlsFyCebAmUs8k7wSPTYrQ0TI0q2m4QB43mkea",
+      "purpose": "login",
+      "expiresAt": "2026-03-24T05:22:51.663Z",
+      "consumedAt": "2026-03-24T05:18:13.574Z",
+      "createdAt": "2026-03-24T05:17:51.675Z"
+    },
+    {
+      "id": "cmn5jwsrf0001od0o634te8d4",
+      "employeeId": "cmmwxun9x0006odh4y6k41orp",
+      "mobile": "9496538284",
+      "otpHash": "$2b$10$MH2fovQK6ePjy6O5hyVNCukFfCrBkMbC77Nt.EsttIrUXS0/TecEi",
+      "purpose": "login",
+      "expiresAt": "2026-03-25T04:41:17.628Z",
+      "consumedAt": "2026-03-25T04:36:34.458Z",
+      "createdAt": "2026-03-25T04:36:17.688Z"
+    },
+    {
+      "id": "cmn7nutk50001odochf3eix60",
+      "employeeId": "cmmwxun9x0006odh4y6k41orp",
+      "mobile": "9496538284",
+      "otpHash": "$2b$10$hL4zxpyjdPQLlfl7z/ClwuUlJeHi/gnhURsSP0Q5w18HnJdmCsHfe",
+      "purpose": "login",
+      "expiresAt": "2026-03-26T16:07:16.178Z",
+      "consumedAt": "2026-03-26T16:02:29.600Z",
+      "createdAt": "2026-03-26T16:02:16.228Z"
+    },
+    {
+      "id": "cmnipuj3x0003odc4omuzuvcx",
+      "employeeId": "cmmwxun9x0006odh4y6k41orp",
+      "mobile": "9496538284",
+      "otpHash": "$2b$10$NOGro/ISMRbFOgYGkOvhte2PTymJW3UKBS9A459jyXlhOXGqVOWF2",
+      "purpose": "register",
+      "expiresAt": "2026-04-03T09:48:29.816Z",
+      "consumedAt": "2026-04-03T09:43:41.331Z",
+      "createdAt": "2026-04-03T09:43:29.822Z"
+    }
+  ],
+  "notificationsByBody": [],
+  "notificationsByUser": [],
+  "employees": [],
+  "notificationDevices": [],
+  "deviceTokens": []
+}

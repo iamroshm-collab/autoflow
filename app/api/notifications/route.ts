@@ -14,28 +14,58 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Number(request.nextUrl.searchParams.get("limit") || 30), 100)
     const includeRead = request.nextUrl.searchParams.get("includeRead") === "true"
 
-    const notifications = await prismaClient.appNotification.findMany({
-      where: {
-        ...(includeRead ? {} : { isRead: false }),
-        OR: [
-          { targetUserId: user.id },
-          { targetRole: user.role },
-          { targetRole: "all" },
-        ],
-      },
-      orderBy: { createdAt: "desc" },
-      take: limit,
-      select: {
-        id: true,
-        title: true,
-        body: true,
-        type: true,
-        url: true,
-        targetForm: true,
-        isRead: true,
-        createdAt: true,
-      },
-    })
+    let notifications
+    try {
+      notifications = await prismaClient.appNotification.findMany({
+        where: {
+          ...(includeRead ? {} : { isRead: false }),
+          OR: [
+            { targetUserId: user.id },
+            { targetRole: user.role },
+            { targetRole: "all" },
+          ],
+        },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        select: {
+          id: true,
+          title: true,
+          body: true,
+          type: true,
+          url: true,
+          targetForm: true,
+          isRead: true,
+          refType: true,
+          refId: true,
+          createdAt: true,
+        },
+      })
+    } catch (err) {
+      // Fallback for databases that don't have refType/refId columns yet
+      console.warn('[NOTIFICATIONS_GET_FALLBACK]', err?.message || err)
+      notifications = await prismaClient.appNotification.findMany({
+        where: {
+          ...(includeRead ? {} : { isRead: false }),
+          OR: [
+            { targetUserId: user.id },
+            { targetRole: user.role },
+            { targetRole: "all" },
+          ],
+        },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+        select: {
+          id: true,
+          title: true,
+          body: true,
+          type: true,
+          url: true,
+          targetForm: true,
+          isRead: true,
+          createdAt: true,
+        },
+      })
+    }
 
     return NextResponse.json({ notifications })
   } catch (error) {

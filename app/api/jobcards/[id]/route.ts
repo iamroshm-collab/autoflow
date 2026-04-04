@@ -490,6 +490,8 @@ export async function PUT(
         targetForm: "delivered",
         url: `/?form=delivered&jobCardId=${encodeURIComponent(updated.id)}`,
         type: "job_completed",
+        refType: "jobcard",
+        refId: updated.id,
       })
 
       // Notify customer on WhatsApp when their vehicle service is completed

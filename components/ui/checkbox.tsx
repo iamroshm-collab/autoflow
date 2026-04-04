@@ -11,24 +11,16 @@ const Checkbox = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <CheckboxPrimitive.Root
     ref={ref}
-    style={{ 
-      width: '20px',      // Standard size for mobile
-      height: '20px',     // Standard size for mobile
-      minWidth: '20px', 
-      minHeight: '20px',
-      borderRadius: '4px', // Slightly rounded corners
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      verticalAlign: 'middle', // Aligns it to the center of the text line
-      flexShrink: 0,
-    }}
     className={cn(
-      'peer border-2 border-red-500 bg-transparent transition-all mt-[-2px]', // mt-[-2px] fine-tunes the vertical seat
+      'peer border-2 border-red-500 bg-transparent transition-all appearance-none',
+      '!w-[20px] !h-[20px] !min-w-[20px] !min-h-[20px] !max-w-[20px] !max-h-[20px]',
+      'shrink-0 grow-0 self-center rounded-[4px]',
+      'flex items-center justify-center',
       'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-400',
       'data-[state=checked]:bg-red-500 data-[state=checked]:text-white',
       className,
     )}
+    style={{ aspectRatio: '1 / 1' }}
     {...props}
   >
     <CheckboxPrimitive.Indicator className="flex items-center justify-center">

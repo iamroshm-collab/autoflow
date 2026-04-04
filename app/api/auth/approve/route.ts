@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUserFromRequest } from "@/lib/auth-session"
-import { createUserNotification } from "@/lib/app-notifications"
+import { createUserNotification, removeNotificationsByRef } from "@/lib/app-notifications"
 import { isAdminLikeDesignation } from "@/lib/attendance"
 import { composeAddress } from "@/lib/address-utils"
 import { isValidMobileNumber, normalizeMobileNumber } from "@/lib/mobile-validation"
 import { sendApprovalResultNotification, sendApprovalResultNotificationByEmail } from "@/services/notificationService"
+import { sendMetaWhatsappLoginApproved } from "@/lib/meta-whatsapp"
 
 const prismaClient = prisma as any
 
@@ -76,14 +77,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (action === "approve" && !profile.designation) {
+    if (action === "approve" && approvedAccessRole !== "customer" && !profile.designation) {
       return NextResponse.json(
         { error: "Please select a designation before approval." },
         { status: 400 }
       )
     }
 
-    if (action === "approve" && !profile.facePhotoUrl) {
+    if (action === "approve" && approvedAccessRole !== "customer" && !profile.facePhotoUrl) {
       return NextResponse.json(
         { error: "Please capture a live employee photo before approval." },
         { status: 400 }
@@ -100,7 +101,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "User account must be approved before device actions" }, { status: 400 })
       }
 
-      if (!Number.isInteger(target.employeeRefId)) {
+      const targetRole = String(target.role || "").toLowerCase()
+      const hasEmployeeProfile = Number.isInteger(target.employeeRefId)
+
+      // Customers and other non-employee roles do not require an employee profile for device management
+      if (!hasEmployeeProfile && targetRole !== "customer") {
         return NextResponse.json({ error: "User is not linked to an employee profile" }, { status: 400 })
       }
 
@@ -122,14 +127,16 @@ export async function POST(request: NextRequest) {
           data: deviceResetUpdate,
         })
 
-        await prismaClient.employee.update({
-          where: { employeeId: Number(target.employeeRefId) },
-          data: {
-            registeredDeviceId: null,
-            registeredDeviceIp: null,
-            deviceRegisteredAt: null,
-          },
-        })
+        if (hasEmployeeProfile) {
+          await prismaClient.employee.update({
+            where: { employeeId: Number(target.employeeRefId) },
+            data: {
+              registeredDeviceId: null,
+              registeredDeviceIp: null,
+              deviceRegisteredAt: null,
+            },
+          })
+        }
 
         try {
           await createUserNotification(target.id, {
@@ -169,14 +176,23 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      await prismaClient.employee.update({
-        where: { employeeId: Number(target.employeeRefId) },
-        data: {
-          registeredDeviceId: pendingDeviceId,
-          registeredDeviceIp: pendingDeviceIp,
-          deviceRegisteredAt: new Date(),
-        },
-      })
+      if (hasEmployeeProfile) {
+        await prismaClient.employee.update({
+          where: { employeeId: Number(target.employeeRefId) },
+          data: {
+            registeredDeviceId: pendingDeviceId,
+            registeredDeviceIp: pendingDeviceIp,
+            deviceRegisteredAt: new Date(),
+          },
+        })
+      }
+
+      try {
+        // Remove the original device-approval-request notification from admins
+        await removeNotificationsByRef("device_approval_request", target.id, { roles: ["admin"] })
+      } catch (notificationError) {
+        console.error("[AUTH_APPROVE_DEVICE_REMOVE_NOTIF]", notificationError)
+      }
 
       try {
         await createUserNotification(target.id, {
@@ -196,19 +212,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Manager can only approve technicians" }, { status: 403 })
     }
 
-    if (currentUser.role === "manager" && !approvedAccessRole && target.role !== "technician") {
+    if (currentUser.role === "manager" && !approvedAccessRole && target.role !== "technician" && target.role !== "customer") {
       return NextResponse.json({ error: "Manager can only approve technicians" }, { status: 403 })
     }
 
     const approvalStatus = action === "approve" ? "approved" : "rejected"
-    const mappedAppRole = approvedAccessRole === "technician" ? "technician" : "manager"
+
+    // Map the human-readable accessRole to the stored app role
+    const roleMapping: Record<string, string> = {
+      technician: "technician",
+      supervisor: "supervisor",
+      accountant: "accountant",
+      "office-staff": "office_staff",
+      manager: "manager",
+      customer: "customer",
+    }
+    const mappedAppRole = roleMapping[approvedAccessRole] ?? "manager"
+
+    // Customers skip all employee profile requirements
+    const isCustomerApproval = approvedAccessRole === "customer" || target.role === "customer"
 
     let approvedEmployeeId: number | null = target.employeeRefId ?? null
     const requestedDeviceId = String((target as any).requestedDeviceId || "").trim()
     const requestedDeviceIpRaw = String((target as any).requestedDeviceIp || "").trim()
     const requestedDeviceIp = requestedDeviceIpRaw || null
 
-    if (action === "approve") {
+    if (action === "approve" && !isCustomerApproval) {
       const approvedMobile = profile.mobile || normalizeMobileNumber(target.mobile)
       const approvedDesignation = profile.designation || String(target.designation || "").trim()
       const approvedAddress = composedAddress || String(target.address || "").trim()
@@ -361,19 +390,24 @@ export async function POST(request: NextRequest) {
       approvedAt: new Date(),
       ...(action === "approve"
         ? {
-            mobile: profile.mobile || target.mobile,
-            address: composedAddress || target.address,
-            designation: profile.designation || target.designation,
-            idNumber: profile.idNumber || target.idNumber,
             role: mappedAppRole,
             approvedDeviceId: requestedDeviceId || null,
             approvedDeviceIp: requestedDeviceIp,
             pendingDeviceId: null,
             pendingDeviceIp: null,
             deviceApprovalStatus: "none",
+            // Employee-specific fields only for non-customer approvals
+            ...(!isCustomerApproval
+              ? {
+                  mobile: profile.mobile || target.mobile,
+                  address: composedAddress || target.address,
+                  designation: profile.designation || target.designation,
+                  idNumber: profile.idNumber || target.idNumber,
+                }
+              : {}),
           }
         : {}),
-      ...(action === "approve" ? { employeeRefId: approvedEmployeeId } : {}),
+      ...(action === "approve" && !isCustomerApproval ? { employeeRefId: approvedEmployeeId } : {}),
     }
 
     if (action === "approve" && approvedEmployeeId) {
@@ -446,6 +480,13 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+      // Remove the original access-request notification from admins/managers now that it's resolved
+      await removeNotificationsByRef("access_request", target.id, { roles: ["admin", "manager"] })
+    } catch (notificationError) {
+      console.error("[AUTH_APPROVE_REMOVE_ACCESS_NOTIF]", notificationError)
+    }
+
+    try {
       await createUserNotification(target.id, {
         title: action === "approve" ? "Registration Approved" : "Registration Rejected",
         body: action === "approve"
@@ -478,6 +519,19 @@ export async function POST(request: NextRequest) {
       )
     } catch (aliasPushError) {
       console.error("[AUTH_APPROVE_ALIAS_PUSH_NOTIFICATION]", aliasPushError)
+    }
+
+    // Send WhatsApp login_approved template when account is approved
+    if (action === "approve") {
+      try {
+        const approvedMobile = String(profile.mobile || target.mobile || "").replace(/\D/g, "").slice(-10)
+        const approvedName = String(target.name || "").trim()
+        if (approvedMobile.length === 10 && approvedName) {
+          await sendMetaWhatsappLoginApproved(approvedMobile, approvedName)
+        }
+      } catch (whatsappError) {
+        console.error("[AUTH_APPROVE_WHATSAPP_NOTIFY]", whatsappError)
+      }
     }
 
     return NextResponse.json({ success: true })

@@ -9,7 +9,7 @@ type MetaWebhookPayload = {
       value?: {
         messages?: Array<Record<string, unknown>>
         contacts?: Array<Record<string, unknown>>
-        statuses?: Array<Record<string, unknown>>
+        statuses?: Array<{ id?: string; status?: string; timestamp?: string; recipient_id?: string }>
         user_id?: unknown
       }
     }>
@@ -305,10 +305,7 @@ const processWebhookPayload = async (body: MetaWebhookPayload) => {
         const identity = resolveMessageIdentifier(message, value)
 
         if (!identity) {
-          results.push({
-            action: "ignored",
-            reason: "missing-identifier",
-          })
+          results.push({ action: "ignored", reason: "missing-identifier" })
           continue
         }
 
@@ -321,6 +318,25 @@ const processWebhookPayload = async (body: MetaWebhookPayload) => {
           userId: outcome.user.id,
           role: outcome.user.role,
         })
+      }
+
+      // Process delivery/read status updates for outgoing messages
+      const statuses = Array.isArray(value.statuses) ? value.statuses : []
+      for (const rawStatus of statuses) {
+        const s = (rawStatus || {}) as Record<string, unknown>
+        const waMessageId = getString(s.id)
+        const status = getString(s.status) // "sent" | "delivered" | "read" | "failed"
+        if (!waMessageId || !status) continue
+        try {
+          await prismaClient.$executeRawUnsafe(
+            `UPDATE whatsapp_messages SET status = $1 WHERE "waMessageId" = $2`,
+            status,
+            waMessageId
+          )
+          results.push({ action: "status-updated", waMessageId, status })
+        } catch {
+          // Non-critical
+        }
       }
     }
   }

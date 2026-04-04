@@ -7,7 +7,15 @@ import { requestWhatsappOtp, verifyWhatsappOtp } from "@/lib/whatsapp-otp"
 
 const prismaClient = prisma as any
 
-const getAdminMobile = () => String(process.env.ADMIN_MOBILE || "").replace(/\D/g, "").trim()
+const getAdminMobiles = () => {
+  const raw = String(process.env.ADMIN_MOBILE || "")
+  if (!raw) return []
+  // Allow comma, semicolon or whitespace separated list
+  return raw
+    .split(/[;,\s]+/)
+    .map((s) => String(s || "").replace(/\D/g, "").trim())
+    .filter(Boolean)
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,9 +25,9 @@ export async function POST(request: NextRequest) {
     const deviceId = String(body?.deviceId || "").trim().slice(0, 120)
     const deviceIp = getClientIpAddress(request)
 
-    const adminMobile = getAdminMobile()
+    const adminMobiles = getAdminMobiles()
 
-    if (!adminMobile) {
+    if (!adminMobiles.length) {
       return NextResponse.json(
         { error: "Admin login is not configured on this server." },
         { status: 503 }
@@ -30,7 +38,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Valid 10-digit mobile number is required." }, { status: 400 })
     }
 
-    if (mobile !== adminMobile) {
+    if (!adminMobiles.includes(mobile)) {
       return NextResponse.json(
         { error: "Only the registered admin mobile number is allowed to login here." },
         { status: 403 }

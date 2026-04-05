@@ -29,7 +29,7 @@ type WhatsAppMessagesResponse = { messages?: WhatsAppMessage[] }
 
 const isUnreadWhatsAppStatus = (status: string | null | undefined) => {
   const n = String(status || "").trim().toLowerCase()
-  return n.includes("receive") || n.includes("new") || n === ""
+  return n.includes("receive") || n.includes("new")
 }
 
 export type TopBarSearchConfig = {

@@ -546,10 +546,10 @@ export function CustomerVehicleManagement({
           <table className="w-full text-sm">
             <thead className="bg-slate-100/80">
               <tr>
-                <th className="text-left font-medium px-3 py-2">Customer Name</th>
+                <th className="text-center font-medium px-3 py-2">Customer Name</th>
                 <th className="text-center font-medium px-3 py-2">Mobile</th>
                 <th className="text-left font-medium px-3 py-2">Address</th>
-                <th className="text-left font-medium px-3 py-2">State</th>
+                <th className="text-center font-medium px-3 py-2">State</th>
                 <th className="text-center font-medium px-3 py-2 w-[180px]">Actions</th>
               </tr>
             </thead>
@@ -569,10 +569,10 @@ export function CustomerVehicleManagement({
               ) : (
                 customers.map((customer) => (
                   <tr key={customer.id} className="border-t">
-                    <td className="px-3 py-2 text-left font-medium">{customer.name}</td>
+                    <td className="px-3 py-2 text-center font-medium">{customer.name}</td>
                     <td className="px-3 py-2 text-center">{customer.mobileNo}</td>
                     <td className="px-3 py-2 text-left">{customer.address || "-"}</td>
-                    <td className="px-3 py-2 text-left">{customer.state || "-"}</td>
+                    <td className="px-3 py-2 text-center">{customer.state || "-"}</td>
                     <td className="px-3 py-2">
                       <div className="flex items-center justify-center gap-2">
                         <Button

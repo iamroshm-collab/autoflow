@@ -1,331 +1,257 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { notify } from "@/components/ui/notify"
-import { AttendanceDetails, useAttendanceDetails } from "@/hooks/useAttendanceDetails"
-import { useCamera } from "@/hooks/useCamera"
-import { ClientFaceVerificationResult, useFaceApi } from "@/hooks/useFaceApi"
-import { Check } from "lucide-react"
+import { Check, Loader2, Camera } from "lucide-react"
+
+interface AttendanceEmployee {
+  employeeId: number
+  empName: string
+  designation: string | null
+  facePhotoUrl: string | null
+}
+
+interface TodayRecord {
+  attendance: string
+  checkInAt: string | null
+  checkOutAt: string | null
+  workedDuration: string
+}
+
+interface AttendanceDetails {
+  employee: AttendanceEmployee
+  nextAction: "IN" | "OUT"
+  todayRecord: TodayRecord | null
+}
+
+type SubmitState = "idle" | "verifying" | "success" | "failed"
 
 export default function MobileAttendancePage() {
-  const { details, isLoading, refreshDetails } = useAttendanceDetails()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showSuccessTick, setShowSuccessTick] = useState(false)
+  const [details, setDetails] = useState<AttendanceDetails | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [deviceId, setDeviceId] = useState<string | null>(null)
+  const [submitState, setSubmitState] = useState<SubmitState>("idle")
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const autoSubmitTriggeredRef = useRef(false)
+  // Load employee info and the approved device_id from session
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const meRes = await fetch("/api/auth/me", { cache: "no-store" })
+        const meData = await meRes.json()
+        if (!meRes.ok) throw new Error(meData.error || "Please login to continue")
 
-  const verificationConfigured = details?.faceVerificationMode !== "not_configured"
-  const usesFaceApiClient = details?.faceVerificationMode === "face_api_js_client"
-  const { faceApiReady, faceApiError, verifyFaceWithFrame } = useFaceApi(usesFaceApiClient)
-  const canOpenCamera = Boolean(
-    details &&
-      details.garageLocationConfigured &&
-      details.employee.facePhotoUrl &&
-      verificationConfigured &&
-      (!usesFaceApiClient || faceApiReady)
-  )
-  const {
-    cameraOpen,
-    cameraAction,
-    faceGuideState,
-    faceGuideText,
-    qualityReady,
-    videoRef,
-    openCameraForAction,
-    stopCameraStream,
-  } = useCamera({ canOpenCamera })
+        const approvedDeviceId: string = meData?.user?.approvedDeviceId ?? ""
+        const employeeRefId = Number(meData?.user?.employeeRefId)
+        if (!Number.isInteger(employeeRefId)) {
+          throw new Error("Your account is not mapped to an employee profile")
+        }
+        if (!approvedDeviceId) {
+          throw new Error("No approved device found for this account. Contact admin.")
+        }
 
-  const createCaptureCanvas = (source: CanvasImageSource, width: number, height: number, scale: number) => {
-    const canvas = document.createElement("canvas")
-    canvas.width = Math.max(Math.round(width * scale), 320)
-    canvas.height = Math.max(Math.round(height * scale), 240)
-    const context = canvas.getContext("2d")
+        setDeviceId(approvedDeviceId)
 
-    if (!context) {
-      throw new Error("Failed to prepare face verification canvas")
+        const attRes = await fetch(`/api/mobile-attendance?employeeId=${employeeRefId}`)
+        const attData = await attRes.json()
+        if (!attRes.ok) throw new Error(attData.error || "Failed to load attendance details")
+
+        setDetails(attData)
+      } catch (err) {
+        notify.error(err instanceof Error ? err.message : "Failed to load attendance")
+      } finally {
+        setIsLoading(false)
+      }
     }
 
-    context.drawImage(source, 0, 0, canvas.width, canvas.height)
-    return canvas
+    void init()
+  }, [])
+
+  const refreshDetails = async (employeeId: number) => {
+    const res = await fetch(`/api/mobile-attendance?employeeId=${employeeId}`)
+    if (res.ok) {
+      const data = await res.json()
+      setDetails(data)
+    }
   }
 
-  useEffect(() => {
-    if (!cameraOpen || !qualityReady || isSubmitting || autoSubmitTriggeredRef.current) {
-      return
-    }
+  const handleMarkAttendance = async () => {
+    if (!details || !deviceId) return
 
-    autoSubmitTriggeredRef.current = true
-    void captureAndSubmitAttendance()
-  }, [cameraOpen, qualityReady, isSubmitting])
+    setSubmitState("verifying")
+    setErrorMessage(null)
 
-  const captureAndSubmitAttendance = async () => {
-    if (!details) {
-      notify.error("Select an employee first")
-      return
-    }
-
-    if (!cameraAction) {
-      notify.error("Attendance action is missing")
-      return
-    }
-
-    if (!qualityReady) {
-      notify.error("Face quality is not ready yet. Keep your face centered and well lit.")
-      autoSubmitTriggeredRef.current = false
-      return
-    }
-
-    if (!videoRef.current) {
-      notify.error("Camera is not ready")
-      autoSubmitTriggeredRef.current = false
-      return
-    }
-
-    if (!navigator.geolocation) {
-      notify.error("Geolocation is not supported on this phone")
-      return
-    }
-
-    setIsSubmitting(true)
     try {
-      let clientVerificationPayload: ClientFaceVerificationResult | null = null
-      const frameCanvas = createCaptureCanvas(
-        videoRef.current,
-        videoRef.current.videoWidth || 640,
-        videoRef.current.videoHeight || 480,
-        1.25
-      )
-
-      if (usesFaceApiClient) {
-        if (!faceApiReady) {
-          throw new Error("Face verification models are not ready yet")
-        }
-
-        if (!details.employee.facePhotoUrl) {
-          throw new Error("Employee reference photo is missing")
-        }
-
-        const result = await verifyFaceWithFrame(frameCanvas, details.employee.facePhotoUrl)
-
-        if (!result.verified) {
-          throw new Error("Face verification did not match the employee reference photo")
-        }
-
-        clientVerificationPayload = result
-      }
-
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 0,
-        })
-      })
-
-      const evidenceBlob = await new Promise<Blob>((resolve, reject) => {
-        frameCanvas.toBlob((blob) => {
-          if (!blob) {
-            reject(new Error("Failed to capture attendance evidence"))
-            return
-          }
-          resolve(blob)
-        }, "image/jpeg", 0.92)
-      })
-
-      const evidenceFile = new File([evidenceBlob], `attendance-${details.employee.employeeId}-${cameraAction}.jpg`, {
-        type: "image/jpeg",
-      })
-
-      const uploadFormData = new FormData()
-      uploadFormData.append("file", evidenceFile)
-      uploadFormData.append("employeeId", String(details.employee.employeeId))
-      uploadFormData.append("action", cameraAction)
-
-      const uploadResponse = await fetch("/api/uploads/attendance-video", {
-        method: "POST",
-        body: uploadFormData,
-      })
-      const uploadData = await uploadResponse.json()
-      if (!uploadResponse.ok) {
-        throw new Error(uploadData.error || "Failed to upload attendance video")
-      }
-
-      const attendanceResponse = await fetch("/api/mobile-attendance", {
+      const res = await fetch("/api/attendance/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          employeeId: details.employee.employeeId,
-          action: cameraAction,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          videoUrl: uploadData.videoUrl,
-          clientVerification: clientVerificationPayload
+          employee_id: details.employee.employeeId,
+          device_id: deviceId,
+          attendance_type: details.nextAction,
         }),
       })
-      const attendanceData = await attendanceResponse.json()
-      if (!attendanceResponse.ok) {
-        throw new Error(attendanceData.error || "Failed to mark attendance")
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.message || "Request failed")
       }
 
-      notify.success(`Attendance ${cameraAction} marked successfully`)
-      stopCameraStream()
-      setShowSuccessTick(true)
-      window.setTimeout(() => setShowSuccessTick(false), 1500)
-
-      await refreshDetails()
-    } catch (error) {
-      notify.error(error instanceof Error ? error.message : "Failed to mark attendance")
-      autoSubmitTriggeredRef.current = false
-    } finally {
-      setIsSubmitting(false)
+      if (data.success) {
+        setSubmitState("success")
+        notify.success("Attendance recorded")
+        await refreshDetails(details.employee.employeeId)
+        window.setTimeout(() => setSubmitState("idle"), 2500)
+      } else {
+        // Verified HTTP 200 but face did not match
+        setSubmitState("failed")
+        setErrorMessage(data.message || "Face verification failed")
+        window.setTimeout(() => {
+          setSubmitState("idle")
+          setErrorMessage(null)
+        }, 4000)
+      }
+    } catch (err) {
+      setSubmitState("failed")
+      const msg = err instanceof Error ? err.message : "Failed to mark attendance"
+      setErrorMessage(msg)
+      notify.error(msg)
+      window.setTimeout(() => {
+        setSubmitState("idle")
+        setErrorMessage(null)
+      }, 4000)
     }
   }
 
+  const isVerifying = submitState === "verifying"
+
   return (
     <main className="min-h-screen bg-slate-100 p-4 md:p-6">
-      <div className="mx-auto max-w-2xl space-y-4">
+      <div className="mx-auto max-w-md space-y-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Mobile Attendance</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">Attendance</h1>
           <p className="text-sm text-slate-600 mt-1">
-            Mark IN or OUT using live camera verification.
+            Tap the button below — the attendance camera will verify your identity.
           </p>
         </div>
 
-        {showSuccessTick ? (
-          <Card className="p-3 border-emerald-200 bg-emerald-50">
+        {isLoading ? (
+          <Card className="p-6 flex items-center gap-3 text-slate-600">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Loading…</span>
+          </Card>
+        ) : null}
+
+        {/* Success banner */}
+        {submitState === "success" ? (
+          <Card className="p-4 border-emerald-200 bg-emerald-50">
             <div className="flex items-center gap-2 text-emerald-800">
               <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white">
                 <Check className="h-4 w-4" />
               </span>
-              <span className="text-sm font-medium">Attendance marked successfully</span>
+              <span className="text-sm font-medium">Attendance recorded successfully</span>
             </div>
           </Card>
         ) : null}
 
-        <Card className="p-4 space-y-4">
-          <div className="rounded-lg border bg-slate-50 p-3">
-            <p className="text-xs text-slate-600">
-              Attendance is auto-bound to your approved employee profile and approved device.
-            </p>
-          </div>
-        </Card>
-
-        {isLoading ? <Card className="p-4 text-sm text-slate-600">Loading attendance details...</Card> : null}
+        {/* Error banner */}
+        {submitState === "failed" && errorMessage ? (
+          <Card className="p-4 border-red-200 bg-red-50">
+            <p className="text-sm text-red-800 font-medium">{errorMessage}</p>
+          </Card>
+        ) : null}
 
         {details ? (
           <Card className="p-4 space-y-4">
+            {/* Employee header */}
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold">{details.employee.empName}</h2>
                 <p className="text-sm text-slate-600">{details.employee.designation || "Employee"}</p>
-                <p className="text-sm text-slate-600">Next action: {details.nextAction}</p>
+                <p className="text-sm text-slate-500 mt-0.5">Next: {details.nextAction}</p>
               </div>
               {details.employee.facePhotoUrl ? (
                 <Image
                   src={details.employee.facePhotoUrl}
                   alt={details.employee.empName}
-                  width={96}
-                  height={96}
+                  width={80}
+                  height={80}
                   className="rounded-xl object-cover border"
                 />
               ) : null}
             </div>
 
+            {/* Today summary */}
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="rounded-lg border bg-slate-50 p-3">
-                <div className="text-slate-500">Today Status</div>
-                <div className="font-medium">{details.todayRecord?.attendance || "A"}</div>
+                <div className="text-slate-500">Status</div>
+                <div className="font-medium">{details.todayRecord?.attendance || "—"}</div>
               </div>
               <div className="rounded-lg border bg-slate-50 p-3">
-                <div className="text-slate-500">Worked Time</div>
+                <div className="text-slate-500">Worked</div>
                 <div className="font-medium">{details.todayRecord?.workedDuration || "0m"}</div>
               </div>
               <div className="rounded-lg border bg-slate-50 p-3">
                 <div className="text-slate-500">Check In</div>
-                <div className="font-medium">{details.todayRecord?.checkInAt ? new Date(details.todayRecord.checkInAt).toLocaleTimeString() : "-"}</div>
+                <div className="font-medium">
+                  {details.todayRecord?.checkInAt
+                    ? new Date(details.todayRecord.checkInAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "—"}
+                </div>
               </div>
               <div className="rounded-lg border bg-slate-50 p-3">
                 <div className="text-slate-500">Check Out</div>
-                <div className="font-medium">{details.todayRecord?.checkOutAt ? new Date(details.todayRecord.checkOutAt).toLocaleTimeString() : "-"}</div>
-              </div>
-            </div>
-
-            {!details.employee.facePhotoUrl ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                Reference photo is missing for this employee. Ask admin to upload the latest face photo first.
-              </div>
-            ) : null}
-
-            {!verificationConfigured ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                Face verification provider is not configured yet. Admin must set a verification provider before mobile attendance can be marked.
-              </div>
-            ) : null}
-
-            {usesFaceApiClient && faceApiError ? (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                face-api.js models failed to load: {faceApiError}
-              </div>
-            ) : null}
-
-            <Button
-              onClick={() => {
-                setShowSuccessTick(false)
-                autoSubmitTriggeredRef.current = false
-                void openCameraForAction(details.nextAction)
-              }}
-              disabled={isSubmitting || !canOpenCamera}
-              className="w-full"
-            >
-              {isSubmitting ? "Submitting..." : `Mark ${details.nextAction}`}
-            </Button>
-          </Card>
-        ) : null}
-
-        {cameraOpen ? (
-          <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
-            <div className="w-full max-w-md space-y-4">
-              <div className="relative rounded-2xl overflow-hidden border border-white/20 bg-black">
-                <video ref={videoRef} className="w-full aspect-[3/4] object-cover" autoPlay muted playsInline />
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div
-                    className={`relative w-72 h-72 rounded-full border-4 transition-colors duration-300 shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] ${
-                      faceGuideState === "good"
-                        ? "border-emerald-400"
-                        : faceGuideState === "bad"
-                          ? "border-red-400"
-                          : "border-white/70"
-                    }`}
-                  >
-                    <div className="absolute inset-0 rounded-full bg-transparent" />
-                  </div>
+                <div className="font-medium">
+                  {details.todayRecord?.checkOutAt
+                    ? new Date(details.todayRecord.checkOutAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "—"}
                 </div>
               </div>
-
-              <p className="text-center text-sm text-white/90">{faceGuideText}</p>
-
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => {
-                    stopCameraStream()
-                    autoSubmitTriggeredRef.current = false
-                  }}
-                  disabled={isSubmitting}
-                >
-                  Cancel
-                </Button>
-              </div>
-              <p className="text-center text-xs text-white/70">
-                {qualityReady ? "Face verified. Marking attendance..." : "Waiting for stable face and lighting..."}
-              </p>
             </div>
-          </div>
+
+            {/* Camera instruction shown while verifying */}
+            {isVerifying ? (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 flex items-center gap-3">
+                <Camera className="h-5 w-5 text-blue-600 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-blue-900">Please look at the attendance camera</p>
+                  <p className="text-xs text-blue-700 mt-0.5">Verifying your identity…</p>
+                </div>
+                <Loader2 className="h-4 w-4 animate-spin text-blue-600 ml-auto shrink-0" />
+              </div>
+            ) : null}
+
+            {/* Main action button */}
+            <Button
+              onClick={() => void handleMarkAttendance()}
+              disabled={isVerifying || submitState === "success"}
+              className="w-full"
+              size="lg"
+            >
+              {isVerifying ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Verifying…
+                </>
+              ) : (
+                `Mark ${details.nextAction}`
+              )}
+            </Button>
+
+            <p className="text-xs text-center text-slate-400">
+              Attendance is verified by the camera at the garage. No phone camera is used.
+            </p>
+          </Card>
         ) : null}
       </div>
     </main>

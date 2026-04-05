@@ -94,8 +94,8 @@ const normalizeMessage = (row: UnknownRecord, index: number): MonitorMessage => 
   const messageType = toStringOrNull(row.messageType)
   const hasRepliedAt = !!row.repliedAt
   const msgTypeIsOutgoing = messageType?.toLowerCase().includes("outgoing") || messageType?.toLowerCase().includes("sent") || messageType?.toLowerCase().includes("replied")
-  const statusIsOutgoing = !status.toLowerCase().includes("received") && !status.toLowerCase().includes("new")
-  const isOutgoing = hasRepliedAt || msgTypeIsOutgoing || statusIsOutgoing
+  const senderIsYou = String(row.senderName ?? "").trim().toLowerCase() === "you"
+  const isOutgoing = hasRepliedAt || msgTypeIsOutgoing || senderIsYou
   
   return {
     id: String(row.id ?? row.messageId ?? `row-${index}`),
@@ -136,6 +136,24 @@ const fetchLatestMessages = async (): Promise<UnknownRecord[]> => {
   }
 
   return []
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = (await request.json()) as { phoneNumber?: string }
+    const phone = body.phoneNumber?.trim()
+    if (!phone) {
+      return NextResponse.json({ error: "phoneNumber required" }, { status: 400 })
+    }
+    await prisma.whatsappMessage.updateMany({
+      where: { phoneNumber: phone, status: "received" },
+      data: { status: "seen" },
+    })
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("[ADMIN_MESSAGES_PATCH_ERROR]", error)
+    return NextResponse.json({ error: "Failed to mark as read" }, { status: 500 })
+  }
 }
 
 export async function GET() {

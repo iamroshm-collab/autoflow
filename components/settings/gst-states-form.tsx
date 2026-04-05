@@ -186,7 +186,7 @@ export default function GSTStatesForm({ panelCornerClass = "" }: { panelCornerCl
             setAddForm(emptyState)
           }
         }}>
-          <DialogContent className="max-w-3xl overflow-hidden">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New State</DialogTitle>
               <DialogDescription>Enter the state details to create a new state record.</DialogDescription>

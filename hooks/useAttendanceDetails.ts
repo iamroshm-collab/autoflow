@@ -20,9 +20,6 @@ export interface AttendanceDetails {
     checkOutAt: string | null
     workedDuration: string
   } | null
-  garageLocationConfigured: boolean
-  attendanceRadiusMeters: number
-  faceVerificationMode: string
 }
 
 export const useAttendanceDetails = () => {
@@ -61,9 +58,7 @@ export const useAttendanceDetails = () => {
   }, [])
 
   useEffect(() => {
-    if (!Number.isInteger(currentEmployeeId)) {
-      return
-    }
+    if (!Number.isInteger(currentEmployeeId)) return
 
     const loadDetails = async () => {
       setIsLoading(true)
@@ -86,9 +81,7 @@ export const useAttendanceDetails = () => {
   }, [currentEmployeeId])
 
   const refreshDetails = async () => {
-    if (!currentEmployeeId) {
-      return
-    }
+    if (!currentEmployeeId) return
 
     const refreshed = await fetch(`/api/mobile-attendance?employeeId=${currentEmployeeId}`)
     const refreshedData = await refreshed.json()

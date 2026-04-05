@@ -33,7 +33,7 @@ type WhatsAppMessagesResponse = {
 
 const isUnreadWhatsAppStatus = (status: string | null | undefined) => {
   const normalized = String(status || "").trim().toLowerCase()
-  return normalized.includes("receive") || normalized.includes("new") || normalized === ""
+  return normalized.includes("receive") || normalized.includes("new")
 }
 
 interface TopHeaderProps {
@@ -88,7 +88,11 @@ export function TopHeader({
         if (whatsAppResponse.ok) {
           const whatsAppData = (await whatsAppResponse.json()) as WhatsAppMessagesResponse
           const whatsAppRows = Array.isArray(whatsAppData.messages) ? whatsAppData.messages : []
-          const unreadCount = whatsAppRows.filter((item) => isUnreadWhatsAppStatus(item.status)).length
+          const unreadCount = new Set(
+            whatsAppRows
+              .filter((item) => isUnreadWhatsAppStatus(item.status) && item.phoneNumber)
+              .map((item) => item.phoneNumber as string)
+          ).size
           if (mounted) {
             setWhatsAppUnreadCount(unreadCount)
           }

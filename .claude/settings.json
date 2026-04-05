@@ -20,7 +20,9 @@
       "Bash(head -15 grep -n \"dropdown\\\\|Dropdown\\\\|dropdown-item\\\\|showDropdown\\\\|isOpen\" \"c:/Users/Thakkudu/Desktop/new-garage-app/components/settings/shop-settings-form.tsx\")",
       "Read(//dev/**)",
       "Bash(head -15 grep -n \"onPartiesChange\\\\|interface.*Props\" \"c:/Users/Thakkudu/Desktop/new-garage-app/components/dashboard/inventory-pos-module.tsx\")",
-      "Bash(head -20 echo \"---\" grep -n \"billHistory\\\\|salesHistory\\\\|sales\\\\b\\\\|allSales\\\\|invoices\" \"c:/Users/Thakkudu/Desktop/new-garage-app/components/inventory/pos-sales.tsx\")"
+      "Bash(head -20 echo \"---\" grep -n \"billHistory\\\\|salesHistory\\\\|sales\\\\b\\\\|allSales\\\\|invoices\" \"c:/Users/Thakkudu/Desktop/new-garage-app/components/inventory/pos-sales.tsx\")",
+      "Bash(PGPASSWORD=\"Rosh@1987\" psql -h localhost -U postgres -d \"new-garage-app\" -c \"SELECT \\\\\"phoneNumber\\\\\", \\\\\"senderName\\\\\", status, COUNT\\(*\\) AS msg_count FROM whatsapp_messages GROUP BY \\\\\"phoneNumber\\\\\", \\\\\"senderName\\\\\", status ORDER BY msg_count DESC LIMIT 30;\")",
+      "Bash(node -e ':*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Thakkudu\\Desktop\\new-garage-app\\prisma\\migrations",

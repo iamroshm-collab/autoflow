@@ -24,8 +24,8 @@ const LiveChatMonitorPage = dynamic(
 
 export function WhatsAppAdminMessages({ onContactChange }: { onContactChange?: (name: string | null) => void }) {
   return (
-    <div style={{ padding: "1mm", height: "100%", boxSizing: "border-box", display: "flex", flexDirection: "column", background: "transparent" }}>
-      <div style={{ flex: 1, borderRadius: "12px", overflow: "hidden", minHeight: 0, boxShadow: "0 2px 16px rgba(0,0,0,0.18)", border: "1px solid #d1d5db" }}>
+    <div style={{ height: "100%", boxSizing: "border-box", display: "flex", flexDirection: "column", background: "transparent" }}>
+      <div style={{ flex: 1, overflow: "hidden", minHeight: 0 }}>
         <Suspense fallback={<div>Loading...</div>}>
           <LiveChatMonitorPage onContactChange={onContactChange} />
         </Suspense>

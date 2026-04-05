@@ -278,6 +278,7 @@ model AttendancePayroll {
   checkOutLongitude        Float?
   checkInDistanceMeters    Float?
   checkOutDistanceMeters   Float?
+  markedDeviceId           String?
   salaryAdvance            Float    @default(0)
   incentive                Float    @default(0)
   allowance                Float    @default(0)

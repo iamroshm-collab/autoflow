@@ -307,10 +307,27 @@ export default function LiveChatMonitorPage({ onContactChange }: { onContactChan
   }, [filteredContacts, selectedContactKey])
 
   useEffect(() => {
-    if (selectedContactKey && !viewedConversations.has(selectedContactKey)) {
-      setViewedConversations((prev) => new Set([...prev, selectedContactKey]))
+    if (!selectedContactKey || viewedConversations.has(selectedContactKey)) return
+    setViewedConversations((prev) => new Set([...prev, selectedContactKey]))
+    // Mark messages as read in DB so bell badge stays correct across navigation
+    const phone = contactSummaries.find((c) => c.key === selectedContactKey)?.phoneNumber
+    if (phone) {
+      void fetch("/api/admin/messages", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: phone }),
+      }).then(() => {
+        // Update local state immediately so badge clears without waiting for next poll
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.phoneNumber === phone && isUnreadStatus(m.status)
+              ? { ...m, status: "seen" }
+              : m
+          )
+        )
+      })
     }
-  }, [selectedContactKey, viewedConversations])
+  }, [selectedContactKey, viewedConversations, contactSummaries])
 
   const selectedContact = useMemo(
     () => filteredContacts.find((contact) => contact.key === selectedContactKey) || null,

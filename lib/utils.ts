@@ -194,6 +194,30 @@ export function formatDateDDMMYY(value?: string | Date | null): string {
 }
 
 /**
+ * Format a date/datetime to Indian Standard Time in dd/mm/yy hh:mm format (24-hour).
+ * Safe to call from server-side code — always uses Asia/Kolkata timezone regardless
+ * of where the server is running.
+ */
+export function formatISTDateTime(value: Date | string | null | undefined): string {
+  if (!value) return ""
+  const date = typeof value === "string" ? new Date(value) : value
+  if (Number.isNaN(date.getTime())) return ""
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date)
+
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ""
+  return `${get("day")}/${get("month")}/${get("year")} ${get("hour")}:${get("minute")}`
+}
+
+/**
  * Parse dd-mm-yy format to ISO format (YYYY-MM-DD)
  * Returns empty string if invalid
  */

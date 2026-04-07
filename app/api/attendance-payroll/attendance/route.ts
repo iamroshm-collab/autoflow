@@ -230,6 +230,9 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    // Check if the requested date is a holiday
+    const holidayForDate = await prisma.holiday.findUnique({ where: { date } })
+
     // Merge employees with their attendance
     const attendanceData = employees.map((emp) => {
       const record = attendanceRecords.find((r) => r.employeeId === emp.employeeId)
@@ -239,6 +242,8 @@ export async function GET(request: NextRequest) {
           : record?.checkInAt && record?.checkOutAt
             ? calculateWorkedMinutes(record.checkInAt, record.checkOutAt)
             : null
+      const isMarkedAbsent = !record || record.attendance === "A"
+      const isHoliday = !!holidayForDate
 
       return {
         employeeId: emp.employeeId,
@@ -247,14 +252,18 @@ export async function GET(request: NextRequest) {
         designation: emp.designation,
         salaryPerday: emp.salaryPerday,
         facePhotoUrl: emp.facePhotoUrl,
-        attendance: record?.attendance || "",
+        attendance: isHoliday && isMarkedAbsent ? "Holiday" : record?.attendance || "",
         attendanceId: record?.attendanceId,
         checkInAt: record?.checkInAt || null,
         checkOutAt: record?.checkOutAt || null,
+        checkInStatus: record?.checkInStatus || null,
+        checkOutStatus: record?.checkOutStatus || null,
+        lateMinutes: record?.lateMinutes ?? 0,
         workedMinutes: computedWorkedMinutes,
         workedDuration: formatWorkedDuration(computedWorkedMinutes),
         attendanceMethod: record?.attendanceMethod || null,
         verificationStatus: record?.verificationStatus || null,
+        isHoliday,
         nextAction: deriveNextAttendanceAction(record),
       }
     })
@@ -433,6 +442,7 @@ export async function PATCH(request: NextRequest) {
     const checkInTime = String(body.checkInTime || "").trim()
     const checkOutTime = String(body.checkOutTime || "").trim()
     const workedMinutesRaw = body.workedMinutes
+    const correctionToken = String(body.correctionToken || "").trim()
 
     if (!Number.isInteger(attendanceId)) {
       return NextResponse.json({ error: "Valid attendanceId is required" }, { status: 400 })
@@ -446,6 +456,7 @@ export async function PATCH(request: NextRequest) {
       where: { attendanceId },
       select: {
         attendanceId: true,
+        employeeId: true,
         checkInAt: true,
         checkOutAt: true,
       },
@@ -503,6 +514,40 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: "workedMinutes must be a non-negative integer" }, { status: 400 })
       }
       updateData.workedMinutes = workedMinutes
+    }
+
+    // If a correction token is provided, validate and log correction
+    if (correctionToken) {
+      const { consumeToken } = await import("@/lib/correction-tokens")
+      const auditedEmployeeId = Number(existingRecord.employeeId)
+      const pending = consumeToken(correctionToken, auditedEmployeeId)
+      if (!pending) {
+        return NextResponse.json({ error: "Invalid or expired correction token" }, { status: 400 })
+      }
+
+      // Snapshot originals
+      const originalCheckIn = existingRecord.checkInAt ?? null
+      const originalCheckOut = existingRecord.checkOutAt ?? null
+
+      const updated = await prisma.attendancePayroll.update({ where: { attendanceId }, data: updateData })
+
+      // Insert correction audit
+      await prisma.attendanceCorrection.create({
+        data: {
+          attendanceId: attendanceId,
+          employeeId: auditedEmployeeId,
+          recordDate: attendanceDate,
+          originalCheckIn,
+          originalCheckOut,
+          updatedCheckIn: updateData.checkInAt ?? null,
+          updatedCheckOut: updateData.checkOutAt ?? null,
+          adminUser: String((await getCurrentUserFromRequest(request))?.email ?? "admin"),
+          verificationTimestamp: new Date(pending.verifiedAt),
+          verificationImagePath: pending.imagePath,
+        },
+      })
+
+      return NextResponse.json({ ...updated, correctionLogged: true })
     }
 
     const updated = await prisma.attendancePayroll.update({

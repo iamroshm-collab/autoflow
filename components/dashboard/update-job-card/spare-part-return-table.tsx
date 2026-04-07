@@ -63,7 +63,7 @@ export function SparePartReturnTable({
                       onValueChange={(value) => onChange(row.id, "billNumber", value)}
                       disabled={isLoading}
                     >
-                      <SelectTrigger className="h-10 text-sm" onFocus={() => onRowFocus(row.id)}>
+                      <SelectTrigger className="h-10 text-sm border-0 bg-transparent focus:ring-0" onFocus={() => onRowFocus(row.id)}>
                         <SelectValue placeholder="Select bill" />
                       </SelectTrigger>
                       <SelectContent>

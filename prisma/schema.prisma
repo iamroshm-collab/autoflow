@@ -248,6 +248,7 @@ model Employee {
   notificationDevices   NotificationDevice[]
   appUser               AppUser?
   adminAuthProfile      AdminAuthProfile?   @relation("AdminAuthProfileEmployee")
+  shift                 EmployeeShift?
 
   @@index([empName])
   @@index([mobile])
@@ -265,6 +266,9 @@ model AttendancePayroll {
   checkInAt                DateTime?
   checkOutAt               DateTime?
   workedMinutes            Int?
+  checkInStatus            String?
+  checkOutStatus           String?
+  lateMinutes              Int?     @default(0)
   attendanceMethod         String?  @default("manual")
   verificationProvider     String?
   verificationStatus       String?  @default("not_configured")
@@ -290,6 +294,18 @@ model AttendancePayroll {
   @@unique([employeeId, attendanceDate])
   @@index([employeeId, attendanceDate])
   @@index([attendanceDate])
+}
+
+model EmployeeShift {
+  id                     Int      @id @default(autoincrement())
+  employeeId             Int      @unique
+  shiftStart             String   // "HH:MM"
+  shiftEnd               String   // "HH:MM"
+  gracePeriodMins        Int      @default(10)
+  overtimeThresholdMins  Int      @default(30)
+  employee               Employee @relation(fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  @@index([employeeId])
 }
 
 model Note {
@@ -348,6 +364,34 @@ model MonthlyPayroll {
   @@unique([employeeId, month, year])
   @@index([month, year])
   @@index([employeeId])
+}
+
+model Holiday {
+  id         Int      @id @default(autoincrement())
+  date       String   @unique
+  name       String
+  description String  @default("")
+  createdAt  DateTime @default(now())
+
+  @@index([date])
+}
+
+model AttendanceCorrection {
+  id                    Int      @id @default(autoincrement())
+  attendanceId          Int
+  employeeId            Int
+  recordDate            String
+  originalCheckIn       DateTime?
+  originalCheckOut      DateTime?
+  updatedCheckIn        DateTime?
+  updatedCheckOut       DateTime?
+  adminUser             String
+  verificationTimestamp DateTime
+  verificationImagePath String
+  correctedAt           DateTime @default(now())
+
+  @@index([employeeId])
+  @@index([attendanceId])
 }
 
 model State {

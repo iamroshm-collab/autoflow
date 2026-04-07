@@ -4,6 +4,7 @@ import {
   getJobAllocations,
 } from '@/services/jobAllocationService';
 import { sendJobAssignmentNotifications } from '@/services/notificationService';
+import { sendMetaWhatsappJobCardAssigned } from '@/lib/meta-whatsapp';
 
 /**
  * POST /api/technician-jobs/assign
@@ -67,6 +68,26 @@ export async function POST(request: NextRequest) {
       console.error('Failed to send notifications:', notificationError);
       // Don't fail the request if notifications fail
     }
+
+    // Send WhatsApp notification to each assigned technician
+    const technicianMap = new Map(
+      result.allocations.map((a) => [a.employeeId, a])
+    );
+    await Promise.allSettled(
+      parsedTechnicianIds.map((empId) => {
+        const allocation = technicianMap.get(empId);
+        const techMobile = allocation?.employee?.mobile;
+        if (!techMobile) return Promise.resolve();
+        return sendMetaWhatsappJobCardAssigned({
+          mobile: techMobile,
+          vehicleMake: result.jobCard.vehicle?.make || '',
+          vehicleModel: result.jobCard.vehicle?.model || '',
+          regNumber: result.jobCard.vehicle?.registrationNumber || '',
+          jobType: allocation?.taskAssigned || 'Service',
+          technicianName: allocation?.employee?.empName || '',
+        }).catch((err) => console.error('[TECHNICIAN_ASSIGN_WA]', err));
+      })
+    );
 
     return NextResponse.json(
       {

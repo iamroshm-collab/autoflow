@@ -18,6 +18,9 @@ import { toast } from '@/components/ui/notify'
 import { Printer, Plus, Trash2, Calendar, Edit3, CreditCard, Pencil, Save, X } from "lucide-react"
 import { generateSalarySlipPdf } from "@/lib/salary-slip-pdf"
 import { DatePickerInput } from "@/components/ui/date-picker-input"
+import HolidaysDialog from "@/components/dashboard/attendance-payroll-holidays"
+import VerifyEditDialog from "@/components/dashboard/attendance-payroll-verify-edit"
+import ShiftSettingsDialog from "@/components/dashboard/attendance-payroll-shift-settings"
 import { formatDateDDMMYY, getTodayISODateInIndia } from "@/lib/utils"
 
 interface Employee {
@@ -220,6 +223,10 @@ export function AttendancePayrollModule({
   const [editingAttendanceId, setEditingAttendanceId] = useState<number | null>(null)
   const [editingEmployeeId, setEditingEmployeeId] = useState<number | null>(null)
   const [attendanceEditForm, setAttendanceEditForm] = useState<AttendanceEditForm | null>(null)
+  const [holidaysDialogOpen, setHolidaysDialogOpen] = useState(false)
+  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false)
+  const [shiftDialogOpen, setShiftDialogOpen] = useState(false)
+  const [currentCorrectionToken, setCurrentCorrectionToken] = useState<string | null>(null)
 
   // Adjustments Tab State
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -397,6 +404,7 @@ export function AttendancePayrollModule({
   }
 
   const openAttendanceRowEditor = useCallback((record: AttendanceRecord) => {
+    console.log('[AttendanceModule] Opening edit for employee:', record.employeeId, record.empName)
     setEditingAttendanceId(record.attendanceId ?? null)
     setEditingEmployeeId(record.employeeId)
     setAttendanceEditForm({
@@ -440,17 +448,23 @@ export function AttendancePayrollModule({
         rowAttendanceId = createData.attendanceId
       }
 
+      const patchBody: any = {
+        attendanceId: rowAttendanceId,
+        attendanceDate,
+        attendance: normalizeStatusOption(attendanceEditForm.attendance),
+        checkInTime: attendanceEditForm.checkInTime,
+        checkOutTime: attendanceEditForm.checkOutTime,
+        workedMinutes: attendanceEditForm.workedMinutes,
+      }
+
+      if (currentCorrectionToken) {
+        patchBody.correctionToken = currentCorrectionToken
+      }
+
       const patchResponse = await fetch("/api/attendance-payroll/attendance", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          attendanceId: rowAttendanceId,
-          attendanceDate,
-          attendance: normalizeStatusOption(attendanceEditForm.attendance),
-          checkInTime: attendanceEditForm.checkInTime,
-          checkOutTime: attendanceEditForm.checkOutTime,
-          workedMinutes: attendanceEditForm.workedMinutes,
-        }),
+        body: JSON.stringify(patchBody),
       })
 
       const patchData = await patchResponse.json()
@@ -460,6 +474,7 @@ export function AttendancePayrollModule({
 
       toast.success("Attendance row updated")
       resetAttendanceRowEditor()
+      setCurrentCorrectionToken(null)
       fetchAttendance()
     } catch (error) {
       console.error("Error saving attendance row:", error)
@@ -906,6 +921,7 @@ export function AttendancePayrollModule({
   }, [attendanceCalendarMonth, attendanceCalendarYear])
 
   return (
+    <>
     <div className="space-y-6">
         {/* Tab Panels (rendered conditionally) */}
         {activeTab === "attendance" && (
@@ -1037,7 +1053,9 @@ export function AttendancePayrollModule({
                 Employees must mark attendance from their phone at /mobile-attendance.
               </div>
 
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex items-center gap-2"> 
+                <Button size="sm" onClick={() => setHolidaysDialogOpen(true)}>Holidays</Button>
+                <Button size="sm" onClick={() => setShiftDialogOpen(true)}>Shift Settings</Button>
                 <Label htmlFor="attendanceDateInTabs" className="text-xs text-slate-600 whitespace-nowrap">
                   Select Date
                 </Label>
@@ -1150,6 +1168,16 @@ export function AttendancePayrollModule({
                                 type="button"
                                 variant="ghost"
                                 size="icon"
+                                onClick={() => setVerifyDialogOpen(true)}
+                                aria-label="Verify"
+                                className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-800"
+                              >
+                                V
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
                                 onClick={resetAttendanceRowEditor}
                                 aria-label="Cancel"
                                 className="h-8 w-8 p-0 text-slate-600 hover:text-slate-800"
@@ -1221,7 +1249,7 @@ export function AttendancePayrollModule({
                       >
                         <SelectValue placeholder="Select employee" />
                       </SelectTrigger>
-                      <SelectContent className="global-record-select-content dropdown-scroll-modal">
+                      <SelectContent className="global-record-select-content">
                         <SelectItem value="all">All Employees</SelectItem>
                         {employees.map((employee) => (
                           <SelectItem key={employee.employeeId} value={String(employee.employeeId)}>
@@ -1359,7 +1387,7 @@ export function AttendancePayrollModule({
                         <SelectTrigger id="adjustment-employee-select" aria-label="Select employee" className="w-full">
                           <SelectValue placeholder="Select employee" />
                         </SelectTrigger>
-                        <SelectContent className="dropdown-scroll-modal">
+                        <SelectContent>
                           {employees.map((employee) => (
                             <SelectItem key={employee.employeeId} value={String(employee.employeeId)}>
                               {employee.empName}
@@ -1389,7 +1417,7 @@ export function AttendancePayrollModule({
                         <SelectTrigger id="adjustment-type" aria-label="Adjustment type" className="cursor-pointer">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent position="popper" sideOffset={4} className="z-[70] dropdown-scroll-modal">
+                        <SelectContent position="popper" sideOffset={4} className="z-[70]">
                           <SelectItem value="Allowance">Allowance</SelectItem>
                           <SelectItem value="Advance">Advance</SelectItem>
                           <SelectItem value="Incentive">Incentive</SelectItem>
@@ -1607,5 +1635,19 @@ export function AttendancePayrollModule({
           </div>
         )}
     </div>
+    <HolidaysDialog open={holidaysDialogOpen} onOpenChange={setHolidaysDialogOpen} />
+    <VerifyEditDialog
+      employeeId={editingEmployeeId ?? 0}
+      open={verifyDialogOpen}
+      onOpenChange={(open) => {
+        console.log('[AttendanceModule] VerifyDialog opening change:', open, 'editingEmployeeId:', editingEmployeeId)
+        setVerifyDialogOpen(open)
+      }}
+      onVerified={(token) => {
+        setCurrentCorrectionToken(token)
+      }}
+    />
+    <ShiftSettingsDialog employeeId={editingEmployeeId} open={shiftDialogOpen} onOpenChange={setShiftDialogOpen} />
+    </>
   )
 }

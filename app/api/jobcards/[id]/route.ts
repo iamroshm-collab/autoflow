@@ -7,7 +7,12 @@ import {
   sendJobReassignedNotifications,
 } from "@/services/notificationService"
 import { createRoleNotifications } from "@/lib/app-notifications"
-import { sendMetaWhatsappJobCardNotification } from "@/lib/meta-whatsapp"
+import {
+  sendMetaWhatsappJobCardAssigned,
+  sendMetaWhatsappJobCardCreated,
+  sendMetaWhatsappReadyForDelivery,
+  sendMetaWhatsappServiceReview,
+} from "@/lib/meta-whatsapp"
 
 interface SparePartPayload {
   shopName: string
@@ -244,7 +249,7 @@ export async function PUT(
             isArchived: false,
             empName: { in: incomingTechnicianNames, mode: "insensitive" },
           },
-          select: { employeeId: true, empName: true },
+          select: { employeeId: true, empName: true, mobile: true },
         })
       : []
 
@@ -483,6 +488,9 @@ export async function PUT(
     const transitionedToCompleted =
       existing.jobcardStatus !== "Completed" && String(jobcardStatus || "").trim() === "Completed"
 
+    const transitionedToDelivered =
+      deliveryStatus === "Delivered" && existing.vehicleStatus !== "Delivered"
+
     if (updated && transitionedToCompleted) {
       await createRoleNotifications(["admin", "manager"], {
         title: "Job Card Completed",
@@ -494,16 +502,31 @@ export async function PUT(
         refId: updated.id,
       })
 
-      // Notify customer on WhatsApp when their vehicle service is completed
+      // Notify customer on WhatsApp when job is completed (vehicle is now Ready for delivery)
       const customerMobile = updated.customer?.mobileNo
       if (customerMobile) {
-        await sendMetaWhatsappJobCardNotification({
+        sendMetaWhatsappReadyForDelivery({
           mobile: customerMobile,
           customerName: updated.customer?.name || "Customer",
-          vehicleNumber: updated.vehicle?.registrationNumber || "",
-          status: "Service Completed",
-          jobCardNumber: updated.jobCardNumber || updated.id,
-        }).catch((err) => console.error("[JOBCARD_WA_NOTIFY]", err))
+          vehicleMake: updated.vehicle?.make || "",
+          vehicleModel: updated.vehicle?.model || "",
+          regNumber: updated.vehicle?.registrationNumber || "",
+          totalAmount: String(updated.total ?? 0),
+        }).catch((err) => console.error("[JOBCARD_WA_READY_PUT]", err))
+      }
+    }
+
+    // Send review request to customer when vehicle is marked as Delivered
+    if (updated && transitionedToDelivered) {
+      const customerMobile = updated.customer?.mobileNo
+      if (customerMobile) {
+        sendMetaWhatsappServiceReview({
+          mobile: customerMobile,
+          customerName: updated.customer?.name || "Customer",
+          vehicleMake: updated.vehicle?.make || "",
+          vehicleModel: updated.vehicle?.model || "",
+          regNumber: updated.vehicle?.registrationNumber || "",
+        }).catch((err) => console.error("[JOBCARD_WA_REVIEW_PUT]", err))
       }
     }
 
@@ -570,6 +593,28 @@ export async function PUT(
                 serverUrl
               )
             )
+          )
+
+          // Send WhatsApp notification to each newly assigned technician
+          const mobileByEmployeeId = new Map(
+            incomingEmployees.map((e) => [e.employeeId, e.mobile])
+          )
+          const nameByEmployeeId = new Map(
+            incomingEmployees.map((e) => [e.employeeId, e.empName])
+          )
+          await Promise.allSettled(
+            newlyAssignedEmployeeIds.map((empId) => {
+              const techMobile = mobileByEmployeeId.get(empId)
+              if (!techMobile) return Promise.resolve()
+              return sendMetaWhatsappJobCardAssigned({
+                mobile: techMobile,
+                vehicleMake: updated.vehicle?.make || "",
+                vehicleModel: updated.vehicle?.model || "",
+                regNumber: updated.vehicle?.registrationNumber || "",
+                jobType: taskByEmployeeId.get(empId) || "Service",
+                technicianName: nameByEmployeeId.get(empId) || "",
+              }).catch((err) => console.error("[JOBCARD_WA_TECHNICIAN_ASSIGN]", err))
+            })
           )
         }
 
@@ -724,17 +769,30 @@ export async function PATCH(
 
     // Notify customer on WhatsApp when vehicle status changes to Ready or Delivered
     const statusChanged = vehicleStatus && existing?.vehicleStatus !== vehicleStatus
-    if (statusChanged && (vehicleStatus === "Ready" || vehicleStatus === "Delivered")) {
-      const customerMobile = updated.customer?.mobileNo
-      if (customerMobile) {
-        const statusLabel = vehicleStatus === "Ready" ? "Ready for Pickup" : "Delivered"
-        sendMetaWhatsappJobCardNotification({
+    const customerMobile = updated.customer?.mobileNo
+    if (statusChanged && customerMobile) {
+      const vehicleMake = updated.vehicle?.make || ""
+      const vehicleModel = updated.vehicle?.model || ""
+      const regNumber = updated.vehicle?.registrationNumber || ""
+      const customerName = updated.customer?.name || "Customer"
+
+      if (vehicleStatus === "Ready") {
+        sendMetaWhatsappReadyForDelivery({
           mobile: customerMobile,
-          customerName: updated.customer?.name || "Customer",
-          vehicleNumber: updated.vehicle?.registrationNumber || "",
-          status: statusLabel,
-          jobCardNumber: updated.jobCardNumber || updated.id,
-        }).catch((err) => console.error("[JOBCARD_WA_NOTIFY_PATCH]", err))
+          customerName,
+          vehicleMake,
+          vehicleModel,
+          regNumber,
+          totalAmount: String(updated.total ?? 0),
+        }).catch((err) => console.error("[JOBCARD_WA_READY]", err))
+      } else if (vehicleStatus === "Delivered") {
+        sendMetaWhatsappServiceReview({
+          mobile: customerMobile,
+          customerName,
+          vehicleMake,
+          vehicleModel,
+          regNumber,
+        }).catch((err) => console.error("[JOBCARD_WA_REVIEW]", err))
       }
     }
 

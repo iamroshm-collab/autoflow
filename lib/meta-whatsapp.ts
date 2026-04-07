@@ -196,32 +196,29 @@ export async function sendMetaWhatsappLoginApproved(mobile: string, name: string
   return sendMetaWhatsappTemplate({
     to: mobile,
     templateName,
-    languageCode: "en",
+    languageCode: "en_US",
     bodyParams: [name],
   })
 }
 
 /**
- * Notify a customer about their vehicle / job card status change.
- * Requires META_WHATSAPP_JOBCARD_TEMPLATE_NAME — a template with body parameters:
- *   {{1}} = customer name, {{2}} = vehicle number, {{3}} = status, {{4}} = job card number
- *
- * Example template body:
- *   "Hi {{1}}, your vehicle {{2}} (Job Card: {{4}}) status has been updated to *{{3}}*. Thank you for choosing AutoFlow!"
- *
- * Failures are swallowed so the main API response is never blocked.
+ * Notify a technician when a new job card is assigned to them.
+ * Template: META_WHATSAPP_NEW_JOBCARD_ASSIGNED (e.g. "jobcard_update")
+ * Body: Vehicle: *{{1}} {{2}}* / Reg No: *{{3}}* / Job Type: *{{4}}* / Assigned to: *{{5}}* / Status: *Pending*
+ *   {{1}} = vehicle make, {{2}} = vehicle model, {{3}} = reg number, {{4}} = job type, {{5}} = technician name
  */
-export async function sendMetaWhatsappJobCardNotification(params: {
+export async function sendMetaWhatsappJobCardAssigned(params: {
   mobile: string
-  customerName: string
-  vehicleNumber: string
-  status: string
-  jobCardNumber: string
+  vehicleMake: string
+  vehicleModel: string
+  regNumber: string
+  jobType: string
+  technicianName: string
 }) {
-  const templateName = String(process.env.META_WHATSAPP_JOBCARD_TEMPLATE_NAME || "").trim()
+  const templateName = String(process.env.META_WHATSAPP_NEW_JOBCARD_ASSIGNED || "").trim()
 
   if (!templateName) {
-    console.info("[META_WHATSAPP_JOBCARD] Notification skipped — META_WHATSAPP_JOBCARD_TEMPLATE_NAME not set")
+    console.info("[META_WHATSAPP_JC_ASSIGNED] Skipped — META_WHATSAPP_NEW_JOBCARD_ASSIGNED not set")
     return
   }
 
@@ -229,9 +226,124 @@ export async function sendMetaWhatsappJobCardNotification(params: {
     return await sendMetaWhatsappTemplate({
       to: params.mobile,
       templateName,
-      bodyParams: [params.customerName, params.vehicleNumber, params.status, params.jobCardNumber],
+      languageCode: "en_US",
+      bodyParams: [params.vehicleMake, params.vehicleModel, params.regNumber, params.jobType, params.technicianName],
     })
   } catch (err) {
-    console.error("[META_WHATSAPP_JOBCARD] Failed to send notification", err)
+    console.error("[META_WHATSAPP_JC_ASSIGNED] Failed to send notification", err)
+  }
+}
+
+/**
+ * Notify a customer when a new job card is created for their vehicle.
+ * Template: META_WHATSAPP_JOBCARD_GENERATED (e.g. "jobcard_created")
+ * Body: Hi {{1}}, Vehicle: *{{2}} {{3}}* / Reg No: *{{4}}* / Jobcard Number: *{{5}}* / Date/Time: *{{6}}*
+ *   {{1}} = customer name, {{2}} = vehicle make, {{3}} = vehicle model,
+ *   {{4}} = reg number, {{5}} = jobcard number, {{6}} = date/time
+ */
+export async function sendMetaWhatsappJobCardCreated(params: {
+  mobile: string
+  customerName: string
+  vehicleMake: string
+  vehicleModel: string
+  regNumber: string
+  jobCardNumber: string
+  dateTime: string
+}) {
+  const templateName = String(process.env.META_WHATSAPP_JOBCARD_GENERATED || "").trim()
+
+  if (!templateName) {
+    console.info("[META_WHATSAPP_JC_CREATED] Skipped — META_WHATSAPP_JOBCARD_GENERATED not set")
+    return
+  }
+
+  try {
+    return await sendMetaWhatsappTemplate({
+      to: params.mobile,
+      templateName,
+      languageCode: "en_US",
+      bodyParams: [
+        params.customerName,
+        params.vehicleMake,
+        params.vehicleModel,
+        params.regNumber,
+        params.jobCardNumber,
+        params.dateTime,
+      ],
+    })
+  } catch (err) {
+    console.error("[META_WHATSAPP_JC_CREATED] Failed to send notification", err)
+  }
+}
+
+/**
+ * Notify a customer that their vehicle is ready for delivery.
+ * Template: META_WHATSAPP_JOBCARD_COMPLETED (e.g. "ready_for_delivery")
+ * Body: Hi *{{1}}*, Vehicle: *{{2}} {{3}}* / Reg No: *{{4}}* / Total Amount: *₹{{5}}* / Status: *Ready for delivery*
+ *   {{1}} = customer name, {{2}} = vehicle make, {{3}} = vehicle model,
+ *   {{4}} = reg number, {{5}} = total amount
+ */
+export async function sendMetaWhatsappReadyForDelivery(params: {
+  mobile: string
+  customerName: string
+  vehicleMake: string
+  vehicleModel: string
+  regNumber: string
+  totalAmount: string
+}) {
+  const templateName = String(process.env.META_WHATSAPP_JOBCARD_COMPLETED || "").trim()
+
+  if (!templateName) {
+    console.info("[META_WHATSAPP_READY] Skipped — META_WHATSAPP_JOBCARD_COMPLETED not set")
+    return
+  }
+
+  try {
+    return await sendMetaWhatsappTemplate({
+      to: params.mobile,
+      templateName,
+      languageCode: "en_US",
+      bodyParams: [
+        params.customerName,
+        params.vehicleMake,
+        params.vehicleModel,
+        params.regNumber,
+        params.totalAmount,
+      ],
+    })
+  } catch (err) {
+    console.error("[META_WHATSAPP_READY] Failed to send notification", err)
+  }
+}
+
+/**
+ * Send a service review request to a customer after vehicle is delivered.
+ * Template: META_WHATSAPP_SERVICE_REVIEW (e.g. "review")
+ * Body: Hello {{1}}, Thanks for trusting us with the service of your *{{2}} {{3}} (Reg: {{4}})!*...
+ *   {{1}} = customer name, {{2}} = vehicle make, {{3}} = vehicle model, {{4}} = reg number
+ */
+export async function sendMetaWhatsappServiceReview(params: {
+  mobile: string
+  customerName: string
+  vehicleMake: string
+  vehicleModel: string
+  regNumber: string
+}) {
+  const templateName = String(process.env.META_WHATSAPP_SERVICE_REVIEW || "").trim()
+
+  if (!templateName) {
+    console.info("[META_WHATSAPP_REVIEW] Skipped — META_WHATSAPP_SERVICE_REVIEW not set")
+    return
+  }
+
+  try {
+    return await sendMetaWhatsappTemplate({
+      to: params.mobile,
+      templateName,
+      languageCode: "en_US",
+      bodyParams: [params.customerName, params.vehicleMake, params.vehicleModel, params.regNumber],
+    })
+  } catch (err) {
+    console.error("[META_WHATSAPP_REVIEW] Failed to send notification", err)
   }
 }

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { createRoleNotifications } from "@/lib/app-notifications"
+import { sendMetaWhatsappJobCardCreated } from "@/lib/meta-whatsapp"
+import { formatISTDateTime } from "@/lib/utils"
 
 export async function POST(request: NextRequest) {
   try {
@@ -92,6 +94,21 @@ export async function POST(request: NextRequest) {
       refType: "jobcard",
       refId: jobCard.id,
     })
+
+    // Notify customer on WhatsApp when a new job card is created
+    const customerMobile = jobCard.customer?.mobileNo
+    if (customerMobile) {
+      const dateTime = formatISTDateTime(parsedServiceDate)
+      sendMetaWhatsappJobCardCreated({
+        mobile: customerMobile,
+        customerName: jobCard.customer?.name || "Customer",
+        vehicleMake: jobCard.vehicle?.make || "",
+        vehicleModel: jobCard.vehicle?.model || "",
+        regNumber: jobCard.vehicle?.registrationNumber || "",
+        jobCardNumber: jobCard.jobCardNumber,
+        dateTime,
+      }).catch((err) => console.error("[JOBCARD_WA_CREATED]", err))
+    }
 
     return NextResponse.json(jobCard, { status: 201 })
   } catch (error) {

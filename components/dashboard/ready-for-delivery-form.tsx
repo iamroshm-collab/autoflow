@@ -573,6 +573,17 @@ export function ReadyForDeliveryForm({
     }
   }, [formData.customerId])
 
+  // Hide the add-state form when customer state is present; preselect matching state when possible
+  useEffect(() => {
+    if (customerStateId) {
+      setShowCustomerStateForm(false)
+      if (states.length > 0 && !selectedStateId) {
+        const found = states.find((s) => s.stateCode === customerStateId || s.stateId === customerStateId)
+        if (found) setSelectedStateId(found.stateId)
+      }
+    }
+  }, [customerStateId, states, selectedStateId])
+
   const sparesTotal = useMemo(
     () => spareParts.reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
     [spareParts]
@@ -663,8 +674,12 @@ export function ReadyForDeliveryForm({
       }
 
       const handleClick = () => {
-        setShowRegistrationSuggestions(true)
-        setRegistrationSuggestions(allVehicles)
+        // Toggle suggestions when clicking the search input
+        setShowRegistrationSuggestions((prev) => {
+          const next = !prev
+          if (next) setRegistrationSuggestions(allVehicles)
+          return next
+        })
         dropdownNav.resetHighlight()
       }
 
@@ -698,7 +713,10 @@ export function ReadyForDeliveryForm({
         } else if (data.states && Array.isArray(data.states)) {
           setStates(data.states)
         }
-        setShowCustomerStateForm(true)
+        // Only show add-state form if we don't already know the customer's/shop state
+        if (!customerStateId && !selectedStateId) {
+          setShowCustomerStateForm(true)
+        }
       } catch (error) {
         console.error("Error fetching states:", error)
         notify.warn("Failed to load states")

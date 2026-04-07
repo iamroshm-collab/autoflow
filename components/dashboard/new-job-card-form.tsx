@@ -287,6 +287,11 @@ export function NewJobCardForm() {
   const [modalModelsOpen, setModalModelsOpen] = useState(false)
   const [showMakeDropdown, setShowMakeDropdown] = useState(false)
   const [showModelDropdown, setShowModelDropdown] = useState(false)
+  const [addMakeModelSubModalOpen, setAddMakeModelSubModalOpen] = useState(false)
+  const [subModalMake, setSubModalMake] = useState("")
+  const [subModalModel, setSubModalModel] = useState("")
+  const [subModalMakeFixed, setSubModalMakeFixed] = useState(false)
+  const [isSavingSubModal, setIsSavingSubModal] = useState(false)
   const [modalSaving, setModalSaving] = useState(false)
 
   // Unsaved changes
@@ -506,14 +511,13 @@ export function NewJobCardForm() {
   )
 
   const filteredModalMakes = useMemo(
-    () => makeOptions.filter((m) => m.toLowerCase().includes(modalVehicleMake.toLowerCase())).slice(0, 12),
-    [makeOptions, modalVehicleMake],
+    () => makesFromAPI.filter((m) => m.toLowerCase().includes(modalVehicleMake.toLowerCase())),
+    [makesFromAPI, modalVehicleMake],
   )
 
-  const modalModelOptions = useMemo(() => getModels(modalVehicleMake), [modalVehicleMake])
   const filteredModalModels = useMemo(
-    () => modalModelOptions.filter((m) => m.toLowerCase().includes(modalVehicleModelName.toLowerCase())).slice(0, 12),
-    [modalModelOptions, modalVehicleModelName],
+    () => modalsModelsForMake.filter((m) => m.toLowerCase().includes(modalVehicleModelName.toLowerCase())).slice(0, 12),
+    [modalsModelsForMake, modalVehicleModelName],
   )
 
   const handleMakeInput = (value: string) => {
@@ -1181,6 +1185,39 @@ export function NewJobCardForm() {
     }
   }, [addVehicleCustomerModalOpen])
 
+  const handleSaveMakeModel = async () => {
+    const make = subModalMake.trim()
+    const model = subModalModel.trim()
+    if (!make || !model) {
+      toast.error("Both make and model are required")
+      return
+    }
+    setIsSavingSubModal(true)
+    try {
+      const res = await fetch("/api/vehicle-makes-models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ make, model }),
+      })
+      if (!res.ok) {
+        const d = await res.json()
+        if (res.status !== 409) throw new Error(d.error || "Failed to save")
+      }
+      const updatedMakes = await fetchMakesFromAPI()
+      setMakesFromAPI(updatedMakes)
+      const updatedModels = await fetchModelsFromAPI(make)
+      setModalsModelsForMake(updatedModels)
+      setModalVehicleMake(make)
+      setModalVehicleModelName(model)
+      setAddMakeModelSubModalOpen(false)
+      toast.success("Make and model saved!")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save")
+    } finally {
+      setIsSavingSubModal(false)
+    }
+  }
+
   const handleAddVehicleCustomerSave = async () => {
     const registration = normalizeRegistration(
       modalRegistrationNumber || formData.registrationNumber
@@ -1694,10 +1731,8 @@ export function NewJobCardForm() {
                     setModalVehicleModelName("")
                     setModalModelsOpen(false)
                     setModalModelHighlightedIndex(-1)
-                    if (makeOptions.length > 0) {
-                      setModalMakesOpen(true)
-                      setModalMakeHighlightedIndex(-1)
-                    }
+                    setModalMakesOpen(true)
+                    setModalMakeHighlightedIndex(-1)
                   }}
                   onBlur={() => {
                     window.setTimeout(() => {
@@ -1710,10 +1745,8 @@ export function NewJobCardForm() {
                     }, 150)
                   }}
                   onFocus={() => {
-                    if (makeOptions.length > 0) {
-                      setModalMakesOpen(true)
-                      setModalMakeHighlightedIndex(modalVehicleMake ? -1 : 0)
-                    }
+                    setModalMakesOpen(true)
+                    setModalMakeHighlightedIndex(modalVehicleMake ? -1 : 0)
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Tab') {
@@ -1777,8 +1810,8 @@ export function NewJobCardForm() {
                   placeholder="Start typing make"
                   autoComplete="off"
                 />
-                {filteredModalMakes.length > 0 && modalMakesOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 z-50 dropdown-scroll">
+                {modalMakesOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-50 dropdown-scroll dropdown-scroll-modal">
                     {filteredModalMakes.map((make, idx) => (
                       <button
                         key={make}
@@ -1789,7 +1822,6 @@ export function NewJobCardForm() {
                           setModalVehicleModelName("")
                           setModalMakesOpen(false)
                           setModalMakeHighlightedIndex(-1)
-                          // Focus model field after selecting make
                           setTimeout(() => {
                             document.getElementById('modal-model')?.focus()
                           }, 100)
@@ -1799,6 +1831,20 @@ export function NewJobCardForm() {
                         {make}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        setSubModalMake(modalVehicleMake)
+                        setSubModalModel("")
+                        setSubModalMakeFixed(false)
+                        setModalMakesOpen(false)
+                        setAddMakeModelSubModalOpen(true)
+                      }}
+                      className="dropdown-item text-blue-600 font-medium border-t border-gray-100"
+                    >
+                      + Add Make
+                    </button>
                   </div>
                 )}
               </div>
@@ -1812,7 +1858,7 @@ export function NewJobCardForm() {
                   onChange={(e) => {
                     const value = e.target.value
                     setModalVehicleModelName(value)
-                    if (modalVehicleMake && modalModelOptions.length > 0) {
+                    if (modalVehicleMake) {
                       setModalModelsOpen(true)
                       setModalModelHighlightedIndex(-1)
                     }
@@ -1889,28 +1935,36 @@ export function NewJobCardForm() {
                   autoComplete="off"
                 />
                 {modalModelsOpen && modalVehicleMake && (
-                  <div className="absolute top-full left-0 right-0 mt-1 z-50 dropdown-scroll">
-                    {filteredModalModels.length > 0 ? (
-                      filteredModalModels.map((model, idx) => (
-                        <button
-                          key={model}
-                          type="button"
-                          onMouseDown={(e) => {
-                            e.preventDefault()
-                            setModalVehicleModelName(model)
-                            setModalModelsOpen(false)
-                            setModalModelHighlightedIndex(-1)
-                          }}
-                          className={`dropdown-item ${modalModelHighlightedIndex === idx ? 'selected' : ''}`}
-                        >
-                          {model}
-                        </button>
-                      ))
-                    ) : (
-                      <div className="dropdown-empty-state">
-                        {modalModelOptions.length === 0 ? 'No models found for this make' : 'No matching models'}
-                      </div>
-                    )}
+                  <div className="absolute top-full left-0 right-0 mt-1 z-50 dropdown-scroll dropdown-scroll-modal">
+                    {filteredModalModels.map((model, idx) => (
+                      <button
+                        key={model}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          setModalVehicleModelName(model)
+                          setModalModelsOpen(false)
+                          setModalModelHighlightedIndex(-1)
+                        }}
+                        className={`dropdown-item ${modalModelHighlightedIndex === idx ? 'selected' : ''}`}
+                      >
+                        {model}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        setSubModalMake(modalVehicleMake)
+                        setSubModalModel(modalVehicleModelName)
+                        setSubModalMakeFixed(true)
+                        setModalModelsOpen(false)
+                        setAddMakeModelSubModalOpen(true)
+                      }}
+                      className="dropdown-item text-blue-600 font-medium border-t border-gray-100"
+                    >
+                      + Add Model
+                    </button>
                   </div>
                 )}
               </div>
@@ -1960,6 +2014,52 @@ export function NewJobCardForm() {
               className="px-4 py-2 min-h-[40px] bg-blue-600 text-white hover:bg-blue-700"
             >
               {modalSaving ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Make / Model sub-modal */}
+      <Dialog open={addMakeModelSubModalOpen} onOpenChange={setAddMakeModelSubModalOpen}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle>{subModalMakeFixed ? "Add Model" : "Add Make & Model"}</DialogTitle>
+            <DialogDescription>
+              {subModalMakeFixed
+                ? `Add a new model for ${subModalMake}.`
+                : "Add a new vehicle make and its first model to the catalog."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Make <span className="text-red-500">*</span></Label>
+              <Input
+                value={subModalMake}
+                onChange={(e) => { if (!subModalMakeFixed) setSubModalMake(e.target.value) }}
+                disabled={subModalMakeFixed || isSavingSubModal}
+                placeholder="e.g. Hyundai"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Model <span className="text-red-500">*</span></Label>
+              <Input
+                value={subModalModel}
+                onChange={(e) => setSubModalModel(e.target.value)}
+                disabled={isSavingSubModal}
+                placeholder="e.g. Creta"
+                autoComplete="off"
+                autoFocus={subModalMakeFixed}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSaveMakeModel() }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddMakeModelSubModalOpen(false)} disabled={isSavingSubModal}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveMakeModel} disabled={isSavingSubModal}>
+              {isSavingSubModal ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

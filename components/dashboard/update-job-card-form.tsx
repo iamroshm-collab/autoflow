@@ -656,6 +656,18 @@ export function UpdateJobCardForm({
     }
   }, [formData.customerId])
 
+  // When a customer state becomes known, hide the add-state form (don't prompt again)
+  useEffect(() => {
+    if (customerStateId) {
+      setShowCustomerStateForm(false)
+      // If we have states list but no selectedStateId, try to preselect matching state
+      if (states.length > 0 && !selectedStateId) {
+        const found = states.find((s) => s.stateCode === customerStateId || s.stateId === customerStateId)
+        if (found) setSelectedStateId(found.stateId)
+      }
+    }
+  }, [customerStateId, states, selectedStateId])
+
   const sparesTotal = useMemo(
     () => spareParts.reduce((sum, row) => sum + (Number(row.amount) || 0), 0),
     [spareParts]
@@ -776,22 +788,37 @@ export function UpdateJobCardForm({
         dropdownNav.handleKeyDown(e as any)
       }
 
-      const handleClick = () => {
-        setShowRegistrationSuggestions(true)
+      // Open on focus (covers keyboard Tab navigation)
+      const handleFocus = () => {
         setRegistrationSuggestions(allVehicles)
+        setShowRegistrationSuggestions(true)
         dropdownNav.resetHighlight()
+      }
+
+      // mousedown fires BEFORE focus. If the element is already focused,
+      // prevent default (stops the refocus/blur cycle) and toggle closed.
+      // If not yet focused, do nothing — focus event will open the dropdown.
+      const handleMouseDown = (e: MouseEvent) => {
+        if (document.activeElement === inputElement) {
+          e.preventDefault()
+          setShowRegistrationSuggestions((prev) => {
+            if (!prev) setRegistrationSuggestions(allVehicles)
+            return !prev
+          })
+          dropdownNav.resetHighlight()
+        }
       }
 
       inputElement.addEventListener('change', handleChange)
       inputElement.addEventListener('keydown', handleKeyDown)
-      inputElement.addEventListener('click', handleClick)
-      inputElement.addEventListener('focus', handleClick)
+      inputElement.addEventListener('focus', handleFocus)
+      inputElement.addEventListener('mousedown', handleMouseDown)
 
       return () => {
         inputElement.removeEventListener('change', handleChange)
         inputElement.removeEventListener('keydown', handleKeyDown)
-        inputElement.removeEventListener('click', handleClick)
-        inputElement.removeEventListener('focus', handleClick)
+        inputElement.removeEventListener('focus', handleFocus)
+        inputElement.removeEventListener('mousedown', handleMouseDown)
       }
     }
   }, [searchInputRef, registrationInputRef, dropdownNav, allVehicles, handleRegistrationInputChange])
@@ -812,7 +839,10 @@ export function UpdateJobCardForm({
         } else if (data.states && Array.isArray(data.states)) {
           setStates(data.states)
         }
-        setShowCustomerStateForm(true)
+        // Only show the add-state form when taxable AND no customer/shop state is available
+        if (!customerStateId && !selectedStateId) {
+          setShowCustomerStateForm(true)
+        }
       } catch (error) {
         console.error("Error fetching states:", error)
         notify.warn("Failed to load states")
@@ -951,6 +981,15 @@ export function UpdateJobCardForm({
     return
   }
 
+  const addServiceRowWithState = () => {
+    const newId = addServiceRow()
+    // If taxable and a customer state is known, set the new row's stateId immediately
+    if (formData.taxable && customerStateId) {
+      setServices((prev) => prev.map((r) => (r.id === newId ? { ...r, stateId: customerStateId } : r)))
+    }
+    return newId
+  }
+
   const handleTechnicianChange = (
     rowId: string,
     field: keyof Omit<TechnicianRow, "id">,
@@ -987,9 +1026,7 @@ export function UpdateJobCardForm({
 
     try {
       setIsLoadingRecord(true)
-      if (!silent) {
-        startAction("Loading job card...")
-      }
+
       console.debug("loadJobCard:start", { jobCardId, registrationNumber: formData.registrationNumber, silent })
 
       const query = new URLSearchParams()
@@ -1063,6 +1100,13 @@ export function UpdateJobCardForm({
         externalShop: Boolean(data.externalShop),
         externalShopRemarks: data.externalShopRemarks || "",
       })
+
+      // Capture customer state now so we don't re-open the add-state form unnecessarily
+      if (data.customer?.stateId || data.customer?.state || data.customer?.stateCode) {
+        const custStateId = data.customer?.stateCode || data.customer?.stateId || ""
+        setCustomerStateId(custStateId)
+        if (data.customer?.state) setCustomerStateName(data.customer.state)
+      }
 
       const loadedSpareParts = (data.spares || [])
         .filter((item: any) => !Boolean(item.isReturn))
@@ -1888,24 +1932,24 @@ export function UpdateJobCardForm({
               value={formData.fileNo}
               onChange={(e) => setFormData((prev) => ({ ...prev, fileNo: e.target.value }))}
               disabled={isLoading}
-              className="h-10"
+              className="h-10 text-left"
             />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="customerName">Customer Name</Label>
-            <Input id="customerName" value={formData.customerName} readOnly disabled={true} className="h-10 bg-muted" />
+            <Input id="customerName" value={formData.customerName} readOnly disabled={true} className="h-10 bg-muted text-left" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="mobileNo">Customer Mobile</Label>
-            <Input id="mobileNo" value={formData.mobileNo} readOnly disabled={true} className="h-10 bg-muted" />
+            <Input id="mobileNo" value={formData.mobileNo} readOnly disabled={true} className="h-10 bg-muted text-left" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="vehicleModel">Vehicle Model</Label>
-            <Input id="vehicleModel" value={formData.vehicleModel} readOnly disabled={true} className="h-10 bg-muted" />
+            <Input id="vehicleModel" value={formData.vehicleModel} readOnly disabled={true} className="h-10 bg-muted text-left" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="registrationNumber">Vehicle Registration No</Label>
-            <Input id="registrationNumber" value={formData.registrationNumber} readOnly disabled={true} className="h-10 bg-muted" />
+            <Input id="registrationNumber" value={formData.registrationNumber} readOnly disabled={true} className="h-10 bg-muted text-left" />
           </div>
 
           {/* Row 2 */}
@@ -2003,19 +2047,19 @@ export function UpdateJobCardForm({
                 }
               }}
               disabled={isLoading}
-              className="h-10"
+              className="h-10 text-left"
             />
           </div>
 
           {/* Row 3 */}
           <div className="grid gap-2">
             <Label htmlFor="totalBill">Total Bill</Label>
-            <Input id="totalBill" value={formData.totalBill.toFixed(2)} readOnly disabled={true} className="h-10 bg-muted" />
+            <Input id="totalBill" value={formData.totalBill.toFixed(2)} readOnly disabled={true} className="h-10 bg-muted text-left" />
           </div>
 
           <div className="grid gap-2">
             <Label htmlFor="balance">Balance</Label>
-            <Input id="balance" value={formData.balance.toFixed(2)} readOnly disabled={true} className="h-10 bg-muted" />
+            <Input id="balance" value={formData.balance.toFixed(2)} readOnly disabled={true} className="h-10 bg-muted text-left" />
           </div>
 
           <div className="grid gap-2">
@@ -2059,7 +2103,7 @@ export function UpdateJobCardForm({
                 }))
               }}
               disabled={isLoading}
-              className="h-10 text-center"
+              className="h-10 text-left"
               placeholder="0.00"
             />
           </div>
@@ -2084,7 +2128,7 @@ export function UpdateJobCardForm({
                 }))
               }}
               disabled={isLoading}
-              className="h-10 text-center"
+              className="h-10 text-left"
               placeholder="0.00"
             />
           </div>
@@ -2130,7 +2174,7 @@ export function UpdateJobCardForm({
               value={formData.externalShopRemarks || ""}
               onChange={(e) => setFormData((prev) => ({ ...prev, externalShopRemarks: e.target.value }))}
               disabled={isLoading || !formData.externalShop}
-              className="h-10"
+              className="h-10 text-left"
               placeholder="Enter remarks"
             />
           </div>
@@ -2210,7 +2254,7 @@ export function UpdateJobCardForm({
           onRemoveRow={(rowId) => {
             setServices((prev) => prev.filter((item) => item.id !== rowId))
           }}
-          onAddRow={addServiceRow}
+          onAddRow={addServiceRowWithState}
         />
       </div>
       )}

@@ -57,7 +57,7 @@ export function FinancialTransactionsTable({
                       onValueChange={(value) => onUpdateRow(row.id, { transactionType: value })}
                       disabled={isLoading}
                     >
-                      <SelectTrigger className="h-10 text-sm">
+                      <SelectTrigger className="h-10 text-sm border-0 bg-transparent focus:ring-0">
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent>
@@ -81,7 +81,7 @@ export function FinancialTransactionsTable({
                       onValueChange={(value) => onUpdateRow(row.id, { paymentType: value })}
                       disabled={isLoading}
                     >
-                      <SelectTrigger className="h-10 text-sm">
+                      <SelectTrigger className="h-10 text-sm border-0 bg-transparent focus:ring-0">
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent>
@@ -97,7 +97,7 @@ export function FinancialTransactionsTable({
                       onValueChange={(value) => onUpdateRow(row.id, { applyTo: value })}
                       disabled={isLoading}
                     >
-                      <SelectTrigger className="h-10 text-sm">
+                      <SelectTrigger className="h-10 text-sm border-0 bg-transparent focus:ring-0">
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent>
@@ -125,7 +125,7 @@ export function FinancialTransactionsTable({
                       value={row.description ?? ""}
                       onChange={(e) => onUpdateRow(row.id, { description: e.target.value })}
                       disabled={isLoading}
-                      className="h-10 px-2 text-sm"
+                      className="h-10 px-2 text-sm border-0 bg-transparent"
                     />
                   </td>
                   <td className="p-1 text-center">

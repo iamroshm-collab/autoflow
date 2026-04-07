@@ -1,6 +1,7 @@
 import type { MutableRefObject } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Trash2 } from "lucide-react"
 import type { ServiceRow } from "./types"
 
@@ -27,10 +28,21 @@ export function ServiceDescriptionTable({
   onRemoveRow,
   onAddRow,
 }: ServiceDescriptionTableProps) {
+  const unitOptions = ["Nos", "Set", "Piece", "Pair", "Litre", "Kg", "Gram", "Meter", "Box", "Pack", "Hour", "Job"]
   return (
     <>
       <div className="form-table-wrapper">
         <table className="w-full text-xs table-fixed">
+          <colgroup>
+            <col style={{ width: "43%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "12%" }} />
+            {taxable && <col style={{ width: "10%" }} />}
+            {taxable && (isDifferentState ? <col style={{ width: "8%" }} /> : <><col style={{ width: "8%" }} /><col style={{ width: "6%" }} /></>)}
+            {taxable && <col style={{ width: "6%" }} />}
+            <col style={{ width: "8%" }} />
+          </colgroup>
           <thead className="sticky top-0 z-20">
             <tr>
               <th className="text-center">Description</th>
@@ -74,18 +86,26 @@ export function ServiceDescriptionTable({
                       onChange={(e) => onChange(row.id, "description", e.target.value)}
                       onFocus={() => onRowFocus(row.id)}
                       disabled={isLoading}
-                      className="h-10 px-2 text-sm text-center"
+                      className="h-10 px-3 text-sm text-left"
                     />
                   </td>
                   <td>
-                    <Input
-                      name="unit"
+                    <Select
                       value={row.unit ?? ""}
-                      onChange={(e) => onChange(row.id, "unit", e.target.value)}
-                      onFocus={() => onRowFocus(row.id)}
+                      onValueChange={(value) => onChange(row.id, "unit", value)}
                       disabled={isLoading}
-                      className="h-10 px-2 text-sm text-center"
-                    />
+                    >
+                      <SelectTrigger className="h-10 px-2 text-sm border-0 bg-transparent" aria-label="Unit">
+                        <SelectValue placeholder="Unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {unitOptions.map((u) => (
+                          <SelectItem key={u} value={u}>
+                            {u || "-"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </td>
                   <td>
                     <Input

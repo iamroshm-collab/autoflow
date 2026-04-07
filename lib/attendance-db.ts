@@ -15,6 +15,7 @@ import {
   toDayStart,
   toNextDay,
 } from "@/lib/attendance"
+import { evaluateCheckIn, evaluateCheckOut } from "@/lib/shift"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -137,6 +138,12 @@ export async function recordAttendance(
 
   if (input.attendanceType === "IN") {
     const capturedImageField = { checkInVideoUrl: input.capturedImagePath }
+    // Determine shift settings (employee-specific or defaults)
+    const empShift = await prisma.employeeShift.findUnique({ where: { employeeId: input.employeeId } })
+    const shiftStart = empShift?.shiftStart ?? process.env.DEFAULT_SHIFT_START ?? "09:00"
+    const grace = Number(process.env.DEFAULT_SHIFT_GRACE_MINS ?? empShift?.gracePeriodMins ?? 10)
+
+    const checkInEval = evaluateCheckIn(now, shiftStart, grace)
 
     if (todayRecord) {
       record = await prisma.attendancePayroll.update({
@@ -147,6 +154,8 @@ export async function recordAttendance(
           checkOutAt: null,
           workedMinutes: null,
           checkInVerificationScore: input.verificationScore,
+          checkInStatus: checkInEval.status,
+          lateMinutes: checkInEval.lateMinutes,
           ...capturedImageField,
           ...sharedData,
         },
@@ -159,6 +168,8 @@ export async function recordAttendance(
           attendance: "IN",
           checkInAt: now,
           checkInVerificationScore: input.verificationScore,
+          checkInStatus: checkInEval.status,
+          lateMinutes: checkInEval.lateMinutes,
           ...capturedImageField,
           ...sharedData,
         },
@@ -171,6 +182,12 @@ export async function recordAttendance(
 
     const workedMinutes = calculateWorkedMinutes(todayRecord.checkInAt, now)
 
+    const empShift = await prisma.employeeShift.findUnique({ where: { employeeId: input.employeeId } })
+    const shiftEnd = empShift?.shiftEnd ?? process.env.DEFAULT_SHIFT_END ?? "18:00"
+    const overtimeThreshold = Number(process.env.DEFAULT_SHIFT_OVERTIME_MINS ?? empShift?.overtimeThresholdMins ?? 30)
+
+    const checkOutEval = evaluateCheckOut(now, shiftEnd, overtimeThreshold)
+
     record = await prisma.attendancePayroll.update({
       where: { attendanceId: todayRecord.attendanceId },
       data: {
@@ -179,6 +196,7 @@ export async function recordAttendance(
         workedMinutes,
         checkOutVideoUrl: input.capturedImagePath,
         checkOutVerificationScore: input.verificationScore,
+        checkOutStatus: checkOutEval.status,
         ...sharedData,
       },
     })

@@ -177,7 +177,7 @@ export default function GSTStatesForm({ panelCornerClass = "" }: { panelCornerCl
     <div className="h-full min-h-0">
       <div
         className={`global-settings-panel settings-list-panel ${panelCornerClass}`}
-        style={{ "--visible-rows": 9 } as React.CSSProperties}
+        style={{ "--visible-rows": 8 } as React.CSSProperties}
       >
 
         <Dialog open={isAdding} onOpenChange={(open) => { 

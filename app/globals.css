@@ -196,9 +196,9 @@
     display: none;
   }
 
-  /* Modal-safe dropdown - constrains dropdown to modal bounds */
+  /* Modal-safe dropdown - shows exactly 4 rows (4 × 2.5rem item height) */
   .dropdown-scroll-modal {
-    max-height: 12rem; /* Slightly smaller for modals */
+    max-height: 10rem;
   }
 
   .sticky-form-actions {
@@ -1388,7 +1388,7 @@
     /* PIXEL PERFECT MATH FOR 9 ROWS */
     --row-height: 45px;
     --header-height: 44px;
-    --visible-rows: 9;
+    --visible-rows: 8;
     --master-gap: 1.5rem;
 
     --visible-form-rows: 5;

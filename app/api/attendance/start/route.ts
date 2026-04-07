@@ -29,7 +29,7 @@ import { NextRequest, NextResponse } from "next/server"
 import path from "path"
 import { getCurrentUserFromRequest } from "@/lib/auth-session"
 import { captureFrameFromUSBCamera } from "@/lib/camera-capture"
-import { recognizeFace } from "@/lib/face-recognition"
+import { verifyEmployeeMultiFrame } from "@/lib/multi-frame-verifier"
 import {
   getEligibleEmployee,
   isDeviceAuthorized,
@@ -153,80 +153,91 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 6. Activate the USB camera and capture a single frame
-    const timestamp = Date.now()
-    const captureFilename = `attendance-${employeeId}-${attendanceType.toLowerCase()}-${timestamp}.jpg`
-
-    let capture: Awaited<ReturnType<typeof captureFrameFromUSBCamera>>
-    try {
-      capture = await captureFrameFromUSBCamera(captureFilename)
-    } catch (err) {
-      console.error("[ATTENDANCE_START] Camera capture failed:", err)
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Could not capture image from the attendance camera. " +
-            "Make sure the USB camera is connected to the server.",
-        },
-        { status: 503 }
-      )
-    }
-
-    // 7. Run server-side face recognition
+    // 6. Run multi-frame verification (captures multiple frames internally)
     const referenceImagePath = resolveReferenceImagePath(employee.facePhotoUrl)
 
-    const faceResult = await recognizeFace({
-      capturedImagePath: capture.filePath,
-      referenceImagePath,
-    })
+    const verification = await verifyEmployeeMultiFrame(employeeId, referenceImagePath)
 
-    if (faceResult.status === "no_face_detected") {
+    // If all frames show no face detected, return 422 similar to previous behaviour
+    const allNoFace = verification.frameResults.length > 0 && verification.frameResults.every((f) => f.status === "no_face_detected")
+    if (allNoFace) {
       return NextResponse.json(
         {
           success: false,
           message:
             "No face detected in the camera image. " +
             "Please stand in front of the attendance camera and try again.",
-          status: faceResult.status,
+          status: "no_face_detected",
         },
         { status: 422 }
       )
     }
 
-    if (faceResult.status === "error") {
-      console.error("[ATTENDANCE_START] Face recognition error:", faceResult.reason)
+    // If verifier returned an error-like outcome with zero votes, return a service error
+    if (!verification.confirmed && verification.voteCount === 0) {
+      console.error("[ATTENDANCE_START] Face verification failed:", verification.message)
       return NextResponse.json(
         {
           success: false,
           message: "Face recognition service encountered an error. Please try again.",
-          status: faceResult.status,
+          status: "error",
         },
         { status: 503 }
       )
     }
 
-    if (!faceResult.matched) {
+    if (!verification.confirmed) {
       return NextResponse.json(
         {
           success: false,
           message: "Face verification failed",
-          status: faceResult.status,
+          status: verification.message,
         },
-        { status: 200 } // 200 so the client can display a user-friendly message without treating it as a network error
+        { status: 200 }
       )
     }
 
-    // 8. Record attendance in the database
+    // Determine best captured frame (highest score) and its public URL when available
+    const bestFrame = verification.frameResults
+      .filter((f) => typeof f.score === "number" && f.capturedImagePublicUrl)
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0]
+
+    const fallbackFrame = verification.frameResults.find((f) => f.capturedImagePublicUrl) || verification.frameResults[0]
+
+    const chosenPublicUrl = bestFrame?.capturedImagePublicUrl ?? fallbackFrame?.capturedImagePublicUrl ?? null
+
+
+    // 8. Ensure we have a public URL for the chosen frame to store with the record
+    let finalPublicUrl = chosenPublicUrl
+    if (!finalPublicUrl) {
+      try {
+        const ts = Date.now()
+        const fallbackCapture = await captureFrameFromUSBCamera(`attendance-${employeeId}-fallback-${ts}.jpg`)
+        finalPublicUrl = fallbackCapture.publicUrl
+      } catch (err) {
+        console.error("[ATTENDANCE_START] Failed to capture fallback image:", err)
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "Could not capture image from the attendance camera. " +
+              "Make sure the USB camera is connected to the server.",
+          },
+          { status: 503 }
+        )
+      }
+    }
+
+    // 9. Record attendance in the database
     let attendanceRecord: Awaited<ReturnType<typeof recordAttendance>>
     try {
       attendanceRecord = await recordAttendance({
         employeeId,
         deviceId,
         attendanceType: attendanceType as "IN" | "OUT",
-        capturedImagePath: capture.publicUrl,
-        verificationStatus: faceResult.status,
-        verificationScore: faceResult.score,
+        capturedImagePath: finalPublicUrl,
+        verificationStatus: "verified",
+        verificationScore: verification.avgScore,
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to save attendance record"

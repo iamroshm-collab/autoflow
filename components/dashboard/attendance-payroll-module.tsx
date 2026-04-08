@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useCallback, useEffect, useMemo, useState } from "react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -150,6 +151,11 @@ interface AttendanceCalendarRecord {
 }
 
 interface MobileAttendanceDetails {
+  employee?: {
+    empName?: string
+    designation?: string | null
+    facePhotoUrl?: string | null
+  }
   nextAction?: "IN" | "OUT"
   todayRecord?: {
     attendance: string
@@ -934,35 +940,70 @@ export function AttendancePayrollModule({
                   </Card>
                 ) : (
                   <>
-                    <Card className="p-4 space-y-3">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
+                    <Card className="p-4 space-y-4">
+                      <div className="flex items-start justify-between gap-3">
                         <div>
-                          <h3 className="text-sm font-semibold">Camera + Geofence Attendance</h3>
-                          <p className="text-xs text-muted-foreground">
-                            Use mobile attendance to check-in/check-out with live camera verification.
-                          </p>
+                          <div className="text-xl leading-tight font-semibold text-slate-900">
+                            {mobileAttendanceDetails?.employee?.empName || "Employee"}
+                          </div>
+                          <div className="text-base text-slate-700">
+                            {mobileAttendanceDetails?.employee?.designation || "Technician"}
+                          </div>
+                          <div className="text-sm text-slate-500 mt-1">
+                            Next action: <span className="font-semibold text-slate-800">{mobileAttendanceDetails?.nextAction || "IN"}</span>
+                          </div>
                         </div>
-                        <Button
-                          type="button"
-                          onClick={() => window.open("/mobile-attendance", "_blank", "noopener,noreferrer")}
-                        >
-                          Mark Attendance
-                        </Button>
+                        {mobileAttendanceDetails?.employee?.facePhotoUrl ? (
+                          <Image
+                            src={mobileAttendanceDetails.employee.facePhotoUrl}
+                            alt={mobileAttendanceDetails.employee.empName || "Employee"}
+                            width={72}
+                            height={72}
+                            className="h-[72px] w-[72px] rounded-xl object-cover border border-slate-200"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="h-[72px] w-[72px] rounded-xl border border-slate-200 bg-slate-100" />
+                        )}
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div className="rounded-md border p-3 bg-slate-50">
-                          <div className="text-xs text-muted-foreground">Next Action</div>
-                          <div className="text-sm font-semibold">{mobileAttendanceDetails?.nextAction || "IN"}</div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
+                          <div className="text-xs text-slate-700">Status</div>
+                          <div className="text-sm font-semibold text-blue-700 leading-tight">
+                            {mobileAttendanceDetails?.nextAction === "OUT" ? "Checked In" : "Ready"}
+                          </div>
+                          <div className="text-xs text-blue-700 mt-1">
+                            {mobileAttendanceDetails?.nextAction === "OUT" ? "Awaiting check-out" : "Ready for check-in"}
+                          </div>
                         </div>
-                        <div className="rounded-md border p-3 bg-slate-50">
-                          <div className="text-xs text-muted-foreground">Check In</div>
-                          <div className="text-sm font-semibold">{formatTimeInIndia(mobileAttendanceDetails?.todayRecord?.checkInAt)}</div>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                          <div className="text-xs text-slate-700">Worked</div>
+                          <div className="text-sm font-semibold text-slate-900 leading-tight">
+                            {mobileAttendanceDetails?.todayRecord?.workedDuration || "0m"}
+                          </div>
                         </div>
-                        <div className="rounded-md border p-3 bg-slate-50">
-                          <div className="text-xs text-muted-foreground">Check Out</div>
-                          <div className="text-sm font-semibold">{formatTimeInIndia(mobileAttendanceDetails?.todayRecord?.checkOutAt)}</div>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                          <div className="text-xs text-slate-700">Check In</div>
+                          <div className="text-sm font-semibold text-slate-900 leading-tight">
+                            {formatTimeInIndia(mobileAttendanceDetails?.todayRecord?.checkInAt)}
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                          <div className="text-xs text-slate-700">Check Out</div>
+                          <div className="text-sm font-semibold text-slate-900 leading-tight">
+                            {formatTimeInIndia(mobileAttendanceDetails?.todayRecord?.checkOutAt)}
+                          </div>
                         </div>
                       </div>
+
+                      <Button
+                        type="button"
+                        className="w-full h-12 text-base font-semibold bg-red-600 hover:bg-red-700"
+                        onClick={() => window.open("/mobile-attendance", "_blank", "noopener,noreferrer")}
+                      >
+                        Mark {mobileAttendanceDetails?.nextAction || "IN"}
+                      </Button>
                     </Card>
 
                     <Card className="p-4 space-y-4">

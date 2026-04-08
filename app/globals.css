@@ -1792,3 +1792,14 @@ html, body, * {
 *::-webkit-scrollbar-corner {
   background: transparent;
 }
+/* ── Face scan overlay animations ────────────────────────── */
+@keyframes scanline {
+  0%   { transform: translateY(0px); opacity: 0.8; }
+  50%  { transform: translateY(120px); opacity: 0.4; }
+  100% { transform: translateY(0px); opacity: 0.8; }
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(1);    opacity: 0.6; }
+  70%  { transform: scale(1.06); opacity: 0;   }
+  100% { transform: scale(1.06); opacity: 0;   }
+}

@@ -35,7 +35,7 @@ export interface RecordAttendanceInput {
   employeeId: number
   deviceId: string
   attendanceType: "IN" | "OUT"
-  capturedImagePath: string
+  capturedImagePath: string | null
   verificationStatus: "verified" | "rejected" | "no_face_detected" | "error"
   verificationScore: number | null
 }

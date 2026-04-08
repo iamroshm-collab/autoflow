@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Bell, Trash2, CheckCheck, ExternalLink } from "lucide-react"
+import { Bell, Trash2, CheckCheck, ExternalLink, ArrowLeft, ClipboardList } from "lucide-react"
 import { ApprovalsModule } from "@/components/dashboard/approvals-module"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -239,6 +239,9 @@ export function AllNotificationsModule({
     | { kind: "notification"; id: string }
     | null
   >(null)
+
+  // Mobile master-detail navigation ("list" = left panel, "detail" = right panel)
+  const [mobileView, setMobileView] = useState<"list" | "detail">("list")
 
   // ── Fetch job cards ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -708,11 +711,22 @@ export function AllNotificationsModule({
     )
   }
 
+  // ── Helpers for list item click (selects item + switches to detail on mobile) ──
+  const selectItem = (item: typeof selectedItem) => {
+    setSelectedItem(item)
+    setMobileView("detail")
+  }
+
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <div className="grid min-h-0 flex-1 h-full items-stretch gap-4 xl:grid-cols-[20rem_minmax(0,1fr)]">
-      {/* Left panel */}
-      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <div className="grid min-h-0 flex-1 h-full items-stretch xl:gap-4 xl:grid-cols-[20rem_minmax(0,1fr)]">
+
+      {/* ── LEFT PANEL: WhatsApp-style list ─────────────────────────────────── */}
+      <div
+        className={`flex h-full min-h-0 flex-col overflow-hidden rounded-2xl bg-white border border-slate-200
+          ${mobileView === "list" ? "flex" : "hidden"} xl:flex`}
+      >
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
           <div className="flex items-center gap-2">
             <Bell className="h-4 w-4 text-slate-400" />
@@ -728,143 +742,147 @@ export function AllNotificationsModule({
           </span>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
-          <div className="grid gap-2">
-            {leftItems.map((li) => {
-              if (li.kind === "jobcard") {
-                const { group } = li
-                const isSelected =
-                  selectedItem?.kind === "jobcard" &&
-                  selectedItem.jobCardId === group.jobCardId
-
-                const stageBadgeKey = normalizeStatus(group.vehicleStatus) === "delivered"
-                  ? "delivered"
-                  : normalizeStatus(group.vehicleStatus) === "ready"
-                    ? "ready"
-                    : normalizeStatus(group.jobCardStatus) === "completed"
-                      ? "completed"
-                      : group.allocations.some((r) => r.status === "in_progress")
-                        ? "in_progress"
-                        : group.allocations.some((r) => r.status === "accepted")
-                          ? "accepted"
-                          : "assigned"
-
-                return (
-                  <button
-                    key={`jc-${group.jobCardId}`}
-                    type="button"
-                    onClick={() =>
-                      setSelectedItem({ kind: "jobcard", jobCardId: group.jobCardId })
-                    }
-                    className={`w-full max-w-[18rem] mx-auto rounded-xl border p-3 text-left transition ${
-                      isSelected
-                        ? "border-sky-300 bg-sky-50 shadow-sm shadow-sky-100"
-                        : "border-slate-200 bg-slate-50/70 shadow-sm hover:bg-sky-100/60 hover:shadow"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-slate-900">
-                          {group.vehicleNumber}
-                        </p>
-                        {(`${group.vehicleMake} ${group.vehicleModel}`.trim()) && (
-                          <p className="mt-0.5 truncate text-xs text-slate-500">
-                            {`${group.vehicleMake} ${group.vehicleModel}`.trim()}
-                          </p>
-                        )}
-                        <p className="mt-1 text-[11px] text-slate-400">
-                          {formatDateTime(
-                            group.jobCardUpdatedAt || group.serviceDate || group.jobCardCreatedAt
-                          )}
-                        </p>
-                      </div>
-                      <span
-                        className={`mt-0.5 shrink-0 inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${statusBadgeClass(stageBadgeKey)}`}
-                      >
-                        {getCurrentJobCardStage(group)}
-                      </span>
-                    </div>
-                  </button>
-                )
-              }
-
-              // notification item
-              const { item } = li
+        {/* List */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {leftItems.map((li) => {
+            if (li.kind === "jobcard") {
+              const { group } = li
               const isSelected =
-                selectedItem?.kind === "notification" && selectedItem.id === item.id
+                selectedItem?.kind === "jobcard" &&
+                selectedItem.jobCardId === group.jobCardId
 
-              const approvalInfo = isApprovalNotification(item) ? parseApprovalInfo(item, approvalNameMap) : null
+              const stageBadgeKey = normalizeStatus(group.vehicleStatus) === "delivered"
+                ? "delivered"
+                : normalizeStatus(group.vehicleStatus) === "ready"
+                  ? "ready"
+                  : normalizeStatus(group.jobCardStatus) === "completed"
+                    ? "completed"
+                    : group.allocations.some((r) => r.status === "in_progress")
+                      ? "in_progress"
+                      : group.allocations.some((r) => r.status === "accepted")
+                        ? "accepted"
+                        : "assigned"
+
+              const stage = getCurrentJobCardStage(group)
+              const timeLabel = formatDateCompact(
+                group.jobCardUpdatedAt || group.serviceDate || group.jobCardCreatedAt
+              )
 
               return (
                 <button
-                  key={`notif-${item.id}`}
+                  key={`jc-${group.jobCardId}`}
                   type="button"
-                  onClick={() => {
-                    setSelectedItem({ kind: "notification", id: item.id })
-                    if (!item.isRead) void markRead(item.id)
-                    // Auto-remove jobcard notifications when opened — they are replaced
-                    // by new events for the same job card, so reading = done.
-                    if (item.refType === "jobcard") void deleteNotification(item.id)
-                  }}
-                  className={`w-full max-w-[18rem] mx-auto rounded-xl border p-3 text-left transition ${
-                    isSelected
-                      ? "border-sky-300 bg-sky-50 shadow-sm shadow-sky-100"
-                      : item.isRead
-                        ? "border-slate-200 bg-slate-50/70 shadow-sm hover:bg-sky-100/60 hover:shadow"
-                        : "border-blue-200 bg-blue-50/50 shadow-sm hover:bg-sky-100/60 hover:shadow"
-                  }`}
+                  onClick={() => selectItem({ kind: "jobcard", jobCardId: group.jobCardId })}
+                  className={`w-full flex items-center gap-3 px-4 py-3.5 text-left border-b border-slate-100 transition-colors
+                    ${isSelected ? "bg-sky-50" : "hover:bg-slate-50 active:bg-slate-100"}`}
                 >
-                  {approvalInfo ? (
-                    <>
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="truncate text-sm font-bold text-slate-900">Access Request</p>
-                        {!item.isRead && (
-                          <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-500" />
-                        )}
-                      </div>
-                      <p className="mt-0.5 truncate text-xs text-slate-700">
-                        {approvalInfo.name !== "-" && approvalInfo.mobile !== "-"
-                          ? `${approvalInfo.name} - ${approvalInfo.mobile}`
-                          : approvalInfo.name !== "-"
-                            ? approvalInfo.name
-                            : approvalInfo.mobile !== "-"
-                              ? approvalInfo.mobile
-                              : "-"}
+                  {/* Avatar */}
+                  <div className="shrink-0 w-11 h-11 rounded-full bg-sky-100 flex items-center justify-center">
+                    <ClipboardList className="w-5 h-5 text-sky-600" />
+                  </div>
+                  {/* Content */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-1">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {group.vehicleNumber}
                       </p>
-                      <p className="mt-1 text-[11px] text-slate-400">
-                        {formatApprovalDateTime(item.createdAt)}
+                      <span className="shrink-0 text-[11px] text-slate-400">{timeLabel}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-1 mt-0.5">
+                      <p className="truncate text-xs text-slate-500">
+                        {`${group.vehicleMake} ${group.vehicleModel}`.trim() || group.customerName}
                       </p>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-bold text-slate-900">{item.title}</p>
-                          <p className="mt-0.5 truncate text-xs text-slate-500">{item.body}</p>
-                        </div>
-                        {!item.isRead && (
-                          <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-500" />
-                        )}
-                      </div>
-                      <p className="mt-1.5 text-[11px] text-slate-400">
-                        {formatDateTime(item.createdAt)}
-                      </p>
-                    </>
-                  )}
+                      <span
+                        className={`shrink-0 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium ${statusBadgeClass(stageBadgeKey)}`}
+                      >
+                        {stage}
+                      </span>
+                    </div>
+                  </div>
                 </button>
               )
-            })}
-          </div>
+            }
+
+            // notification item
+            const { item } = li
+            const isSelected =
+              selectedItem?.kind === "notification" && selectedItem.id === item.id
+
+            const approvalInfo = isApprovalNotification(item)
+              ? parseApprovalInfo(item, approvalNameMap)
+              : null
+
+            const displayTitle = approvalInfo ? "Access Request" : item.title
+            const displayBody = approvalInfo
+              ? (approvalInfo.name !== "-"
+                  ? approvalInfo.name + (approvalInfo.mobile !== "-" ? ` · ${approvalInfo.mobile}` : "")
+                  : approvalInfo.mobile !== "-" ? approvalInfo.mobile : item.body)
+              : item.body
+            const timeLabel = approvalInfo
+              ? formatApprovalDateTime(item.createdAt)
+              : formatDateCompact(item.createdAt)
+
+            return (
+              <button
+                key={`notif-${item.id}`}
+                type="button"
+                onClick={() => {
+                  selectItem({ kind: "notification", id: item.id })
+                  if (!item.isRead) void markRead(item.id)
+                  if (item.refType === "jobcard") void deleteNotification(item.id)
+                }}
+                className={`w-full flex items-center gap-3 px-4 py-3.5 text-left border-b border-slate-100 transition-colors
+                  ${isSelected ? "bg-sky-50" : item.isRead ? "hover:bg-slate-50 active:bg-slate-100" : "bg-blue-50/40 hover:bg-blue-50 active:bg-blue-100"}`}
+              >
+                {/* Avatar circle */}
+                <div className={`shrink-0 w-11 h-11 rounded-full flex items-center justify-center
+                  ${approvalInfo ? "bg-amber-100" : item.isRead ? "bg-slate-100" : "bg-blue-100"}`}
+                >
+                  <Bell className={`w-5 h-5 ${approvalInfo ? "text-amber-600" : item.isRead ? "text-slate-400" : "text-blue-600"}`} />
+                </div>
+                {/* Content */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-1">
+                    <p className={`truncate text-sm font-semibold ${item.isRead ? "text-slate-700" : "text-slate-900"}`}>
+                      {displayTitle}
+                    </p>
+                    <span className="shrink-0 text-[11px] text-slate-400">{timeLabel}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-1 mt-0.5">
+                    <p className="truncate text-xs text-slate-500">{displayBody}</p>
+                    {!item.isRead && (
+                      <span className="shrink-0 w-2.5 h-2.5 rounded-full bg-blue-500" />
+                    )}
+                  </div>
+                </div>
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      {/* Right panel */}
-      <div className="min-h-0">
+      {/* ── RIGHT PANEL: Detail / milestone view ────────────────────────────── */}
+      <div
+        className={`min-h-0 flex flex-col
+          ${mobileView === "detail" ? "flex" : "hidden"} xl:flex`}
+      >
+        {/* Mobile back button */}
+        <button
+          type="button"
+          onClick={() => setMobileView("list")}
+          className="xl:hidden flex items-center gap-2 mb-3 text-sm font-medium text-sky-600 hover:text-sky-700 self-start"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to notifications
+        </button>
+
+        <div className="min-h-0 flex-1">
         {/* Job card milestone view */}
         {selectedJobCard ? (
           <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
             <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <div>
+                <p className="text-xs text-slate-400 mb-0.5">{selectedJobCard.vehicleNumber} · {selectedJobCard.customerName}</p>
                 <h3 className="text-sm font-semibold text-slate-900">Milestones</h3>
                 <p className="text-xs text-slate-500">
                   Section-wise technician and delivery progress for the selected vehicle.
@@ -1090,6 +1108,7 @@ export function AllNotificationsModule({
             <p className="text-sm text-slate-400">Select an item to view details.</p>
           </div>
         ) : null}
+        </div>
       </div>
     </div>
   )

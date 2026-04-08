@@ -26,11 +26,34 @@
       "Bash(python -c \"from attendance_system.face_pipeline import FacePipeline, PipelineConfig, EmbeddingCache, LightingConfig, LightingNormalizer; import numpy as np; cfg = PipelineConfig\\(\\); cache = EmbeddingCache\\(\\); print\\('LightingConfig:', cfg.lighting\\); ln = LightingNormalizer\\(cfg.lighting\\); frame = np.random.randint\\(0, 255, \\(480, 640, 3\\), dtype=np.uint8\\); out = ln.normalize\\(frame\\); print\\('normalize output shape:', out.shape, out.dtype\\); print\\('OK'\\)\")",
       "Bash(python -c \"import ast, sys; ast.parse\\(open\\('c:/Users/Thakkudu/Desktop/new-garage-app/attendance_system/face_pipeline.py'\\).read\\(\\)\\); print\\('AST parse OK'\\)\")",
       "Bash(python -c \"import ast; ast.parse\\(open\\('c:/Users/Thakkudu/Desktop/new-garage-app/attendance_system/face_pipeline.py', encoding='utf-8'\\).read\\(\\)\\); print\\('AST parse OK'\\)\")",
-      "Bash(python -c ':*)"
+      "Bash(python -c ':*)",
+      "Bash(ffmpeg -version)",
+      "Bash(python -c \"import face_recognition\")",
+      "Bash(python -c \"import cv2\")",
+      "Bash(python -c \"import sys,json; p=json.load\\(sys.stdin\\); deps={**p.get\\('dependencies',{}\\), **p.get\\('devDependencies',{}\\)}; [print\\(k,v\\) for k,v in deps.items\\(\\) if any\\(x in k for x in ['face','tensorflow','canvas','sharp','jimp','@vladmandic']\\)]\")",
+      "Bash(node -e \"require\\('face-api.js'\\); console.log\\('face-api loaded'\\)\")",
+      "Bash(node -e \"require\\('canvas'\\); console.log\\('canvas ok'\\)\")",
+      "Bash(node -e \"require\\('@tensorflow/tfjs-node'\\); console.log\\('tfjs ok'\\)\")",
+      "Bash(where ffmpeg:*)",
+      "Read(//c/ffmpeg/bin/**)",
+      "Read(//c/Program Files/ffmpeg/bin/**)",
+      "Read(//c/tools/ffmpeg/bin/**)",
+      "Bash(winget install:*)",
+      "Read(//c/Users/Thakkudu/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/**)",
+      "Read(//c/c/Users/Thakkudu/**)",
+      "Read(//c/Users/Thakkudu/AppData/Local/Microsoft/WinGet/Packages/**)",
+      "Bash(\"/c/Users/Thakkudu/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-8.1-full_build/bin/ffmpeg.exe\" -rtsp_transport tcp -i \"rtsp://admin:ETKXJM@192.168.68.102:554/H264/ch1/main/av_stream\" -vframes 1 -q:v 2 -y \"/c/Users/Thakkudu/Desktop/new-garage-app/public/uploads/attendance-captures/test-cam.jpg\")",
+      "Bash(\"/c/Users/Thakkudu/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-8.1-full_build/bin/ffmpeg.exe\" -rtsp_transport tcp -i \"rtsp://admin:ETKXJM@192.168.68.102:554/H264/ch1/main/av_stream\" -vframes 1 -q:v 2 -update 1 -y \"/c/Users/Thakkudu/Desktop/new-garage-app/public/uploads/attendance-captures/test-cam.jpg\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:v for k,v in {**d.get\\('devDependencies',{}\\), **d.get\\('dependencies',{}\\)}.items\\(\\) if any\\(x in k for x in ['jest','vitest','testing-library','playwright']\\)}, indent=2\\)\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); v=d.get\\('devDependencies',{}\\); print\\('jest:', v.get\\('jest','missing'\\), 'ts-jest:', v.get\\('ts-jest','missing'\\), '@testing-library/react:', v.get\\('@testing-library/react','missing'\\)\\)\")",
+      "Bash(npx jest:*)",
+      "Bash(grep -n \"^\\\\s*const\\\\s*$\\\\|^\\\\s*const\\\\s*;\\\\s*$\" \"c:/Users/Thakkudu/Desktop/new-garage-app/app/page.tsx\")",
+      "Bash(node --input-type=module --experimental-vm-modules)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Thakkudu\\Desktop\\new-garage-app\\prisma\\migrations",
-      "C:\\Users\\Thakkudu\\Desktop\\new-garage-app\\app\\api\\auth"
+      "C:\\Users\\Thakkudu\\Desktop\\new-garage-app\\app\\api\\auth",
+      "c:\\Users\\Thakkudu\\Desktop\\new-garage-app\\app\\api\\jobs\\[id]"
     ]
   }
 }

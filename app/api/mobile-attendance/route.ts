@@ -20,6 +20,7 @@ import {
   toNextDay,
 } from "@/lib/attendance"
 import { getCurrentUserFromRequest } from "@/lib/auth-session"
+import { isIPCameraConfigured } from "@/lib/ip-camera"
 
 async function getEligibleEmployee(employeeId: number) {
   return prisma.employee.findFirst({
@@ -140,6 +141,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       employee,
       nextAction,
+      cameraMode: isIPCameraConfigured() ? "ip" : "selfie",
       todayRecord: todayRecord
         ? {
             attendance: todayRecord.attendance,

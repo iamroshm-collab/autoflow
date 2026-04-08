@@ -6,6 +6,7 @@ import dynamicImport from "next/dynamic"
 import { DashboardContent } from "@/components/dashboard/dashboard-content"
 import { Sidebar, menuItems } from "@/components/dashboard/sidebar"
 import { TopBar, type TopBarSearchConfig } from "@/components/dashboard/top-bar"
+import { EmployeeJobPanel } from "@/components/dashboard/employee-job-panel"
 import { PlaceholderContent } from "@/components/dashboard/placeholder-content"
 import { JobCardTabStrip, type JobCardSubformTab } from "@/components/dashboard/job-card-tab-strip"
 import { useEmployeeSearch } from "@/hooks/useEmployeeSearch"
@@ -282,6 +283,7 @@ interface SessionUser {
   id: string
   name: string
   email: string
+  mobile?: string | null
   role: UserRole
   employeeRefId?: number | null
   approvedDeviceId?: string | null
@@ -289,6 +291,7 @@ interface SessionUser {
   pendingDeviceId?: string | null
   pendingDeviceIp?: string | null
   deviceApprovalStatus?: string | null
+  facePhotoUrl?: string | null
 }
 
 function PageContent() {
@@ -299,6 +302,7 @@ function PageContent() {
   const [authLoading, setAuthLoading] = useState(true)
   const [deviceStatusBadge, setDeviceStatusBadge] = useState<{ label: string; tone: "ok" | "warn" } | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [employeeJobPanelJobId, setEmployeeJobPanelJobId] = useState<string | null>(null)
   const [navigationRecords, setNavigationRecords] = useState<JobCardNavigationItem[]>([])
   const [deliveredRegistrationFilter, setDeliveredRegistrationFilter] = useState("")
   const [searchValue, setSearchValue] = useState("")
@@ -458,7 +462,7 @@ function PageContent() {
       try {
         const response = await fetch("/api/auth/me", { cache: "no-store" })
         if (!response.ok) {
-          router.replace("/register")
+          router.replace("/login")
           return
         }
 
@@ -487,27 +491,37 @@ function PageContent() {
                 tone: "warn",
               })
             }
-          } else {
-            setDeviceStatusBadge(null)
-          }
 
-          if (typeof window !== "undefined") {
-            localStorage.setItem("gms_user_role", String(data.user.role || ""))
-            if (data.user.employeeRefId) {
-              localStorage.setItem("gms_employee_id", String(data.user.employeeRefId))
-            } else {
-              localStorage.removeItem("gms_employee_id")
+            if (typeof window !== "undefined") {
+              localStorage.setItem("gms_user_role", String(data.user.role || ""))
+              if (data.user.employeeRefId) {
+                localStorage.setItem("gms_employee_id", String(data.user.employeeRefId))
+              } else {
+                localStorage.removeItem("gms_employee_id")
+              }
             }
-          }
 
-          // Redirect office-only roles directly to the mobile attendance page
-          const userRole = String(data.user.role || "") as UserRole
-          if (OFFICE_ATTENDANCE_ROLES.includes(userRole)) {
-            router.replace("/mobile-attendance")
-            return
-          }
+            // Redirect office-only roles directly to the mobile attendance page
+            const userRole = String(data.user.role || "") as UserRole
+            if (OFFICE_ATTENDANCE_ROLES.includes(userRole)) {
+              router.replace("/mobile-attendance")
+              return
+            }
 
-          setCurrentUser(data.user)
+            setCurrentUser(data.user)
+
+            if (userRole === "technician" && data.user.employeeRefId) {
+              // show the Employee tab and auto-select their employee record
+              setActiveItem("employee")
+              try {
+                setSelectedEmployeeRecordId(Number(data.user.employeeRefId))
+              } catch (e) {
+                // ignore
+              }
+            }
+          } else {
+            setCurrentUser(data.user)
+          }
         }
       } catch (error) {
         console.error("[PAGE_SESSION_LOAD]", error)
@@ -731,7 +745,7 @@ function PageContent() {
         localStorage.removeItem("gms_user_role")
         localStorage.removeItem("gms_employee_id")
       }
-      router.replace("/register")
+      router.replace("/login")
     }
   }, [router])
 
@@ -747,33 +761,36 @@ function PageContent() {
     return null
   }
 
+  const isEmployee = currentUser.role === "technician"
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-100 p-[1mm] gap-[1mm]">
-      {/* Mobile Sidebar Overlay */}
-      {sidebarOpen && (
+      {/* Mobile Sidebar Overlay — only for non-employee roles */}
+      {!isEmployee && sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
-      <div
-        className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 lg:relative lg:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:transform-none`}
-      >
-        <div className="relative h-full rounded-2xl overflow-hidden">
-          <Sidebar
-            activeItem={activeItem}
-            onSelect={handleSelect}
-            role={currentUser.role}
-            userName={currentUser.name}
-            onNotificationNavigate={handleNotificationNavigate}
-            onLogout={handleLogout}
-          />
+      {/* Sidebar — hidden entirely for employee (technician) role */}
+      {!isEmployee && (
+        <div
+          className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 lg:relative lg:translate-x-0 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          } lg:transform-none`}
+        >
+          <div className="relative h-full rounded-2xl overflow-hidden">
+            <Sidebar
+              activeItem={activeItem}
+              onSelect={handleSelect}
+              role={currentUser.role}
+              userName={currentUser.name}
+              onLogout={handleLogout}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content */}
       <div className="flex flex-col flex-1 min-w-0">
@@ -1382,14 +1399,29 @@ function PageContent() {
           }
           userName={currentUser.name}
           userRole={currentUser.role}
+          userMobile={currentUser.mobile ?? null}
+          employeePhotoUrl={currentUser.facePhotoUrl ?? null}
           whatsAppAllowed={canAccessMenu(currentUser.role, "whatsapp-messages")}
+          settingsAllowed={canAccessMenu(currentUser.role, "settings")}
           onWhatsApp={() => handleSelect("whatsapp-messages")}
+          onSettings={() => handleSelect("settings")}
+          onAttendance={isEmployee ? () => handleSelect("attendance-payroll") : undefined}
+          onNavigateDashboard={isEmployee ? () => handleSelect("dashboard") : undefined}
+          onOpenAssignedJob={(jobId) => setEmployeeJobPanelJobId(jobId === "all" ? "" : jobId)}
+          onLogout={handleLogout}
           onNotificationNavigate={handleNotificationNavigate}
           onToggleSidebar={() => setSidebarOpen(true)}
           searchInputRef={searchInputRef}
           onSearchFocusChange={setSearchInputFocused}
-          showMobileActionIcons={activeItem === "dashboard"}
         />
+
+        {/* Employee Job Panel — fullscreen overlay for assigned jobs */}
+        {isEmployee && employeeJobPanelJobId !== null && (
+          <EmployeeJobPanel
+            initialJobId={employeeJobPanelJobId || null}
+            onClose={() => setEmployeeJobPanelJobId(null)}
+          />
+        )}
 
         <main className="mt-[1mm] flex flex-1 min-h-0 flex-col gap-[1mm]">
           <div className="flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl bg-slate-100">
@@ -1651,7 +1683,7 @@ function PageContent() {
 
             {/* Content */}
             {activeItem === "dashboard" ? (
-              <DashboardContent onNavigate={handleSelect} role={currentUser.role} />
+              <DashboardContent onNavigate={handleSelect} role={currentUser.role} employeeId={currentUser.employeeRefId ?? null} />
             ) : activeItem === "new-job-card" ? (
               <div className="global-form-shell fill-height">
                 <NewJobCardForm />

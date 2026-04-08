@@ -6,6 +6,7 @@ import { MetricCards } from "./metric-cards"
 import { ServiceOverviewChart } from "./service-overview-chart"
 import { JobCardStatusChart } from "./job-card-status-chart"
 import { RecentJobCards } from "./recent-job-cards"
+import { EmployeeDashboard } from "./employee-dashboard"
 import { type UserRole } from "@/lib/access-control"
 
 type DashboardSummary = {
@@ -38,14 +39,8 @@ const EMPTY_SUMMARY: DashboardSummary = {
   recentJobCards: [],
 }
 
-interface DashboardContentProps {
-  onNavigate?: (id: string) => void
-  role?: UserRole
-}
-
-export const DashboardContent = memo(function DashboardContent({ onNavigate, role = "admin" }: DashboardContentProps) {
+function AdminDashboard() {
   const [summary, setSummary] = useState<DashboardSummary>(EMPTY_SUMMARY)
-  const hideTechnicianOnlyCards = role === "technician"
 
   useEffect(() => {
     let isMounted = true
@@ -74,10 +69,7 @@ export const DashboardContent = memo(function DashboardContent({ onNavigate, rol
 
     loadSummary()
 
-    const onFocus = () => {
-      loadSummary()
-    }
-
+    const onFocus = () => loadSummary()
     window.addEventListener("focus", onFocus)
 
     return () => {
@@ -88,7 +80,7 @@ export const DashboardContent = memo(function DashboardContent({ onNavigate, rol
 
   return (
     <div className="flex flex-col gap-[1mm] pb-[1mm] overflow-y-auto h-full">
-      <MetricCards metrics={summary.metrics} role={role} hidePendingBilling={hideTechnicianOnlyCards} />
+      <MetricCards metrics={summary.metrics} role="admin" />
       <div className="grid grid-cols-1 gap-[1mm] lg:grid-cols-3">
         <div className="lg:col-span-2 h-full">
           <ServiceOverviewChart data={summary.serviceOverview} />
@@ -97,11 +89,26 @@ export const DashboardContent = memo(function DashboardContent({ onNavigate, rol
           <JobCardStatusChart data={summary.statusBreakdown} />
         </div>
       </div>
-      {!hideTechnicianOnlyCards ? (
-        <div>
-          <RecentJobCards jobs={summary.recentJobCards} />
-        </div>
-      ) : null}
+      <div>
+        <RecentJobCards jobs={summary.recentJobCards} />
+      </div>
     </div>
   )
+}
+
+interface DashboardContentProps {
+  onNavigate?: (id: string) => void
+  role?: UserRole
+  employeeId?: number | null
+}
+
+export const DashboardContent = memo(function DashboardContent({
+  role = "admin",
+  employeeId,
+}: DashboardContentProps) {
+  if (role === "technician") {
+    return <EmployeeDashboard employeeId={employeeId ?? null} />
+  }
+
+  return <AdminDashboard />
 })

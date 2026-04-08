@@ -6,6 +6,7 @@ import { toast } from '@/components/ui/notify'
 import { successAction, errorAction } from "@/lib/action-feedback"
 import { getMobileValidationMessage, normalizeMobileNumber } from "@/lib/mobile-validation"
 import { Pencil, Plus, Trash2 } from "lucide-react"
+import { ServiceOverviewChart } from "@/components/dashboard/service-overview-chart"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -105,6 +106,9 @@ export function EmployeeMasterForm({
   const [isSaving, setIsSaving] = useState(false)
   const [modalSuccessMessage, setModalSuccessMessage] = useState("")
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const [allocationsForTech, setAllocationsForTech] = useState<any[]>([])
+  const [allocationsLoading, setAllocationsLoading] = useState(false)
+  const [allocationsError, setAllocationsError] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement | null>(null)
   const isAdminDesignation = form.designation.trim().toLowerCase().includes("admin")
 
@@ -224,6 +228,30 @@ export function EmployeeMasterForm({
     })
     setIsModalOpen(true)
     setModalSuccessMessage("")
+    // load allocations & metrics for technician views
+    if (employee.isTechnician) {
+      void loadAllocationsForTechnician(employee.employeeId)
+    } else {
+      setAllocationsForTech([])
+    }
+  }
+
+  const loadAllocationsForTechnician = async (technicianId: number) => {
+    setAllocationsLoading(true)
+    setAllocationsError(null)
+    try {
+      const res = await fetch(`/api/technician/jobs?technicianId=${technicianId}`)
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to load allocations')
+      }
+      setAllocationsForTech(Array.isArray(data.allocations) ? data.allocations : [])
+    } catch (err: any) {
+      setAllocationsForTech([])
+      setAllocationsError(err?.message || 'Failed to load allocations')
+    } finally {
+      setAllocationsLoading(false)
+    }
   }
 
   const handleAddNew = useCallback(() => {
@@ -393,6 +421,37 @@ export function EmployeeMasterForm({
     }
   }, [editingEmployeeId, loadEmployees])
 
+  // compute technician metrics from allocations
+  const techMetrics = (() => {
+    if (!allocationsForTech || allocationsForTech.length === 0) return null
+    const completed = allocationsForTech.filter((a) => a.status === 'completed')
+    const now = new Date()
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const totalJobsDone = completed.length
+    const todayDone = completed.filter((a) => a.completedAt && new Date(a.completedAt) >= todayStart).length
+    const todayPending = allocationsForTech.filter((a) => ['assigned','accepted','in_progress'].includes(a.status) && (!a.assignedAt || new Date(a.assignedAt) >= todayStart)).length
+    const vehiclesSet = new Set<string>()
+    completed.forEach((a) => { const vid = a.jobCard?.vehicle?.registrationNumber || a.jobCard?.vehicle?.id; if (vid) vehiclesSet.add(String(vid)) })
+    const vehiclesAttended = vehiclesSet.size
+    const durations = completed.map((a) => (typeof a.jobDuration === 'number' ? a.jobDuration : null)).filter(Boolean)
+    const avgTurnaround = durations.length > 0 ? Math.round(durations.reduce((s: number, v: number) => s + v, 0) / durations.length) : 0
+    // monthly overview grouped by assignedAt
+    const monthMap = new Map<string, number>()
+    allocationsForTech.forEach((a) => {
+      const d = a.assignedAt ? new Date(a.assignedAt) : null
+      if (!d) return
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+      monthMap.set(key, (monthMap.get(key)||0)+1)
+    })
+    const serviceOverview = Array.from(monthMap.entries()).map(([key,value]) => {
+      const [y,m] = key.split('-')
+      const date = new Date(Number(y), Number(m)-1,1)
+      return { month: date.toLocaleString(undefined,{month:'short', year:'numeric'}), services: value }
+    }).sort((a,b) => new Date(a.month).getTime() - new Date(b.month).getTime())
+
+    return { totalJobsDone, todayDone, todayPending, vehiclesAttended, avgTurnaround, serviceOverview }
+  })()
+
   const handlePhotoUpload = async (file: File) => {
     const formData = new FormData()
     formData.append("file", file)
@@ -421,6 +480,61 @@ export function EmployeeMasterForm({
   return (
     <div className="flex min-h-0 flex-col">
       <div>
+        {editingEmployeeId && form.isTechnician && techMetrics ? (
+          <div className="mb-4 space-y-4">
+            <div className="grid grid-cols-1 gap-[1mm] sm:grid-cols-2 xl:grid-cols-4">
+              <div className="dashboard-card flex items-center gap-4">
+                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-blue-100">
+                  <svg className="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7h18M3 12h18M3 17h18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm text-muted-foreground">Total Jobs Done</span>
+                  <span className="text-2xl font-heading font-bold text-card-foreground">{techMetrics.totalJobsDone.toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="dashboard-card flex items-center gap-4">
+                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-100">
+                  <svg className="w-6 h-6 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8v8M8 12h8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm text-muted-foreground">Today Done</span>
+                  <span className="text-2xl font-heading font-bold text-card-foreground">{techMetrics.todayDone.toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="dashboard-card flex items-center gap-4">
+                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-amber-100">
+                  <svg className="w-6 h-6 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 6v6l4 2" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm text-muted-foreground">Today Pending</span>
+                  <span className="text-2xl font-heading font-bold text-card-foreground">{techMetrics.todayPending.toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="dashboard-card flex items-center gap-4">
+                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-rose-100">
+                  <svg className="w-6 h-6 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7h18M3 12h18M3 17h18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm text-muted-foreground">Vehicles Attended</span>
+                  <span className="text-2xl font-heading font-bold text-card-foreground">{techMetrics.vehiclesAttended.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-[1mm] lg:grid-cols-3">
+              <div className="lg:col-span-2 h-full">
+                <ServiceOverviewChart data={techMetrics.serviceOverview} />
+              </div>
+              <div className="h-full">
+                <div className="dashboard-card p-4">
+                  <h3 className="text-sm font-semibold">Avg Turnaround</h3>
+                  <p className="mt-2 text-2xl font-heading font-bold">{techMetrics.avgTurnaround} mins</p>
+                  <p className="mt-2 text-xs text-muted-foreground">Average job duration across completed jobs</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
         <div className="form-table-wrapper employee-table-wrapper">
           <table className="w-full text-sm">
             <thead className="bg-slate-100/80">
@@ -509,7 +623,7 @@ export function EmployeeMasterForm({
 
       <Dialog open={isModalOpen} onOpenChange={handleModalOpenChange}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+            <DialogHeader>
             <DialogTitle className="text-2xl font-semibold">
               {editingEmployeeId ? "Edit Employee" : "Add New Employee"}
             </DialogTitle>
@@ -518,7 +632,63 @@ export function EmployeeMasterForm({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="border border-slate-200 rounded-lg bg-white p-4 space-y-2">
+            {editingEmployeeId && form.isTechnician && techMetrics ? (
+              <div className="mb-4 space-y-4">
+                <div className="grid grid-cols-1 gap-[1mm] sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="dashboard-card flex items-center gap-4">
+                    <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-blue-100">
+                      <svg className="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7h18M3 12h18M3 17h18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm text-muted-foreground">Total Jobs Done</span>
+                      <span className="text-2xl font-heading font-bold text-card-foreground">{techMetrics.totalJobsDone.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div className="dashboard-card flex items-center gap-4">
+                    <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-100">
+                      <svg className="w-6 h-6 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8v8M8 12h8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm text-muted-foreground">Today Done</span>
+                      <span className="text-2xl font-heading font-bold text-card-foreground">{techMetrics.todayDone.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div className="dashboard-card flex items-center gap-4">
+                    <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-amber-100">
+                      <svg className="w-6 h-6 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 6v6l4 2" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm text-muted-foreground">Today Pending</span>
+                      <span className="text-2xl font-heading font-bold text-card-foreground">{techMetrics.todayPending.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div className="dashboard-card flex items-center gap-4">
+                    <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-rose-100">
+                      <svg className="w-6 h-6 text-rose-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7h18M3 12h18M3 17h18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm text-muted-foreground">Vehicles Attended</span>
+                      <span className="text-2xl font-heading font-bold text-card-foreground">{techMetrics.vehiclesAttended.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-[1mm] lg:grid-cols-3">
+                  <div className="lg:col-span-2 h-full">
+                    <ServiceOverviewChart data={techMetrics.serviceOverview} />
+                  </div>
+                  <div className="h-full">
+                    <div className="dashboard-card p-4">
+                      <h3 className="text-sm font-semibold">Avg Turnaround</h3>
+                      <p className="mt-2 text-2xl font-heading font-bold">{techMetrics.avgTurnaround} mins</p>
+                      <p className="mt-2 text-xs text-muted-foreground">Average job duration across completed jobs</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="border border-slate-200 rounded-lg bg-white p-4 space-y-2">
             {modalSuccessMessage ? (
               <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
                 {modalSuccessMessage}

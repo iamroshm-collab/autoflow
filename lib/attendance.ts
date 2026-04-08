@@ -46,16 +46,24 @@ export function calculateWorkedMinutes(checkInAt: Date, checkOutAt: Date) {
   return Math.max(1, Math.ceil(differenceMs / 60000))
 }
 
+// Business-configurable attendance thresholds
+export const TOTAL_WORK_HOURS = 10 // nominal total work hours for a full shift
+export const PRESENT_THRESHOLD_HOURS = 7 // >= 7 hours => Present
+
 export function deriveAttendanceCode(workedMinutes: number | null | undefined): AttendanceCode {
   if (!workedMinutes || workedMinutes <= 0) {
     return "A"
   }
 
-  if (workedMinutes <= 7 * 60) {
-    return "H"
+  const workedHours = workedMinutes / 60
+
+  // If worked duration is >= PRESENT_THRESHOLD_HOURS → Present
+  if (workedHours >= PRESENT_THRESHOLD_HOURS) {
+    return "P"
   }
 
-  return "P"
+  // Less than PRESENT_THRESHOLD_HOURS but > 0 → Half day
+  return "H"
 }
 
 export function normalizeAttendanceCode(value: string | null | undefined): AttendanceCode {

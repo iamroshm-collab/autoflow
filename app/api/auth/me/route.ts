@@ -1,11 +1,24 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getCurrentUserFromRequest } from "@/lib/auth-session"
+import { prisma } from "@/lib/prisma"
+
+const prismaClient = prisma as any
 
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUserFromRequest(request)
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    let facePhotoUrl: string | null = null
+    const employeeRefId = (user as any).employeeRefId
+    if (employeeRefId && Number.isInteger(Number(employeeRefId))) {
+      const emp = await prismaClient.employee.findUnique({
+        where: { employeeId: Number(employeeRefId) },
+        select: { facePhotoUrl: true },
+      })
+      facePhotoUrl = emp?.facePhotoUrl ?? null
     }
 
     return NextResponse.json({
@@ -22,6 +35,7 @@ export async function GET(request: NextRequest) {
         pendingDeviceIp: (user as any).pendingDeviceIp ?? null,
         deviceApprovalStatus: (user as any).deviceApprovalStatus ?? "none",
         profileIncomplete: false,
+        facePhotoUrl,
       },
     })
   } catch (error) {

@@ -688,9 +688,8 @@ export default function MaintenanceTracker({
             else setShowDropdown(false)
             setHighlightIndex(0)
           }}
-          onFocus={() => {
-            setShowDropdown(true)
-          }}
+          onFocus={() => setShowDropdown(true)}
+          onClick={() => setShowDropdown((v) => !v)}
           onKeyDown={onKeyDown}
           className="pl-10"
         />
@@ -883,13 +882,14 @@ export default function MaintenanceTracker({
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent
-          className="max-w-4xl max-h-[90vh] flex flex-col p-0"
+          className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden rounded-2xl"
         >
-          <div className="overflow-y-auto flex-1 px-6 pt-6">
+          <div className="px-6 pt-6 pb-3 border-b shrink-0">
             <DialogHeader>
               <DialogTitle className="text-2xl font-bold text-center">Job Card Details</DialogTitle>
             </DialogHeader>
-            
+          </div>
+          <div className="overflow-y-auto flex-1 px-6 pt-4">
             {selectedRecord && (
               <div className="space-y-6 pb-6">
                 {/* Header Section */}

@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   CalendarCheck,
+  Plane,
   Wrench,
   Smartphone,
   LogOut,
@@ -93,6 +94,7 @@ interface TopBarProps {
   onWhatsApp?: () => void
   onSettings?: () => void
   onAttendance?: () => void
+  onLeaveRequest?: () => void
   onOpenAssignedJob?: (jobId: string) => void
   onNotificationNavigate?: (targetForm: string) => void
   onToggleSidebar?: () => void
@@ -384,6 +386,7 @@ export function TopBar({
   onWhatsApp,
   onSettings,
   onAttendance,
+  onLeaveRequest,
   onOpenAssignedJob,
   onNotificationNavigate,
   onToggleSidebar,
@@ -590,6 +593,18 @@ export function TopBar({
           </button>
         )}
 
+        {/* Leave request icon (employee) */}
+        {isEmployee && onLeaveRequest && (
+          <button
+            onClick={onLeaveRequest}
+            className="p-1.5 rounded-xl hover:bg-slate-100 transition-colors text-slate-500 hover:text-slate-700"
+            title="Leave Request"
+            aria-label="Leave Request"
+          >
+            <Plane className="w-5 h-5" />
+          </button>
+        )}
+
         {/* WhatsApp — always visible for allowed roles */}
         {whatsAppAllowed && !isEmployee && (
           <button
@@ -636,7 +651,7 @@ export function TopBar({
 
         {/* User info (non-employee) */}
         {!isEmployee && (
-          <div className="flex items-center gap-2 ml-1 pl-2 border-l border-slate-100">
+          <div className="hidden sm:flex items-center gap-2 ml-1 pl-2 border-l border-slate-100">
             <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
               <UserCircle className="w-5 h-5 text-slate-400" />
             </div>

@@ -969,7 +969,7 @@ export function SupplierProductInventoryForm({
             ) : visibleSuppliers.length === 0 ? (
               <p className="text-sm text-muted-foreground">No suppliers found</p>
             ) : (
-              <div className="form-table-wrapper shrink-0">
+              <div className="form-table-wrapper supplier-product-table-wrapper shrink-0">
                 <table className="w-full table-fixed text-sm">
                   <thead className="sticky top-0 z-20">
                     <tr>
@@ -1040,7 +1040,7 @@ export function SupplierProductInventoryForm({
           <>
             <div className="global-subform-table-content flex min-h-0 flex-col">
               {selectedSupplierId && (
-                <div className="form-table-wrapper shrink-0" style={{ maxHeight: "19.5rem" }}>
+                <div className="form-table-wrapper supplier-product-table-wrapper shrink-0">
                   <table className="w-full table-fixed text-sm">
                     <thead className="sticky top-0 z-20">
                       <tr>
@@ -1308,7 +1308,7 @@ export function SupplierProductInventoryForm({
                                   stateName: String(state.stateName || ""),
                                   stateCode: String(state.stateCode || "")
                                 }))
-                                setNewSupplierStateFilter(state.stateName)
+                                setNewSupplierStateFilter("")
                                 setShowNewSupplierStateDropdown(false)
                                 setNewSupplierStateSelectedIndex(-1)
                               }
@@ -1363,7 +1363,7 @@ export function SupplierProductInventoryForm({
                                     stateName: String(state.stateName || ""),
                                     stateCode: String(state.stateCode || "")
                                   }))
-                                  setNewSupplierStateFilter(state.stateName)
+                                  setNewSupplierStateFilter("")
                                   setShowNewSupplierStateDropdown(false)
                                   setNewSupplierStateSelectedIndex(-1)
                                 }}
@@ -1379,6 +1379,12 @@ export function SupplierProductInventoryForm({
                         <div className="dropdown-empty-state">No states found</div>
                       )}
                     </div>
+                    {newSupplierForm.stateName ? (
+                      <div className="text-xs text-slate-500 mt-1">
+                        Selected: {newSupplierForm.stateName}
+                        {newSupplierForm.stateCode ? ` (${newSupplierForm.stateCode})` : ""}
+                      </div>
+                    ) : null}
                   </PopoverContent>
                 </Popover>
               </div>

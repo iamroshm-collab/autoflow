@@ -8,13 +8,13 @@
 import { prisma } from "@/lib/prisma"
 import {
   calculateWorkedMinutes,
-  deriveAttendanceCode,
   deriveNextAttendanceAction,
   formatWorkedDuration,
   isAdminLikeDesignation,
   toDayStart,
   toNextDay,
 } from "@/lib/attendance"
+import { deriveAttendanceStatusFromPolicy, getOrCreateAttendancePolicy } from "@/lib/attendance-policy"
 import { evaluateCheckIn, evaluateCheckOut } from "@/lib/shift"
 
 // ---------------------------------------------------------------------------
@@ -181,6 +181,7 @@ export async function recordAttendance(
     }
 
     const workedMinutes = calculateWorkedMinutes(todayRecord.checkInAt, now)
+    const policy = await getOrCreateAttendancePolicy()
 
     const empShift = await prisma.employeeShift.findUnique({ where: { employeeId: input.employeeId } })
     const shiftEnd = empShift?.shiftEnd ?? process.env.DEFAULT_SHIFT_END ?? "18:00"
@@ -191,7 +192,7 @@ export async function recordAttendance(
     record = await prisma.attendancePayroll.update({
       where: { attendanceId: todayRecord.attendanceId },
       data: {
-        attendance: deriveAttendanceCode(workedMinutes),
+        attendance: deriveAttendanceStatusFromPolicy(workedMinutes, policy),
         checkOutAt: now,
         workedMinutes,
         checkOutVideoUrl: input.capturedImagePath,

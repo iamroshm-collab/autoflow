@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
 
   const employeeRefId = (user as any).employeeRefId
   if (!employeeRefId || !Number.isInteger(Number(employeeRefId))) {
-    return NextResponse.json({ allocations: [] })
+    return NextResponse.json({ error: "No employee profile linked to this account" }, { status: 403 })
   }
 
   const allocations = await prismaClient.technicianAllocation.findMany({

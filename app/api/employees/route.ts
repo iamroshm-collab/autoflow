@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { isAdminLikeDesignation } from "@/lib/attendance"
 import { isValidMobileNumber, normalizeMobileNumber } from "@/lib/mobile-validation"
+import { computeEmployeePayrollFields } from "@/lib/payroll-components"
 
 const parseDate = (value?: string | null) => {
   if (!value) return null
@@ -97,6 +98,8 @@ export async function POST(request: NextRequest) {
     }
 
     const designation = String(body.designation || "").trim() || null
+    const department = String(body.department || "").trim() || null
+    const payrollFields = computeEmployeePayrollFields(body)
     const employeeCreateData: Record<string, unknown> = {
       empName,
       idNumber,
@@ -105,7 +108,8 @@ export async function POST(request: NextRequest) {
       isTechnician: Boolean(body.isTechnician),
       address: String(body.address || "").trim() || null,
       designation,
-      salaryPerday: Number(body.salaryPerday || 0),
+      department,
+      ...payrollFields,
       startDate: parseDate(body.startDate),
       endDate: parseDate(body.endDate),
       attendance: String(body.attendance || "").trim() || null,

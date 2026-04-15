@@ -143,13 +143,13 @@ const NoteForm = ({
     <Card className="border-0 bg-transparent p-0 shadow-none">
 
       <Dialog open={isNewModalOpen} onOpenChange={setIsNewModalOpen}>
-        <DialogContent className="max-w-[46rem]">
+        <DialogContent className="max-w-[46rem] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-semibold">Add {label} Note</DialogTitle>
             <DialogDescription>Fill note details and save.</DialogDescription>
           </DialogHeader>
 
-          <div className="border border-slate-200 rounded-lg bg-white p-4 space-y-3 max-h-[75vh] overflow-y-auto">
+          <div className="border border-slate-200 rounded-lg bg-white p-4 space-y-3">
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor={`${label}-noteNumber`}>Note Number</Label>
@@ -239,19 +239,20 @@ const NoteForm = ({
               </div>
             </div>
 
-            <DialogFooter className="sticky-form-actions flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setIsNewModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="button" onClick={handleSubmit} disabled={submitting}>
-                {submitting ? "Saving..." : `Save ${label} Note`}
-              </Button>
-            </DialogFooter>
           </div>
+
+          <DialogFooter className="flex gap-5 justify-end pt-4">
+            <Button type="button" variant="outline" onClick={() => setIsNewModalOpen(false)} className="px-4 py-2 min-h-[40px] bg-white hover:bg-gray-100">
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSubmit} disabled={submitting} className="px-4 py-2 min-h-[40px] flex items-center gap-2" style={{ backgroundColor: '#2563eb', color: 'white' }}>
+              {submitting ? "Saving..." : `Save ${label} Note`}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <div className="inventory-pos-table-wrapper shrink-0">
+      <div className="inventory-pos-table-wrapper inventory-pos-note-table-wrapper shrink-0">
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-white">
             <TableRow>

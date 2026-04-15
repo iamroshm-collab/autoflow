@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUserFromRequest } from "@/lib/auth-session"
 import { getTodayISODateInIndia } from "@/lib/utils"
+import { getOrCreateAttendancePolicy, isHolidayFromPolicy } from "@/lib/attendance-policy"
 
 const DEFAULT_HOURS_AFTER_START = Number(process.env.ABSENCE_HOURS_AFTER_START ?? 3)
+const prismaClient = prisma as any
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,9 +19,8 @@ export async function POST(request: NextRequest) {
     const url = new URL(request.url)
     const dateParam = url.searchParams.get("date") || getTodayISODateInIndia()
 
-    // If date is a holiday, skip
-    const holiday = await prisma.holiday.findUnique({ where: { date: dateParam } })
-    if (holiday) {
+    const policy = await getOrCreateAttendancePolicy()
+    if (isHolidayFromPolicy(dateParam, policy)) {
       return NextResponse.json({ date: dateParam, markedAbsent: [], skippedPresent: 0, skippedHoliday: true })
     }
 
@@ -29,6 +30,19 @@ export async function POST(request: NextRequest) {
     const employees = await prisma.employee.findMany({ where: { isAttendanceEligible: true, isArchived: false } })
 
     for (const emp of employees) {
+      const approvedLeave = await prismaClient.leaveRequest.findFirst({
+        where: {
+          employeeId: emp.employeeId,
+          status: "approved",
+          startDate: { lte: new Date(`${dateParam}T23:59:59`) },
+          endDate: { gte: new Date(`${dateParam}T00:00:00`) },
+        },
+      })
+
+      if (approvedLeave) {
+        continue
+      }
+
       // Fetch shift or defaults
       const empShift = await prisma.employeeShift.findUnique({ where: { employeeId: emp.employeeId } })
       const shiftStart = empShift?.shiftStart ?? process.env.DEFAULT_SHIFT_START ?? "09:00"

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { isAdminLikeDesignation } from "@/lib/attendance"
 import { isValidMobileNumber, normalizeMobileNumber } from "@/lib/mobile-validation"
+import { computeEmployeePayrollFields } from "@/lib/payroll-components"
+import { getEmployeeStats } from "@/lib/employee-stats"
 
 const parseDate = (value?: string | null) => {
   if (!value) return null
@@ -48,6 +50,14 @@ export async function GET(
       return NextResponse.json({ error: "Employee not found" }, { status: 404 })
     }
 
+    const includeStatsParam = request.nextUrl.searchParams.get("includeStats")
+    const includeStats = includeStatsParam === "1" || includeStatsParam === "true"
+
+    if (includeStats) {
+      const stats = await getEmployeeStats(employeeId)
+      return NextResponse.json({ ...toEmployeeResponse(employee), stats })
+    }
+
     return NextResponse.json(toEmployeeResponse(employee))
   } catch (error) {
     console.error("[EMPLOYEE_BY_ID_GET]", error)
@@ -86,6 +96,8 @@ export async function PUT(
     }
 
     const designation = String(body.designation || "").trim() || null
+    const department = String(body.department || "").trim() || null
+    const payrollFields = computeEmployeePayrollFields(body)
     const shouldDeregisterDevice = body.deregisterDevice === true
     const employeeUpdateData: Record<string, unknown> = {
       empName,
@@ -95,7 +107,8 @@ export async function PUT(
       isTechnician: Boolean(body.isTechnician),
       address: String(body.address || "").trim() || null,
       designation,
-      salaryPerday: Number(body.salaryPerday || 0),
+      department,
+      ...payrollFields,
       startDate: parseDate(body.startDate),
       endDate: parseDate(body.endDate),
       attendance: String(body.attendance || "").trim() || null,

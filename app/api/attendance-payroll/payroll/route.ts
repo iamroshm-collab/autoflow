@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { deriveAttendanceCode, isAdminLikeDesignation, normalizeAttendanceCode } from "@/lib/attendance"
 import { getCurrentUserFromRequest } from "@/lib/auth-session"
+import { generateMonthlyPayrollData } from "@/lib/payroll-generation"
 
 // GET - Fetch monthly payroll records
 export async function GET(request: NextRequest) {
@@ -15,6 +15,56 @@ export async function GET(request: NextRequest) {
     const month = searchParams.get("month")
     const year = searchParams.get("year")
     const employeeId = searchParams.get("employeeId")
+    const summary = searchParams.get("summary")
+
+    const role = String(currentUser.role || "").toLowerCase()
+
+    if (summary === "1" || summary === "true") {
+      if (role === "technician") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+
+      const grouped = await prisma.monthlyPayroll.groupBy({
+        by: ["month", "year"],
+        _count: {
+          employeeId: true,
+        },
+        _sum: {
+          netSalary: true,
+        },
+        _max: {
+          generatedAt: true,
+        },
+        orderBy: [{ year: "desc" }, { month: "desc" }],
+      })
+
+      const history = await Promise.all(
+        grouped.map(async (item) => {
+          const latest = await prisma.monthlyPayroll.findFirst({
+            where: {
+              month: item.month,
+              year: item.year,
+            },
+            select: {
+              generatedBy: true,
+              generatedAt: true,
+            },
+            orderBy: [{ generatedAt: "desc" }, { payrollId: "desc" }],
+          })
+
+          return {
+            month: item.month,
+            year: item.year,
+            employeeCount: item._count.employeeId,
+            totalAmount: item._sum.netSalary || 0,
+            generatedAt: latest?.generatedAt || item._max.generatedAt,
+            generatedBy: latest?.generatedBy || "System",
+          }
+        })
+      )
+
+      return NextResponse.json(history)
+    }
 
     if (!month || !year) {
       return NextResponse.json({ error: "Month and year are required" }, { status: 400 })
@@ -25,7 +75,6 @@ export async function GET(request: NextRequest) {
       year: parseInt(year),
     }
 
-    const role = String(currentUser.role || "").toLowerCase()
     if (role === "technician") {
       if (!Number.isInteger(currentUser.employeeRefId)) {
         return NextResponse.json({ error: "Technician account is not linked to an employee" }, { status: 403 })
@@ -41,7 +90,7 @@ export async function GET(request: NextRequest) {
       where.employeeId = parseInt(employeeId)
     }
 
-    const payrolls = await prisma.monthlyPayroll.findMany({
+    let payrolls = await prisma.monthlyPayroll.findMany({
       where,
       include: {
         employee: {
@@ -80,7 +129,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { month, year, generatedBy } = body
+    const { month, year, generatedBy, regenerate } = body
 
     if (!month || !year) {
       return NextResponse.json({ error: "Month and year are required" }, { status: 400 })
@@ -88,165 +137,29 @@ export async function POST(request: NextRequest) {
 
     const monthNum = parseInt(month)
     const yearNum = parseInt(year)
-
-    // Get all active employees
-    const employees = await prisma.$queryRaw<Array<{
-      employeeId: number
-      empName: string
-      designation: string | null
-      salaryPerday: number
-      isAttendanceEligible: boolean
-    }>>`
-      SELECT "employeeId", "empName", "designation", "salaryPerday", "isAttendanceEligible"
-      FROM "Employee"
-      WHERE "isArchived" = false
-    `
-
-    // Calculate date range for the month
-    const startDate = new Date(yearNum, monthNum - 1, 1)
-    const endDate = new Date(yearNum, monthNum, 0)
-    endDate.setHours(23, 59, 59, 999)
-
-    const payrollResults = []
-
-    for (const employee of employees) {
-      if (employee.isAttendanceEligible === false || isAdminLikeDesignation(employee.designation)) {
-        continue
-      }
-
-      // Get attendance records for the month
-      const attendanceRecords = await prisma.$queryRaw<Array<{ attendance: string; workedMinutes: number | null }>>`
-        SELECT "attendance", "workedMinutes"
-        FROM "AttendancePayroll"
-        WHERE "employeeId" = ${employee.employeeId}
-          AND "attendanceDate" >= ${startDate}
-          AND "attendanceDate" <= ${endDate}
-      `
-
-      // Count attendance types
-      let totalPresent = 0
-      let totalHalfDay = 0
-      let totalLeave = 0
-      let totalAbsent = 0
-
-      attendanceRecords.forEach((record) => {
-        const normalizedAttendance = record.workedMinutes != null
-          ? deriveAttendanceCode(record.workedMinutes)
-          : normalizeAttendanceCode(record.attendance)
-
-        switch (normalizedAttendance) {
-          case "P":
-            totalPresent++
-            break
-          case "H":
-            totalHalfDay++
-            break
-          case "L":
-            totalLeave++
-            break
-          case "A":
-            totalAbsent++
-            break
-        }
-      })
-
-      // Get adjustments for the month
-      const adjustments = await prisma.adjustment.findMany({
+    if (regenerate === true) {
+      await prisma.monthlyPayroll.deleteMany({
         where: {
-          employeeId: employee.employeeId,
-          adjustmentDate: {
-            gte: startDate,
-            lte: endDate,
-          },
+          month: monthNum,
+          year: yearNum,
         },
       })
-
-      // Calculate totals by type
-      let totalAllowance = 0
-      let totalIncentive = 0
-      let totalAdvance = 0
-
-      adjustments.forEach((adj) => {
-        switch (adj.adjustmentType) {
-          case "Allowance":
-            totalAllowance += adj.amount
-            break
-          case "Incentive":
-            totalIncentive += adj.amount
-            break
-          case "Advance":
-            totalAdvance += adj.amount
-            break
-        }
-      })
-
-      // Calculate basic salary based on attendance
-      // P = full day, H = half day, L = full pay (leave), A = no pay
-      const workingDays = totalPresent + totalHalfDay * 0.5 + totalLeave
-      const basicSalary = workingDays * employee.salaryPerday
-
-      // Calculate net salary
-      const netSalary = basicSalary + totalAllowance + totalIncentive - totalAdvance
-
-      // Check if payroll already exists
-      const existing = await prisma.monthlyPayroll.findUnique({
-        where: {
-          employeeId_month_year: {
-            employeeId: employee.employeeId,
-            month: monthNum,
-            year: yearNum,
-          },
-        },
-      })
-
-      let payroll
-      if (existing) {
-        // Update existing payroll
-        payroll = await prisma.monthlyPayroll.update({
-          where: {
-            payrollId: existing.payrollId,
-          },
-          data: {
-            basicSalary,
-            totalPresent,
-            totalHalfDay,
-            totalLeave,
-            totalAbsent,
-            totalAllowance,
-            totalIncentive,
-            totalAdvance,
-            netSalary,
-            generatedBy: generatedBy || null,
-          },
-        })
-      } else {
-        // Create new payroll
-        payroll = await prisma.monthlyPayroll.create({
-          data: {
-            employeeId: employee.employeeId,
-            month: monthNum,
-            year: yearNum,
-            basicSalary,
-            totalPresent,
-            totalHalfDay,
-            totalLeave,
-            totalAbsent,
-            totalAllowance,
-            totalIncentive,
-            totalAdvance,
-            netSalary,
-            generatedBy: generatedBy || null,
-          },
-        })
-      }
-
-      payrollResults.push(payroll)
     }
+
+    const resolvedGeneratedBy =
+      String(generatedBy || "").trim() ||
+      String((currentUser as any).name || "").trim() ||
+      "System"
+
+    const generated = await generateMonthlyPayrollData(monthNum, yearNum, resolvedGeneratedBy)
 
     return NextResponse.json({
       success: true,
-      count: payrollResults.length,
-      payrolls: payrollResults,
+      count: generated.count,
+      month: monthNum,
+      year: yearNum,
+      regenerate: regenerate === true,
+      payrolls: generated.payrolls,
     })
   } catch (error) {
     console.error("Error generating payroll:", error)

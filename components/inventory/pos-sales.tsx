@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import DatePickerInput from '@/components/ui/date-picker-input'
 import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { notify } from '@/components/ui/notify'
@@ -1572,9 +1572,10 @@ export function POSSalesForm() {
             )}
 
             <Dialog open={isAddBillModalOpen} onOpenChange={setIsAddBillModalOpen}>
-              <DialogContent className="max-w-[46rem]">
+              <DialogContent className="max-w-[46rem] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="text-2xl font-semibold">Add Bill</DialogTitle>
+                  <DialogDescription>Enter customer details and bill date to start a new sale.</DialogDescription>
                 </DialogHeader>
 
                 <div className="border border-slate-200 rounded-lg bg-white p-4 space-y-3">
@@ -1614,7 +1615,7 @@ export function POSSalesForm() {
                                         const name = c.customerName || c.name || ''
                                         const mobile = c.mobileNo || c.mobile || ''
                                         setSelectedCustomer(c)
-                                        setCustomerSearch(name)
+                                        setCustomerSearch('')
                                         setCustomerMobile(mobile)
                                         setCustomerStateCode(String(c.stateId || ''))
                                         setCustomerStateName(String(c.state || ''))
@@ -1666,23 +1667,29 @@ export function POSSalesForm() {
                       />
                     </div>
                   </div>
-
-                  <div className="flex justify-end gap-2 pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setIsAddBillModalOpen(false)
-                        setPendingHeaderSave(false)
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="button" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={prepareBillHeader}>
-                      Save Header
-                    </Button>
-                  </div>
                 </div>
+
+                <DialogFooter className="flex gap-5 justify-end pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setIsAddBillModalOpen(false)
+                      setPendingHeaderSave(false)
+                    }}
+                    className="px-4 py-2 min-h-[40px] bg-white hover:bg-gray-100"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={prepareBillHeader}
+                    className="px-4 py-2 min-h-[40px] flex items-center gap-2"
+                    style={{ backgroundColor: '#2563eb', color: 'white' }}
+                  >
+                    Save Header
+                  </Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
 

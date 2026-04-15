@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useEffect, useMemo, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -16,12 +16,11 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from '@/components/ui/notify'
-import { Printer, Plus, Trash2, Calendar, Edit3, CreditCard, Pencil, Save, X } from "lucide-react"
+import { Printer, Plus, Trash2, Calendar, Edit3, CreditCard, Pencil, Save, X, RefreshCcw, ChevronDown, Check } from "lucide-react"
 import { generateSalarySlipPdf } from "@/lib/salary-slip-pdf"
 import { DatePickerInput } from "@/components/ui/date-picker-input"
-import HolidaysDialog from "@/components/dashboard/attendance-payroll-holidays"
-import VerifyEditDialog from "@/components/dashboard/attendance-payroll-verify-edit"
-import ShiftSettingsDialog from "@/components/dashboard/attendance-payroll-shift-settings"
+import { AttendanceCaptureOverlay } from "@/components/dashboard/attendance-capture-overlay"
+import { AttendancePolicyForm } from "@/components/dashboard/attendance-policy-form"
 import { formatDateDDMMYY, getTodayISODateInIndia } from "@/lib/utils"
 
 interface Employee {
@@ -39,6 +38,7 @@ interface AttendanceRecord {
   designation: string | null
   salaryPerday: number
   attendance: string
+  attendanceDate?: string
   attendanceId?: number
   facePhotoUrl?: string | null
   checkInAt?: string | null
@@ -57,23 +57,69 @@ interface AttendanceEditForm {
   workedMinutes: string
 }
 
-const normalizeStatusOption = (value?: string | null) => {
+const VALID_ATTENDANCE_STATUS = ["FD", "H", "PD", "A", "CL", "SL", "AL", "ML", "MED", "HPL", "EL", "PL", "PLT", "CO", "LWP", "WO", "PH"] as const
+type AttendanceStatus = typeof VALID_ATTENDANCE_STATUS[number]
+
+const ATTENDANCE_LABEL: Record<AttendanceStatus, string> = {
+  FD:  "Full Day",
+  H:   "Half Day",
+  PD:  "Partial Day",
+  A:   "Absent",
+  CL:  "Casual Leave",
+  SL:  "Sick Leave",
+  AL:  "Annual Leave",
+  ML:  "Maternity Leave",
+  MED: "Medical Leave",
+  HPL: "Half Pay Leave",
+  EL:  "Earned Leave",
+  PL:  "Privilege Leave",
+  PLT: "Paternity Leave",
+  CO:  "Compensatory Leave",
+  LWP: "Leave Without Pay",
+  WO:  "Week Off",
+  PH:  "Public Holiday",
+}
+
+const ATTENDANCE_ABBR: Record<AttendanceStatus, string> = {
+  FD:  "FD",
+  H:   "HD",
+  PD:  "PD",
+  A:   "A",
+  CL:  "CL",
+  SL:  "SL",
+  AL:  "AL",
+  ML:  "ML",
+  MED: "MED",
+  HPL: "HPL",
+  EL:  "EL",
+  PL:  "PL",
+  PLT: "PLT",
+  CO:  "CO",
+  LWP: "LWP",
+  WO:  "WO",
+  PH:  "PH",
+}
+
+const OVERTIME_THRESHOLD_MIN = 9 * 60 // 9 hours
+
+const normalizeStatusOption = (value?: string | null): AttendanceStatus => {
   const normalized = String(value || "").trim().toUpperCase()
-
-  if (normalized === "P" || normalized === "PRESENT") {
-    return "P"
+  if ((VALID_ATTENDANCE_STATUS as readonly string[]).includes(normalized)) {
+    return normalized as AttendanceStatus
   }
-
-  if (
-    normalized === "H" ||
-    normalized === "HALF DAY" ||
-    normalized === "HALF-DAY" ||
-    normalized === "HALFDAY"
-  ) {
-    return "H"
-  }
-
+  if (normalized === "P" || normalized === "PRESENT") return "FD"
+  if (normalized === "HALF DAY" || normalized === "HALF-DAY" || normalized === "HALFDAY") return "H"
+  if (normalized === "PARTIAL DAY" || normalized === "PARTIAL-DAY" || normalized === "PARTIALDAY") return "PD"
+  if (normalized === "ABSENT") return "A"
   return "A"
+}
+
+const calcOvertimeDisplay = (workedMinutes?: number | null): string => {
+  if (!workedMinutes || workedMinutes <= OVERTIME_THRESHOLD_MIN) return "-"
+  const overtimeMin = workedMinutes - OVERTIME_THRESHOLD_MIN
+  const h = Math.floor(overtimeMin / 60)
+  const m = overtimeMin % 60
+  return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`
 }
 
 const formatTimeInIndia = (value?: string | null) => {
@@ -165,7 +211,120 @@ interface MobileAttendanceDetails {
   } | null
 }
 
-type AttendancePayrollTabKey = "attendance" | "adjustments" | "payroll"
+interface AttendanceCalendarEmployee {
+  employeeId: number
+  empName: string
+  idNumber: string
+  designation: string | null
+}
+
+const buildCalendarDays = (
+  records: AttendanceCalendarRecord[],
+  month: number,
+  year: number,
+  deriveStatus?: (workedMinutes: number) => AttendanceStatus,
+) => {
+  const recordByDate = new Map<string, AttendanceCalendarRecord>()
+  records.forEach((record) => {
+    recordByDate.set(record.date, record)
+  })
+
+  const firstDay = new Date(year, month - 1, 1)
+  const daysInMonth = new Date(year, month, 0).getDate()
+  const leading = firstDay.getDay()
+  const cells: Array<{ key: string; day: number | null; date: string | null; status: string | null; workedMinutes?: number | null }> = []
+
+  for (let index = 0; index < leading; index += 1) {
+    cells.push({ key: `blank-start-${index}`, day: null, date: null, status: null })
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+    const record = recordByDate.get(date)
+    let status: AttendanceStatus
+    if (
+      record &&
+      record.workedMinutes != null &&
+      record.workedMinutes > 0 &&
+      deriveStatus &&
+      // Only re-derive for attendance codes that come from actual work (not leaves/holidays)
+      ["FD", "P", "H", "PD", "A"].includes(normalizeStatusOption(record.attendance))
+    ) {
+      status = deriveStatus(record.workedMinutes)
+    } else {
+      status = normalizeStatusOption(record?.attendance)
+    }
+    cells.push({ key: date, day, date, status, workedMinutes: record?.workedMinutes })
+  }
+
+  while (cells.length % 7 !== 0) {
+    cells.push({ key: `blank-end-${cells.length}`, day: null, date: null, status: null })
+  }
+
+  return cells
+}
+
+// ── Payroll helpers ───────────────────────────────────────────────────────────
+
+function formatPayrollDate(month: number, year: number): string {
+  return new Date(year, month - 1).toLocaleString("en-IN", { month: "short", year: "numeric" })
+}
+
+function PayrollFilterMenu({
+  options,
+  value,
+  onChange,
+}: {
+  options: string[]
+  value: string
+  onChange: (v: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
+  const active = value !== "all"
+
+  return (
+    <div ref={ref} className="relative inline-flex">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }}
+        className={`ml-1 p-0.5 rounded transition-colors ${active ? "text-blue-600" : "text-slate-600 hover:text-slate-800"}`}
+        title="Filter"
+      >
+        <ChevronDown className="w-[15px] h-[15px]" />
+      </button>
+      {open && (
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 min-w-[150px] rounded-lg border border-slate-200 bg-white shadow-lg z-50 py-1 max-h-56 overflow-y-auto">
+          {(["all", ...options] as string[]).map((opt) => (
+            <button
+              key={opt}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onChange(opt); setOpen(false) }}
+              className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-slate-50 transition-colors"
+            >
+              <span className="w-3 shrink-0">
+                {opt === value && <Check className="w-3 h-3 text-blue-600" />}
+              </span>
+              <span className={opt === value ? "font-semibold text-blue-600" : "text-slate-700"}>
+                {opt === "all" ? "All" : opt}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+type AttendancePayrollTabKey = "attendance" | "adjustments" | "payroll" | "generate-payroll" | "leave-holidays"
 
 interface AttendancePayrollModuleProps {
   activeTab?: AttendancePayrollTabKey
@@ -176,6 +335,15 @@ interface AttendancePayrollModuleProps {
   currentEmployeeId?: number | null
   searchTerm?: string
   onRecordsCountChange?: (count: number) => void
+}
+
+interface PayrollGenerationHistoryRecord {
+  month: number
+  year: number
+  employeeCount: number
+  totalAmount: number
+  generatedAt: string | null
+  generatedBy: string | null
 }
 
 export function AttendancePayrollModule({
@@ -222,17 +390,23 @@ export function AttendancePayrollModule({
   const [attendanceCalendarMonth, setAttendanceCalendarMonth] = useState(currentIndiaMonth)
   const [attendanceCalendarYear, setAttendanceCalendarYear] = useState(currentIndiaYear)
   const [mobileAttendanceDetails, setMobileAttendanceDetails] = useState<MobileAttendanceDetails | null>(null)
+  const [mobileAttendanceDialogOpen, setMobileAttendanceDialogOpen] = useState(false)
+  const [mobileDeviceId, setMobileDeviceId] = useState<string | null>(null)
   const [loadingAttendance, setLoadingAttendance] = useState(false)
+  const [loadingAttendanceHistory, setLoadingAttendanceHistory] = useState(false)
+  const [attendanceHistoryRecords, setAttendanceHistoryRecords] = useState<AttendanceRecord[]>([])
   // Track local (unsaved) attendance edits and saving state
   const [modifiedAttendanceMap, setModifiedAttendanceMap] = useState<Record<number, string>>({})
   const [savingAttendance, setSavingAttendance] = useState(false)
   const [editingAttendanceId, setEditingAttendanceId] = useState<number | null>(null)
   const [editingEmployeeId, setEditingEmployeeId] = useState<number | null>(null)
   const [attendanceEditForm, setAttendanceEditForm] = useState<AttendanceEditForm | null>(null)
-  const [holidaysDialogOpen, setHolidaysDialogOpen] = useState(false)
-  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false)
-  const [shiftDialogOpen, setShiftDialogOpen] = useState(false)
-  const [currentCorrectionToken, setCurrentCorrectionToken] = useState<string | null>(null)
+  const [employeeCalendarDialogOpen, setEmployeeCalendarDialogOpen] = useState(false)
+  const [selectedCalendarEmployee, setSelectedCalendarEmployee] = useState<AttendanceCalendarEmployee | null>(null)
+  const [employeeAttendanceCalendarRecords, setEmployeeAttendanceCalendarRecords] = useState<AttendanceCalendarRecord[]>([])
+  const [loadingEmployeeAttendanceCalendar, setLoadingEmployeeAttendanceCalendar] = useState(false)
+  const [employeeAttendanceCalendarMonth, setEmployeeAttendanceCalendarMonth] = useState(currentIndiaMonth)
+  const [employeeAttendanceCalendarYear, setEmployeeAttendanceCalendarYear] = useState(currentIndiaYear)
 
   // Adjustments Tab State
   const [employees, setEmployees] = useState<Employee[]>([])
@@ -249,12 +423,50 @@ export function AttendancePayrollModule({
   const [payrollMonth, setPayrollMonth] = useState(currentIndiaMonth)
   const [payrollYear, setPayrollYear] = useState(currentIndiaYear)
   const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([])
+  const [payrollGenerationHistory, setPayrollGenerationHistory] = useState<PayrollGenerationHistoryRecord[]>([])
   const [loadingPayroll, setLoadingPayroll] = useState(false)
+  const [loadingPayrollHistory, setLoadingPayrollHistory] = useState(false)
   const [generatingPayroll, setGeneratingPayroll] = useState(false)
+  const [payrollNameFilter, setPayrollNameFilter] = useState("all")
+  const [payrollDateFilter, setPayrollDateFilter] = useState("all")
+  const [attendanceNameFilter, setAttendanceNameFilter] = useState("all")
+  const [attendanceDateFilter, setAttendanceDateFilter] = useState("all")
+  const [adjustmentNameFilter, setAdjustmentNameFilter] = useState("all")
+  const [adjustmentDateFilter, setAdjustmentDateFilter] = useState("all")
+  const [attendancePolicyRules, setAttendancePolicyRules] = useState<{ operator: string; duration_minutes?: number; min_minutes?: number; max_minutes?: number; payable_percentage: number }[]>([])
+
+  // Derive status from policy rules given worked minutes
+  const deriveStatusFromPolicy = useCallback((workedMins: number): AttendanceStatus => {
+    for (const rule of attendancePolicyRules) {
+      let match = false
+      if (rule.operator === "gte") match = workedMins >= (rule.duration_minutes ?? 0)
+      else if (rule.operator === "gt") match = workedMins > (rule.duration_minutes ?? 0)
+      else if (rule.operator === "lte") match = workedMins <= (rule.duration_minutes ?? 0)
+      else if (rule.operator === "lt") match = workedMins < (rule.duration_minutes ?? 0)
+      else if (rule.operator === "eq") match = workedMins === (rule.duration_minutes ?? 0)
+      else if (rule.operator === "between") match = workedMins >= (rule.min_minutes ?? 0) && workedMins <= (rule.max_minutes ?? 0)
+      if (match) {
+        const pct = rule.payable_percentage
+        if (pct >= 100) return "FD"
+        if (pct <= 0) return "A"
+        if (pct === 50) return "H"
+        return "PD"
+      }
+    }
+    return "A"
+  }, [attendancePolicyRules])
 
   // Fetch employees on component mount
   useEffect(() => {
     fetchEmployees()
+    fetch("/api/attendance-policy")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data?.attendance_rules)) {
+          setAttendancePolicyRules(data.attendance_rules)
+        }
+      })
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -297,6 +509,11 @@ export function AttendancePayrollModule({
     }
   }, [activeTab, payrollMonth, payrollYear])
 
+  useEffect(() => {
+    if (activeTab === "generate-payroll" && !isTechnicianViewer) {
+      fetchPayrollGenerationHistory()
+    }
+  }, [activeTab, isTechnicianViewer])
 
   const fetchEmployees = async () => {
     const controller = new AbortController()
@@ -344,6 +561,8 @@ export function AttendancePayrollModule({
       if (!response.ok) throw new Error("Failed to fetch attendance")
       const data = await response.json()
       setAttendanceRecords(data)
+      setAttendanceNameFilter("all")
+      setAttendanceDateFilter("all")
       // clear any local unsaved edits when loading from server
       setModifiedAttendanceMap({})
     } catch (error) {
@@ -354,25 +573,30 @@ export function AttendancePayrollModule({
     }
   }, [attendanceDate, isTechnicianViewer, currentEmployeeId])
 
-  const fetchAttendanceCalendar = async (month: number, year: number) => {
+  const fetchAttendanceCalendarRecords = useCallback(async (employeeId: number, month: number, year: number) => {
+    const params = new URLSearchParams({
+      employeeId: String(employeeId),
+      month: String(month),
+      year: String(year),
+    })
+    const response = await fetch(`/api/attendance-payroll/attendance?${params.toString()}`, { cache: "no-store" })
+    if (!response.ok) {
+      throw new Error("Failed to fetch attendance calendar")
+    }
+
+    const data = await response.json()
+    return Array.isArray(data?.records) ? data.records as AttendanceCalendarRecord[] : []
+  }, [])
+
+  const fetchAttendanceCalendar = useCallback(async (month: number, year: number) => {
     if (!Number.isInteger(currentEmployeeId)) {
       return
     }
 
     setLoadingAttendanceCalendar(true)
     try {
-      const params = new URLSearchParams({
-        employeeId: String(currentEmployeeId),
-        month: String(month),
-        year: String(year),
-      })
-      const response = await fetch(`/api/attendance-payroll/attendance?${params.toString()}`)
-      if (!response.ok) {
-        throw new Error("Failed to fetch attendance calendar")
-      }
-
-      const data = await response.json()
-      setAttendanceCalendarRecords(Array.isArray(data?.records) ? data.records : [])
+      const records = await fetchAttendanceCalendarRecords(Number(currentEmployeeId), month, year)
+      setAttendanceCalendarRecords(records)
     } catch (error) {
       console.error("Error fetching attendance calendar:", error)
       setAttendanceCalendarRecords([])
@@ -380,7 +604,7 @@ export function AttendancePayrollModule({
     } finally {
       setLoadingAttendanceCalendar(false)
     }
-  }
+  }, [currentEmployeeId, fetchAttendanceCalendarRecords])
 
   const fetchMobileAttendanceDetails = async () => {
     if (!Number.isInteger(currentEmployeeId)) {
@@ -389,12 +613,17 @@ export function AttendancePayrollModule({
     }
 
     try {
-      const response = await fetch(`/api/mobile-attendance?employeeId=${currentEmployeeId}`, { cache: "no-store" })
-      if (!response.ok) {
-        throw new Error("Failed to fetch mobile attendance details")
-      }
-      const data = await response.json()
+      const [attRes, meRes] = await Promise.all([
+        fetch(`/api/mobile-attendance?employeeId=${currentEmployeeId}`, { cache: "no-store" }),
+        fetch("/api/auth/me", { cache: "no-store" }),
+      ])
+      if (!attRes.ok) throw new Error("Failed to fetch mobile attendance details")
+      const data = await attRes.json()
       setMobileAttendanceDetails(data)
+      if (meRes.ok) {
+        const meData = await meRes.json()
+        setMobileDeviceId(String(meData?.user?.approvedDeviceId || ""))
+      }
     } catch (error) {
       console.error("Error fetching mobile attendance details:", error)
       setMobileAttendanceDetails(null)
@@ -463,10 +692,6 @@ export function AttendancePayrollModule({
         workedMinutes: attendanceEditForm.workedMinutes,
       }
 
-      if (currentCorrectionToken) {
-        patchBody.correctionToken = currentCorrectionToken
-      }
-
       const patchResponse = await fetch("/api/attendance-payroll/attendance", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -480,7 +705,6 @@ export function AttendancePayrollModule({
 
       toast.success("Attendance row updated")
       resetAttendanceRowEditor()
-      setCurrentCorrectionToken(null)
       fetchAttendance()
     } catch (error) {
       console.error("Error saving attendance row:", error)
@@ -598,6 +822,8 @@ export function AttendancePayrollModule({
       if (!response.ok) throw new Error("Failed to fetch adjustments")
       const data = await response.json()
       setAdjustments(data)
+      setAdjustmentNameFilter("all")
+      setAdjustmentDateFilter("all")
     } catch (error) {
       console.error("Error fetching adjustments:", error)
       toast.error("Failed to fetch adjustments")
@@ -746,6 +972,8 @@ export function AttendancePayrollModule({
       if (!response.ok) throw new Error("Failed to fetch payroll")
       const data = await response.json()
       setPayrollRecords(data)
+      setPayrollNameFilter("all")
+      setPayrollDateFilter("all")
     } catch (error) {
       console.error("Error fetching payroll:", error)
       toast.error("Failed to fetch payroll")
@@ -754,34 +982,43 @@ export function AttendancePayrollModule({
     }
   }
 
-  const generatePayroll = async () => {
-    if (isTechnicianViewer) {
-      toast.error("Payroll generation is allowed for admin and manager only")
-      return
+  const fetchPayrollGenerationHistory = async () => {
+    setLoadingPayrollHistory(true)
+    try {
+      const response = await fetch("/api/attendance-payroll/payroll?summary=1", { cache: "no-store" })
+      if (!response.ok) throw new Error("Failed to fetch payroll generation history")
+      const data = await response.json()
+      setPayrollGenerationHistory(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error("Error fetching payroll generation history:", error)
+      toast.error("Failed to fetch payroll generation history")
+      setPayrollGenerationHistory([])
+    } finally {
+      setLoadingPayrollHistory(false)
     }
+  }
 
+  const runPayrollGeneration = async (month: number, year: number, regenerate = false) => {
     setGeneratingPayroll(true)
     try {
       const response = await fetch("/api/attendance-payroll/payroll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          month: payrollMonth,
-          year: payrollYear,
-          generatedBy: "System",
-        }),
+        body: JSON.stringify({ month, year, regenerate }),
       })
 
-      if (!response.ok) throw new Error("Failed to generate payroll")
+      if (!response.ok) {
+        throw new Error(regenerate ? "Failed to regenerate payroll" : "Failed to generate payroll")
+      }
 
-      const data = await response.json()
-      toast.success(`Payroll generated for ${data.count} employees`)
-      
-      // Refresh payroll records
-      fetchPayroll()
+      setPayrollMonth(month)
+      setPayrollYear(year)
+
+      await Promise.all([fetchPayroll(), fetchPayrollGenerationHistory()])
+      toast.success(regenerate ? "Payroll regenerated successfully" : "Payroll generated successfully")
     } catch (error) {
-      console.error("Error generating payroll:", error)
-      toast.error("Failed to generate payroll")
+      console.error("Error running payroll generation:", error)
+      toast.error(regenerate ? "Failed to regenerate payroll" : "Failed to generate payroll")
     } finally {
       setGeneratingPayroll(false)
     }
@@ -842,79 +1079,130 @@ export function AttendancePayrollModule({
 
   const searchQuery = searchTerm.trim().toLowerCase()
 
-  const visibleAttendanceRecords = useMemo(() => {
-    if (!searchQuery) return attendanceRecords
-    return attendanceRecords.filter((record) =>
-      String(record.empName || "").toLowerCase().includes(searchQuery) ||
-      String(record.idNumber || "").toLowerCase().includes(searchQuery) ||
-      String(record.designation || "").toLowerCase().includes(searchQuery)
+  const matchedEmployeesForSearch = useMemo(() => {
+    if (!searchQuery) return [] as Employee[]
+    return employees.filter((employee) =>
+      String(employee.empName || "").toLowerCase().includes(searchQuery) ||
+      String(employee.idNumber || "").toLowerCase().includes(searchQuery)
     )
-  }, [attendanceRecords, searchQuery])
+  }, [employees, searchQuery])
+
+  useEffect(() => {
+    if (activeTab !== "attendance" || isTechnicianViewer || !searchQuery) {
+      setAttendanceHistoryRecords([])
+      setLoadingAttendanceHistory(false)
+      return
+    }
+
+    if (matchedEmployeesForSearch.length !== 1) {
+      setAttendanceHistoryRecords([])
+      setLoadingAttendanceHistory(false)
+      return
+    }
+
+    const selectedEmployee = matchedEmployeesForSearch[0]
+    let cancelled = false
+
+    const loadHistory = async () => {
+      setLoadingAttendanceHistory(true)
+      try {
+        const params = new URLSearchParams({
+          employeeId: String(selectedEmployee.employeeId),
+          history: "1",
+        })
+        const response = await fetch(`/api/attendance-payroll/attendance?${params.toString()}`, { cache: "no-store" })
+        if (!response.ok) throw new Error("Failed to fetch attendance history")
+        const data = await response.json()
+        if (!cancelled) {
+          setAttendanceHistoryRecords(Array.isArray(data) ? data : [])
+        }
+      } catch (error) {
+        console.error("Error fetching attendance history:", error)
+        if (!cancelled) {
+          setAttendanceHistoryRecords([])
+          toast.error("Failed to fetch attendance history")
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingAttendanceHistory(false)
+        }
+      }
+    }
+
+    void loadHistory()
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, isTechnicianViewer, matchedEmployeesForSearch, searchQuery])
+
+  const visibleAttendanceRecords = useMemo(() => {
+    let base = attendanceRecords
+    if (attendanceNameFilter !== "all") base = base.filter((r) => r.empName === attendanceNameFilter)
+    if (attendanceDateFilter !== "all") base = base.filter((r) => formatDateDDMMYY(r.attendanceDate) === attendanceDateFilter)
+    // Sort: records with a check-in time first (most recent attendanceId desc), then without
+    return [...base].sort((a, b) => {
+      const aHas = a.checkInAt ? 1 : 0
+      const bHas = b.checkInAt ? 1 : 0
+      if (aHas !== bHas) return bHas - aHas
+      return (b.attendanceId ?? 0) - (a.attendanceId ?? 0)
+    })
+  }, [attendanceRecords, attendanceNameFilter, attendanceDateFilter])
+
+  const isEmployeeHistoryMode =
+    activeTab === "attendance" && !isTechnicianViewer && searchQuery.length > 0 && matchedEmployeesForSearch.length === 1
+
+  const renderedAttendanceRecords = isEmployeeHistoryMode ? attendanceHistoryRecords : visibleAttendanceRecords
 
   const visibleAdjustments = useMemo(() => {
-    if (!searchQuery) return filteredAdjustments
-    return filteredAdjustments.filter((adj) =>
-      String(adj.employee.empName || "").toLowerCase().includes(searchQuery) ||
-      String(adj.employee.idNumber || "").toLowerCase().includes(searchQuery) ||
-      String(adj.employee.designation || "").toLowerCase().includes(searchQuery) ||
-      String(adj.adjustmentType || "").toLowerCase().includes(searchQuery) ||
-      String(adj.remarks || "").toLowerCase().includes(searchQuery)
-    )
-  }, [filteredAdjustments, searchQuery])
+    let records = filteredAdjustments
+    if (adjustmentNameFilter !== "all") records = records.filter((a) => a.employee.empName === adjustmentNameFilter)
+    if (adjustmentDateFilter !== "all") records = records.filter((a) => formatDateDDMMYY(a.adjustmentDate) === adjustmentDateFilter)
+    return records
+  }, [filteredAdjustments, adjustmentNameFilter, adjustmentDateFilter])
 
   const visiblePayrollRecords = useMemo(() => {
-    if (!searchQuery) return payrollRecords
-    return payrollRecords.filter((payroll) =>
-      String(payroll.employee.empName || "").toLowerCase().includes(searchQuery) ||
-      String(payroll.employee.idNumber || "").toLowerCase().includes(searchQuery) ||
-      String(payroll.employee.designation || "").toLowerCase().includes(searchQuery)
-    )
-  }, [payrollRecords, searchQuery])
+    let records = payrollRecords
+    if (searchQuery) {
+      records = records.filter((p) =>
+        String(p.employee.empName || "").toLowerCase().includes(searchQuery) ||
+        String(p.employee.idNumber || "").toLowerCase().includes(searchQuery) ||
+        String(p.employee.designation || "").toLowerCase().includes(searchQuery)
+      )
+    }
+    if (payrollNameFilter !== "all") {
+      records = records.filter((p) => p.employee.empName === payrollNameFilter)
+    }
+    if (payrollDateFilter !== "all") {
+      records = records.filter((p) => formatPayrollDate(p.month, p.year) === payrollDateFilter)
+    }
+    return records
+  }, [payrollRecords, searchQuery, payrollNameFilter, payrollDateFilter])
+
+  const visiblePayrollHistory = useMemo(() => {
+    return payrollGenerationHistory
+  }, [payrollGenerationHistory])
 
   useEffect(() => {
     const count =
       activeTab === "attendance"
-        ? visibleAttendanceRecords.length
+        ? renderedAttendanceRecords.length
         : activeTab === "adjustments"
           ? visibleAdjustments.length
-          : visiblePayrollRecords.length
+          : activeTab === "payroll"
+            ? visiblePayrollRecords.length
+            : visiblePayrollHistory.length
     onRecordsCountChange?.(count)
-  }, [activeTab, visibleAttendanceRecords.length, visibleAdjustments.length, visiblePayrollRecords.length, onRecordsCountChange])
-
-  const attendanceByDate = useMemo(() => {
-    const map = new Map<string, AttendanceCalendarRecord>()
-    attendanceCalendarRecords.forEach((record) => {
-      map.set(record.date, record)
-    })
-    return map
-  }, [attendanceCalendarRecords])
+  }, [activeTab, renderedAttendanceRecords.length, visibleAdjustments.length, visiblePayrollRecords.length, visiblePayrollHistory.length, onRecordsCountChange])
 
   const technicianCalendarDays = useMemo(() => {
-    const firstDay = new Date(attendanceCalendarYear, attendanceCalendarMonth - 1, 1)
-    const daysInMonth = new Date(attendanceCalendarYear, attendanceCalendarMonth, 0).getDate()
-    const leading = firstDay.getDay()
-    const cells: Array<{ key: string; day: number | null; date: string | null; status: string | null }> = []
-
-    for (let i = 0; i < leading; i += 1) {
-      cells.push({ key: `blank-start-${i}`, day: null, date: null, status: null })
-    }
-
-    for (let day = 1; day <= daysInMonth; day += 1) {
-      const date = `${attendanceCalendarYear}-${String(attendanceCalendarMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`
-      const status = normalizeStatusOption(attendanceByDate.get(date)?.attendance)
-      cells.push({ key: date, day, date, status })
-    }
-
-    while (cells.length % 7 !== 0) {
-      cells.push({ key: `blank-end-${cells.length}`, day: null, date: null, status: null })
-    }
-
-    return cells
-  }, [attendanceByDate, attendanceCalendarMonth, attendanceCalendarYear])
+    return buildCalendarDays(attendanceCalendarRecords, attendanceCalendarMonth, attendanceCalendarYear, deriveStatusFromPolicy)
+  }, [attendanceCalendarRecords, attendanceCalendarMonth, attendanceCalendarYear, deriveStatusFromPolicy])
 
   const getCalendarStatusClass = (status: string | null) => {
-    if (status === "P") return "bg-emerald-100 text-emerald-800 border-emerald-300"
+    if (status === "FD" || status === "P") return "bg-emerald-100 text-emerald-800 border-emerald-300"
     if (status === "H") return "bg-amber-100 text-amber-800 border-amber-300"
+    if (status === "PD") return "bg-blue-100 text-blue-800 border-blue-300"
     if (status === "A") return "bg-rose-100 text-rose-800 border-rose-300"
     return "bg-white text-slate-500 border-slate-200"
   }
@@ -926,12 +1214,84 @@ export function AttendancePayrollModule({
     })
   }, [attendanceCalendarMonth, attendanceCalendarYear])
 
+  const employeeCalendarDays = useMemo(() => {
+    return buildCalendarDays(employeeAttendanceCalendarRecords, employeeAttendanceCalendarMonth, employeeAttendanceCalendarYear, deriveStatusFromPolicy)
+  }, [employeeAttendanceCalendarRecords, employeeAttendanceCalendarMonth, employeeAttendanceCalendarYear, deriveStatusFromPolicy])
+
+  const employeeCalendarMonthLabel = useMemo(() => {
+    return new Date(employeeAttendanceCalendarYear, employeeAttendanceCalendarMonth - 1, 1).toLocaleString("en-IN", {
+      month: "long",
+      year: "numeric",
+    })
+  }, [employeeAttendanceCalendarMonth, employeeAttendanceCalendarYear])
+
+  const openEmployeeCalendar = useCallback((record: AttendanceRecord) => {
+    const [selectedYear, selectedMonth] = String(attendanceDate || todayIndia).split("-").map(Number)
+    setSelectedCalendarEmployee({
+      employeeId: record.employeeId,
+      empName: record.empName,
+      idNumber: record.idNumber,
+      designation: record.designation,
+    })
+    setEmployeeAttendanceCalendarMonth(
+      Number.isInteger(selectedMonth) && selectedMonth > 0 ? selectedMonth : currentIndiaMonth
+    )
+    setEmployeeAttendanceCalendarYear(
+      Number.isInteger(selectedYear) && selectedYear > 0 ? selectedYear : currentIndiaYear
+    )
+    setEmployeeCalendarDialogOpen(true)
+  }, [attendanceDate, currentIndiaMonth, currentIndiaYear, todayIndia])
+
+  useEffect(() => {
+    if (!employeeCalendarDialogOpen || !selectedCalendarEmployee) {
+      return
+    }
+
+    let cancelled = false
+
+    const loadCalendar = async () => {
+      setLoadingEmployeeAttendanceCalendar(true)
+      try {
+        const records = await fetchAttendanceCalendarRecords(
+          selectedCalendarEmployee.employeeId,
+          employeeAttendanceCalendarMonth,
+          employeeAttendanceCalendarYear
+        )
+        if (!cancelled) {
+          setEmployeeAttendanceCalendarRecords(records)
+        }
+      } catch (error) {
+        console.error("Error fetching employee attendance calendar:", error)
+        if (!cancelled) {
+          setEmployeeAttendanceCalendarRecords([])
+          toast.error("Failed to fetch employee attendance calendar")
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingEmployeeAttendanceCalendar(false)
+        }
+      }
+    }
+
+    void loadCalendar()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    employeeAttendanceCalendarMonth,
+    employeeAttendanceCalendarYear,
+    employeeCalendarDialogOpen,
+    fetchAttendanceCalendarRecords,
+    selectedCalendarEmployee,
+  ])
+
   return (
     <>
     <div className="space-y-6">
         {/* Tab Panels (rendered conditionally) */}
         {activeTab === "attendance" && (
-          <div className="space-y-4">
+          <div className="space-y-4" style={{ paddingTop: "var(--master-gap)" }}>
             {isTechnicianViewer ? (
               <div className="space-y-4">
                 {!Number.isInteger(currentEmployeeId) ? (
@@ -1000,10 +1360,28 @@ export function AttendancePayrollModule({
                       <Button
                         type="button"
                         className="w-full h-12 text-base font-semibold bg-red-600 hover:bg-red-700"
-                        onClick={() => window.open("/mobile-attendance", "_blank", "noopener,noreferrer")}
+                        onClick={() => setMobileAttendanceDialogOpen(true)}
                       >
                         Mark {mobileAttendanceDetails?.nextAction || "IN"}
                       </Button>
+
+                      {mobileAttendanceDialogOpen &&
+                        Number.isInteger(currentEmployeeId) &&
+                        mobileDeviceId && (
+                          <AttendanceCaptureOverlay
+                            employeeId={currentEmployeeId!}
+                            deviceId={mobileDeviceId}
+                            nextAction={mobileAttendanceDetails?.nextAction ?? "IN"}
+                            facePhotoUrl={mobileAttendanceDetails?.employee?.facePhotoUrl ?? null}
+                            onSuccess={() => {
+                              setMobileAttendanceDialogOpen(false)
+                              void fetchMobileAttendanceDetails()
+                              if (attendanceDate) void fetchAttendance(attendanceDate)
+                              void fetchAttendanceCalendar(attendanceCalendarMonth, attendanceCalendarYear)
+                            }}
+                            onCancel={() => setMobileAttendanceDialogOpen(false)}
+                          />
+                        )}
                     </Card>
 
                     <Card className="p-4 space-y-4">
@@ -1045,8 +1423,9 @@ export function AttendancePayrollModule({
 
                       <div className="text-xs text-muted-foreground">{monthLabel}</div>
                       <div className="flex flex-wrap items-center gap-3 text-xs">
-                        <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Present</span>
+                        <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Full Day</span>
                         <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" />Half Day</span>
+                        <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-blue-500" />Partial Day</span>
                         <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-rose-500" />Absent</span>
                       </div>
 
@@ -1073,7 +1452,14 @@ export function AttendancePayrollModule({
                             {cell.day ? (
                               <>
                                 <div className="font-semibold">{cell.day}</div>
-                                <div className="mt-1 text-[11px]">{cell.status || "-"}</div>
+                                <div className="mt-0.5 text-[10px] leading-tight font-medium">
+                                  {cell.status ? (ATTENDANCE_ABBR[cell.status as AttendanceStatus] ?? cell.status) : "-"}
+                                </div>
+                                {cell.workedMinutes != null && cell.workedMinutes > 0 && ["FD", "H", "PD"].includes(cell.status ?? "") && (
+                                  <div className="text-[9px] opacity-70 leading-tight">
+                                    {Math.floor(cell.workedMinutes / 60)}h {cell.workedMinutes % 60}m
+                                  </div>
+                                )}
                               </>
                             ) : null}
                           </div>
@@ -1089,63 +1475,70 @@ export function AttendancePayrollModule({
               </div>
             ) : (
               <>
-            <div className="my-3 flex flex-wrap items-center gap-4">
-              <div className="text-sm text-muted-foreground">
-                Employees must mark attendance from their phone at /mobile-attendance.
-              </div>
-
-              <div className="ml-auto flex items-center gap-2"> 
-                <Button size="sm" onClick={() => setHolidaysDialogOpen(true)}>Holidays</Button>
-                <Button size="sm" onClick={() => setShiftDialogOpen(true)}>Shift Settings</Button>
-                <Label htmlFor="attendanceDateInTabs" className="text-xs text-slate-600 whitespace-nowrap">
-                  Select Date
-                </Label>
-                <DatePickerInput
-                  id="attendanceDateInTabs"
-                  value={attendanceDate}
-                  onChange={handleAttendanceDateChange}
-                  format="iso"
-                  placeholder="dd-mm-yy"
-                  popoverSide="bottom"
-                  popoverAlign="end"
-                  className="!h-[33px] rounded-full border border-slate-300 bg-white px-2 text-center text-[12.5px] leading-none focus:ring-0 w-[188px]"
-                />
-              </div>
-            </div>
-
-            <div className="form-table-wrapper attendance-payroll-table-wrapper mobile-attendance-table-wrapper">
+            <div className="form-table-wrapper form-table-wrapper--independent-tl attendance-payroll-table-wrapper mobile-attendance-table-wrapper">
               <table className="w-full table-fixed text-sm">
                 <thead className="sticky top-0 z-20">
                   <tr>
-                    <th className="w-16 bg-slate-100 text-center">#</th>
-                    <th className="bg-slate-100 text-center">Employee Name</th>
-                    <th className="bg-slate-100 text-center">ID Number</th>
-                    <th className="bg-slate-100 text-center">Designation</th>
-                    <th className="bg-slate-100 text-center">Check In</th>
-                    <th className="bg-slate-100 text-center">Check Out</th>
-                    <th className="bg-slate-100 text-center">Worked Time</th>
-                    <th className="bg-slate-100 text-center">Status</th>
-                    <th className="w-28 bg-slate-100 text-center">Action</th>
+                    <th className="w-[4%] bg-slate-100 text-center">#</th>
+                    <th className="w-[18%] bg-slate-100 text-center">
+                      <span className="inline-flex items-center justify-center">
+                        Employee Name
+                        <PayrollFilterMenu
+                          options={[...new Set(attendanceRecords.map((r) => r.empName))].sort()}
+                          value={attendanceNameFilter}
+                          onChange={setAttendanceNameFilter}
+                        />
+                      </span>
+                    </th>
+                    <th className="w-[8%] bg-slate-100 text-center">
+                      <span className="inline-flex items-center justify-center">
+                        Date
+                        <PayrollFilterMenu
+                          options={[...new Set(attendanceRecords.map((r) => formatDateDDMMYY(r.attendanceDate) ?? ""))].filter(Boolean).sort()}
+                          value={attendanceDateFilter}
+                          onChange={setAttendanceDateFilter}
+                        />
+                      </span>
+                    </th>
+                    <th className="w-[10%] bg-slate-100 text-center">Designation</th>
+                    <th className="w-[8%] bg-slate-100 text-center">Check In</th>
+                    <th className="w-[8%] bg-slate-100 text-center">Check Out</th>
+                    <th className="w-[8%] bg-slate-100 text-center">Worked Time</th>
+                    <th className="w-[8%] bg-slate-100 text-center">Overtime</th>
+                    <th className="w-[16%] bg-slate-100 text-center">Status</th>
+                    <th className="w-[10%] bg-slate-100 text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="[&_td]:text-center">
-                  {visibleAttendanceRecords.map((record, index) => (
-                    <tr key={record.employeeId} className="h-8">
+                  {renderedAttendanceRecords.map((record, index) => (
+                    <tr key={record.attendanceId ?? `${record.employeeId}-${index}`} className="h-8">
                       <td className="h-8">{index + 1}</td>
                       <td className="font-medium h-8">{record.empName}</td>
-                      <td className="h-8">{record.idNumber}</td>
+                      <td className="h-8 text-slate-500">{formatDateDDMMYY(record.attendanceDate) || "-"}</td>
                       <td className="h-8">{record.designation || "N/A"}</td>
-                      {editingEmployeeId === record.employeeId && attendanceEditForm ? (
+                      {editingAttendanceId === (record.attendanceId ?? null) && attendanceEditForm ? (
                         <>
                           <td className="h-8">
                             <Input
                               type="time"
                               value={attendanceEditForm.checkInTime}
-                              onChange={(e) =>
-                                setAttendanceEditForm((prev) =>
-                                  prev ? { ...prev, checkInTime: e.target.value } : prev
-                                )
-                              }
+                              onChange={(e) => {
+                                const newCheckIn = e.target.value
+                                setAttendanceEditForm((prev) => {
+                                  if (!prev) return prev
+                                  const updated = { ...prev, checkInTime: newCheckIn }
+                                  if (newCheckIn && prev.checkOutTime) {
+                                    const [inH, inM] = newCheckIn.split(":").map(Number)
+                                    const [outH, outM] = prev.checkOutTime.split(":").map(Number)
+                                    const worked = (outH * 60 + outM) - (inH * 60 + inM)
+                                    if (worked > 0) {
+                                      updated.workedMinutes = String(worked)
+                                      updated.attendance = deriveStatusFromPolicy(worked)
+                                    }
+                                  }
+                                  return updated
+                                })
+                              }}
                               className="h-8"
                             />
                           </td>
@@ -1153,11 +1546,23 @@ export function AttendancePayrollModule({
                             <Input
                               type="time"
                               value={attendanceEditForm.checkOutTime}
-                              onChange={(e) =>
-                                setAttendanceEditForm((prev) =>
-                                  prev ? { ...prev, checkOutTime: e.target.value } : prev
-                                )
-                              }
+                              onChange={(e) => {
+                                const newCheckOut = e.target.value
+                                setAttendanceEditForm((prev) => {
+                                  if (!prev) return prev
+                                  const updated = { ...prev, checkOutTime: newCheckOut }
+                                  if (prev.checkInTime && newCheckOut) {
+                                    const [inH, inM] = prev.checkInTime.split(":").map(Number)
+                                    const [outH, outM] = newCheckOut.split(":").map(Number)
+                                    const worked = (outH * 60 + outM) - (inH * 60 + inM)
+                                    if (worked > 0) {
+                                      updated.workedMinutes = String(worked)
+                                      updated.attendance = deriveStatusFromPolicy(worked)
+                                    }
+                                  }
+                                  return updated
+                                })
+                              }}
                               className="h-8"
                             />
                           </td>
@@ -1174,6 +1579,9 @@ export function AttendancePayrollModule({
                               className="h-8"
                             />
                           </td>
+                          <td className="h-8 text-center text-xs text-muted-foreground">
+                            {calcOvertimeDisplay(record.workedMinutes)}
+                          </td>
                           <td className="h-8">
                             <Select
                               value={normalizeStatusOption(attendanceEditForm.attendance)}
@@ -1187,9 +1595,9 @@ export function AttendancePayrollModule({
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="P">P</SelectItem>
-                                <SelectItem value="H">H</SelectItem>
-                                <SelectItem value="A">A</SelectItem>
+                                {VALID_ATTENDANCE_STATUS.map((code) => (
+                                  <SelectItem key={code} value={code}>{ATTENDANCE_LABEL[code]}</SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </td>
@@ -1209,16 +1617,6 @@ export function AttendancePayrollModule({
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => setVerifyDialogOpen(true)}
-                                aria-label="Verify"
-                                className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-800"
-                              >
-                                V
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
                                 onClick={resetAttendanceRowEditor}
                                 aria-label="Cancel"
                                 className="h-8 w-8 p-0 text-slate-600 hover:text-slate-800"
@@ -1233,9 +1631,20 @@ export function AttendancePayrollModule({
                           <td className="h-8">{formatTimeInIndia(record.checkInAt)}</td>
                           <td className="h-8">{formatTimeInIndia(record.checkOutAt)}</td>
                           <td className="h-8">{record.workedDuration || "0m"}</td>
-                          <td className="h-8">{normalizeStatusOption(record.attendance)}</td>
+                          <td className="h-8 text-xs text-orange-600 font-medium">{calcOvertimeDisplay(record.workedMinutes)}</td>
+                          <td className="h-8">{ATTENDANCE_LABEL[normalizeStatusOption(record.attendance)]}</td>
                           <td className="h-8">
                             <div className="flex items-center justify-center gap-2">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openEmployeeCalendar(record)}
+                                aria-label="View attendance calendar"
+                                className="h-8 w-8 p-0 text-slate-600 hover:text-slate-800"
+                              >
+                                <Calendar className="h-4 w-4" />
+                              </Button>
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -1262,10 +1671,10 @@ export function AttendancePayrollModule({
                       )}
                     </tr>
                   ))}
-                  {visibleAttendanceRecords.length === 0 && (
+                  {renderedAttendanceRecords.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="text-center text-muted-foreground h-8">
-                        No employees found
+                      <td colSpan={10} className="text-center text-muted-foreground h-8">
+                        {loadingAttendanceHistory ? "Loading attendance history..." : "No employees found"}
                       </td>
                     </tr>
                   )}
@@ -1278,41 +1687,34 @@ export function AttendancePayrollModule({
         )}
 
         {activeTab === "adjustments" && (
-          <div className="space-y-4">
+          <div className="space-y-4" style={{ paddingTop: "var(--master-gap)" }}>
             <div className="space-y-4">
-              <div className="my-3 flex min-h-[33px] items-center justify-end gap-4">
-                {!isTechnicianViewer ? (
-                  <div className="w-80 max-w-full">
-                    <Select value={adjustmentFilterEmployeeId} onValueChange={setAdjustmentFilterEmployeeId}>
-                      <SelectTrigger
-                        aria-label="Filter adjustments by employee"
-                        className="global-record-select-trigger !h-[33px] !min-h-[33px] w-full"
-                      >
-                        <SelectValue placeholder="Select employee" />
-                      </SelectTrigger>
-                      <SelectContent className="global-record-select-content">
-                        <SelectItem value="all">All Employees</SelectItem>
-                        {employees.map((employee) => (
-                          <SelectItem key={employee.employeeId} value={String(employee.employeeId)}>
-                            {employee.empName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="form-table-wrapper attendance-payroll-table-wrapper">
+              <div className="form-table-wrapper form-table-wrapper--independent-tl attendance-payroll-table-wrapper attendance-payroll-adjustments-table-wrapper">
                 <table className="w-full table-fixed text-sm">
                   <thead className="sticky top-0 z-20">
                     <tr>
-                      <th className="bg-slate-100 text-center">Employee</th>
-                      <th className="bg-slate-100 text-center">ID</th>
+                      <th className="bg-slate-100 text-center">
+                        <span className="inline-flex items-center justify-center">
+                          Employee
+                          <PayrollFilterMenu
+                            options={[...new Set(adjustments.map((a) => a.employee.empName))].sort()}
+                            value={adjustmentNameFilter}
+                            onChange={setAdjustmentNameFilter}
+                          />
+                        </span>
+                      </th>
                       <th className="bg-slate-100 text-center">Type</th>
                       <th className="bg-slate-100 text-center">Amount</th>
-                      <th className="bg-slate-100 text-center">Deduction</th>
-                      <th className="bg-slate-100 text-center">Date</th>
+                      <th className="bg-slate-100 text-center">
+                        <span className="inline-flex items-center justify-center">
+                          Date
+                          <PayrollFilterMenu
+                            options={[...new Set(adjustments.map((a) => formatDateDDMMYY(a.adjustmentDate) ?? ""))].filter(Boolean).sort()}
+                            value={adjustmentDateFilter}
+                            onChange={setAdjustmentDateFilter}
+                          />
+                        </span>
+                      </th>
                       <th className="bg-slate-100 text-center">Remarks</th>
                       {!isTechnicianViewer ? <th className="w-24 bg-slate-100 text-center">Actions</th> : null}
                     </tr>
@@ -1321,7 +1723,6 @@ export function AttendancePayrollModule({
                     {visibleAdjustments.map((adj) => (
                       <tr key={adj.adjustmentId} className="h-8">
                         <td className="font-medium h-8">{adj.employee.empName}</td>
-                        <td className="h-8">{adj.employee.idNumber}</td>
                         <td className="h-8">
                           <span
                             className={`px-2 py-1 rounded-full text-xs ${
@@ -1331,16 +1732,15 @@ export function AttendancePayrollModule({
                                   ? "bg-blue-100 text-blue-800"
                                   : adj.adjustmentType === "Deduction"
                                     ? "bg-orange-100 text-orange-800"
-                                    : "bg-red-100 text-red-800"
+                                    : ["PF", "ESI", "Tax"].includes(adj.adjustmentType)
+                                      ? "bg-purple-100 text-purple-800"
+                                      : "bg-red-100 text-red-800"
                             }`}
                           >
                             {adj.adjustmentType}
                           </span>
                         </td>
                         <td className="h-8">₹{adj.amount.toFixed(2)}</td>
-                        <td className="h-8 text-red-600">
-                          {adj.adjustmentType === "Deduction" ? `-₹${adj.amount.toFixed(2)}` : "-"}
-                        </td>
                         <td className="h-8">{formatDateDDMMYY(adj.adjustmentDate)}</td>
                         <td className="h-8 text-sm text-muted-foreground">
                           {adj.remarks || "-"}
@@ -1375,7 +1775,7 @@ export function AttendancePayrollModule({
                     ))}
                     {visibleAdjustments.length === 0 && (
                       <tr>
-                        <td colSpan={isTechnicianViewer ? 7 : 8} className="h-8 text-center text-muted-foreground">
+                        <td colSpan={isTechnicianViewer ? 6 : 7} className="h-8 text-center text-muted-foreground">
                           {loadingAdjustments
                             ? (isTechnicianViewer ? "Loading payment history..." : "Loading adjustments...")
                             : (isTechnicianViewer ? "No payment history found for this period" : "No adjustments found")}
@@ -1387,7 +1787,7 @@ export function AttendancePayrollModule({
               </div>
 
               {!isTechnicianViewer ? (
-                <div className="shrink-0 mt-6">
+                <div className="shrink-0 mt-[1mm]">
                   <Button
                     type="button"
                     onClick={openNewAdjustmentModal}
@@ -1462,7 +1862,10 @@ export function AttendancePayrollModule({
                           <SelectItem value="Allowance">Allowance</SelectItem>
                           <SelectItem value="Advance">Advance</SelectItem>
                           <SelectItem value="Incentive">Incentive</SelectItem>
-                          <SelectItem value="Deduction">Deduction</SelectItem>
+
+                          <SelectItem value="PF">PF</SelectItem>
+                          <SelectItem value="ESI">ESI</SelectItem>
+                          <SelectItem value="Tax">Tax</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1532,76 +1935,32 @@ export function AttendancePayrollModule({
         )}
 
         {activeTab === "payroll" && (
-          <div className="space-y-4 px-2">
-            <div className="my-3 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="payrollMonth" className="text-center">Month:</Label>
-                  <Select
-                    value={payrollMonth.toString()}
-                    onValueChange={(value) => setPayrollMonth(parseInt(value))}
-                  >
-                    <SelectTrigger id="payrollMonth" className="w-40 mx-auto !h-[33px] !min-h-[33px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                        <SelectItem key={month} value={month.toString()}>
-                          {new Date(2000, month - 1).toLocaleDateString("en-US", {
-                            month: "long",
-                          })}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="payrollYear" className="text-center">Year:</Label>
-                  <Select
-                    value={payrollYear.toString()}
-                    onValueChange={(value) => setPayrollYear(parseInt(value))}
-                  >
-                    <SelectTrigger id="payrollYear" className="w-32 mx-auto !h-[33px] !min-h-[33px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 5 }, (_, i) => currentIndiaYear - i).map(
-                        (year) => (
-                          <SelectItem key={year} value={year.toString()}>
-                            {year}
-                          </SelectItem>
-                        )
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {!isTechnicianViewer ? (
-                <Button
-                  onClick={generatePayroll}
-                  disabled={generatingPayroll}
-                  className="!h-[33px] !min-h-[33px] bg-blue-600 text-white hover:bg-blue-700"
-                >
-                  {generatingPayroll ? "Generating..." : "Generate Monthly Payroll"}
-                </Button>
-              ) : (
-                <div className="text-sm text-muted-foreground">Download is available after manager/admin generates payroll.</div>
-              )}
-            </div>
-
-            <div className="form-table-wrapper attendance-payroll-table-wrapper">
+          <div className="space-y-4" style={{ paddingTop: "var(--master-gap)" }}>
+            <div className="form-table-wrapper form-table-wrapper--independent-tl attendance-payroll-table-wrapper payroll-table-wrapper">
               <table className="w-full table-fixed text-sm">
                 <thead className="sticky top-0 z-20">
                   <tr>
                     <th className="bg-slate-100 text-center">#</th>
-                    <th className="w-[16%] bg-slate-100 text-center">Employee</th>
-                    <th className="bg-slate-100 text-center">ID</th>
-                    <th className="w-[4.5%] bg-slate-100 text-center">P</th>
-                    <th className="w-[4.5%] bg-slate-100 text-center">H</th>
-                    <th className="w-[4.5%] bg-slate-100 text-center">L</th>
-                    <th className="w-[4.5%] bg-slate-100 text-center">A</th>
+                    <th className="w-[18%] bg-slate-100 text-center">
+                      <span className="inline-flex items-center justify-center">
+                        Employee
+                        <PayrollFilterMenu
+                          options={[...new Set(payrollRecords.map((p) => p.employee.empName))].sort()}
+                          value={payrollNameFilter}
+                          onChange={setPayrollNameFilter}
+                        />
+                      </span>
+                    </th>
+                    <th className="bg-slate-100 text-center">
+                      <span className="inline-flex items-center justify-center">
+                        Date
+                        <PayrollFilterMenu
+                          options={[...new Set(payrollRecords.map((p) => formatPayrollDate(p.month, p.year)))]}
+                          value={payrollDateFilter}
+                          onChange={setPayrollDateFilter}
+                        />
+                      </span>
+                    </th>
                     <th className="bg-slate-100 text-center">Basic Salary</th>
                     <th className="bg-slate-100 text-center">Allowances</th>
                     <th className="bg-slate-100 text-center">Incentives</th>
@@ -1616,11 +1975,7 @@ export function AttendancePayrollModule({
                     <tr key={payroll.payrollId} className="h-8">
                       <td className="h-8">{index + 1}</td>
                       <td className="h-8 font-medium">{payroll.employee.empName}</td>
-                      <td className="h-8">{payroll.employee.idNumber}</td>
-                      <td className="h-8">{payroll.totalPresent}</td>
-                      <td className="h-8">{payroll.totalHalfDay}</td>
-                      <td className="h-8">{payroll.totalLeave}</td>
-                      <td className="h-8">{payroll.totalAbsent}</td>
+                      <td className="h-8 text-slate-500">{formatPayrollDate(payroll.month, payroll.year)}</td>
                       <td className="h-8">₹{payroll.basicSalary.toFixed(2)}</td>
                       <td className="h-8 text-green-600">
                         +₹{payroll.totalAllowance.toFixed(2)}
@@ -1640,8 +1995,9 @@ export function AttendancePayrollModule({
                           variant="ghost"
                           size="sm"
                           onClick={() => printSalarySlip(payroll)}
+                          className="gap-1 px-2 py-1 text-blue-600 hover:bg-orange-100 hover:text-orange-600"
                         >
-                          <Printer className="h-4 w-4 mr-1" />
+                          <Printer className="h-4 w-4" />
                           Slip
                         </Button>
                       </td>
@@ -1649,10 +2005,10 @@ export function AttendancePayrollModule({
                   ))}
                   {visiblePayrollRecords.length === 0 && (
                     <tr>
-                      <td colSpan={13} className="h-8 text-center text-muted-foreground">
+                      <td colSpan={10} className="h-8 text-center text-muted-foreground">
                         {isTechnicianViewer
                           ? "No payroll generated for this month yet."
-                          : "No payroll records found. Click \"Generate Monthly Payroll\" to create records."}
+                          : "No payroll records found for this month."}
                       </td>
                     </tr>
                   )}
@@ -1661,34 +2017,249 @@ export function AttendancePayrollModule({
             </div>
 
             {visiblePayrollRecords.length > 0 && (
-              <div className="flex justify-end p-4 bg-muted/50 rounded-lg">
+              <div className="flex justify-end p-4 rounded-lg">
                 <div className="text-right">
                   <div className="text-sm text-muted-foreground">Total Net Payable</div>
                   <div className="text-2xl font-bold">
                     ₹
-                    {visiblePayrollRecords
-                      .reduce((sum, p) => sum + p.netSalary, 0)
-                      .toFixed(2)}
+                    {Math.round(visiblePayrollRecords.reduce((sum, p) => sum + p.netSalary, 0)).toFixed(2)}
                   </div>
                 </div>
               </div>
             )}
           </div>
         )}
-    </div>
-    <HolidaysDialog open={holidaysDialogOpen} onOpenChange={setHolidaysDialogOpen} />
-    <VerifyEditDialog
-      employeeId={editingEmployeeId ?? 0}
-      open={verifyDialogOpen}
+
+        {activeTab === "generate-payroll" && (
+          <div className="space-y-4" style={{ paddingTop: "var(--master-gap)" }}>
+            {isTechnicianViewer ? (
+              <Card className="p-4 text-sm text-muted-foreground">
+                Technicians can only view payroll. Generation is available for admin and manager roles.
+              </Card>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+                  <div className="space-y-2">
+                    <Label htmlFor="generatePayrollMonth">Month</Label>
+                    <Select
+                      value={payrollMonth.toString()}
+                      onValueChange={(value) => setPayrollMonth(parseInt(value, 10))}
+                    >
+                      <SelectTrigger id="generatePayrollMonth" className="!h-[33px] !min-h-[33px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                          <SelectItem key={month} value={month.toString()}>
+                            {new Date(2000, month - 1).toLocaleString("en-IN", { month: "long" })}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="generatePayrollYear">Year</Label>
+                    <Select
+                      value={payrollYear.toString()}
+                      onValueChange={(value) => setPayrollYear(parseInt(value, 10))}
+                    >
+                      <SelectTrigger id="generatePayrollYear" className="!h-[33px] !min-h-[33px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 5 }, (_, i) => currentIndiaYear - i).map((year) => (
+                          <SelectItem key={year} value={year.toString()}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button
+                    type="button"
+                    disabled={generatingPayroll}
+                    onClick={() => runPayrollGeneration(payrollMonth, payrollYear, false)}
+                  >
+                    {generatingPayroll ? "Processing..." : "Generate Payroll"}
+                  </Button>
+                </div>
+
+                <div className="mt-4">
+                  <div className="form-table-wrapper form-table-wrapper--independent-tl attendance-payroll-table-wrapper generate-payroll-table-wrapper">
+                  <table className="w-full table-fixed text-sm">
+                    <thead className="sticky top-0 z-20">
+                      <tr>
+                        <th className="bg-slate-100 text-center">#</th>
+                        <th className="bg-slate-100 text-center">No. of Employees</th>
+                        <th className="bg-slate-100 text-center">Month</th>
+                        <th className="bg-slate-100 text-center">Generated Date</th>
+                        <th className="bg-slate-100 text-center">Total Amount</th>
+                        <th className="bg-slate-100 text-center">Generated By</th>
+                        <th className="bg-slate-100 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="[&_td]:text-center">
+                      {visiblePayrollHistory.map((row, index) => (
+                        <tr key={`${row.year}-${row.month}`} className="h-8 hover:bg-slate-50">
+                          <td className="h-8">{index + 1}</td>
+                          <td className="h-8">{row.employeeCount}</td>
+                          <td className="h-8">
+                            {new Date(row.year, row.month - 1, 1).toLocaleString("en-IN", {
+                              month: "long",
+                              year: "numeric",
+                            })}
+                          </td>
+                          <td className="h-8">
+                            {row.generatedAt
+                              ? new Date(row.generatedAt).toLocaleString("en-IN", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : "-"}
+                          </td>
+                          <td className="h-8 font-medium">₹{Number(row.totalAmount || 0).toFixed(2)}</td>
+                          <td className="h-8">{row.generatedBy || "System"}</td>
+                          <td className="h-8">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={generatingPayroll}
+                              className="p-0 text-blue-600 hover:text-blue-700 hover:bg-transparent"
+                              onClick={() => runPayrollGeneration(row.month, row.year, true)}
+                            >
+                              <RefreshCcw className="mr-1 h-3.5 w-3.5" />
+                              Regenerate
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                      {!loadingPayrollHistory && visiblePayrollHistory.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="h-8 text-center text-muted-foreground">
+                            No payroll generation history found.
+                          </td>
+                        </tr>
+                      )}
+                      {loadingPayrollHistory && (
+                        <tr>
+                          <td colSpan={7} className="h-8 text-center text-muted-foreground">
+                            Loading generation history...
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {activeTab === "leave-holidays" && !isTechnicianViewer && (
+          <AttendancePolicyForm isAdminViewer={isAdminViewer} />
+        )}
+      </div>
+    <Dialog
+      open={employeeCalendarDialogOpen}
       onOpenChange={(open) => {
-        console.log('[AttendanceModule] VerifyDialog opening change:', open, 'editingEmployeeId:', editingEmployeeId)
-        setVerifyDialogOpen(open)
+        setEmployeeCalendarDialogOpen(open)
+        if (!open) {
+          setSelectedCalendarEmployee(null)
+          setEmployeeAttendanceCalendarRecords([])
+        }
       }}
-      onVerified={(token) => {
-        setCurrentCorrectionToken(token)
-      }}
-    />
-    <ShiftSettingsDialog employeeId={editingEmployeeId} open={shiftDialogOpen} onOpenChange={setShiftDialogOpen} />
+    >
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-semibold">
+            {selectedCalendarEmployee ? `${selectedCalendarEmployee.empName} Attendance Calendar` : "Attendance Calendar"}
+          </DialogTitle>
+          <DialogDescription>
+            {selectedCalendarEmployee
+              ? `${selectedCalendarEmployee.idNumber}${selectedCalendarEmployee.designation ? ` • ${selectedCalendarEmployee.designation}` : ""}`
+              : "Monthly attendance view"}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-xs text-muted-foreground">{employeeCalendarMonthLabel}</div>
+            <div className="flex items-center gap-2">
+              <Select
+                value={String(employeeAttendanceCalendarMonth)}
+                onValueChange={(value) => setEmployeeAttendanceCalendarMonth(parseInt(value, 10))}
+              >
+                <SelectTrigger className="w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => (
+                    <SelectItem key={month} value={String(month)}>
+                      {new Date(2000, month - 1, 1).toLocaleString("en-IN", { month: "long" })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={String(employeeAttendanceCalendarYear)}
+                onValueChange={(value) => setEmployeeAttendanceCalendarYear(parseInt(value, 10))}
+              >
+                <SelectTrigger className="w-28">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 5 }, (_, index) => currentIndiaYear - index).map((year) => (
+                    <SelectItem key={year} value={String(year)}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Full Day</span>
+            <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" />Half Day</span>
+            <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-blue-500" />Partial Day</span>
+            <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-rose-500" />Absent</span>
+          </div>
+
+          <div className="grid grid-cols-7 gap-2 text-xs font-medium text-muted-foreground">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
+              <div key={label} className="text-center">{label}</div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7 gap-2">
+            {employeeCalendarDays.map((cell) => (
+              <div
+                key={cell.key}
+                className={`h-16 rounded-md border p-2 text-xs ${getCalendarStatusClass(cell.status)}`}
+              >
+                {cell.day ? (
+                  <>
+                    <div className="font-semibold">{cell.day}</div>
+                    <div className="mt-1 text-[11px]">{cell.status || "-"}</div>
+                  </>
+                ) : null}
+              </div>
+            ))}
+          </div>
+
+          {loadingEmployeeAttendanceCalendar ? (
+            <div className="text-xs text-muted-foreground">Loading attendance calendar...</div>
+          ) : null}
+        </div>
+      </DialogContent>
+    </Dialog>
     </>
   )
 }

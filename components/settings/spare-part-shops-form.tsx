@@ -456,7 +456,7 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
             setShowAddStateDropdown(false)
           }
         }}>
-          <DialogContent className="max-w-3xl overflow-hidden">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl font-semibold">Add New Shop</DialogTitle>
               <DialogDescription>Enter the spare part shop details to create a new shop record.</DialogDescription>
@@ -526,7 +526,7 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
                             if (addStateSelectedIndex >= 0 && filteredStates[addStateSelectedIndex]) {
                               const state = filteredStates[addStateSelectedIndex]
                               setAddForm({ ...addForm, stateId: state.id })
-                              setAddStateFilter(`${state.stateName} - ${state.stateCode}`)
+                              setAddStateFilter("")
                               setShowAddStateDropdown(false)
                               setAddStateSelectedIndex(-1)
                             }
@@ -579,7 +579,7 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
                                   }}
                                   onClick={() => {
                                     setAddForm({ ...addForm, stateId: state.id })
-                                    setAddStateFilter(`${state.stateName} - ${state.stateCode}`)
+                                    setAddStateFilter("")
                                     setShowAddStateDropdown(false)
                                     setAddStateSelectedIndex(-1)
                                   }}
@@ -605,6 +605,11 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
                       </div>
                     )}
                   </div>
+                  {addForm.stateId ? (
+                    <div className="text-xs text-slate-500 mt-1">
+                      Selected: {getStateName(addForm.stateId)}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="add-address-line-1">Address Line 1</Label>
@@ -689,7 +694,7 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
         <Dialog open={isEditingModal} onOpenChange={(open) => {
           if (!open) cancelEdit()
         }}>
-          <DialogContent className="max-w-3xl overflow-hidden">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl font-semibold">Edit Shop</DialogTitle>
               <DialogDescription>Update the spare part shop details.</DialogDescription>
@@ -759,7 +764,7 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
                           if (editStateSelectedIndex >= 0 && filteredStates[editStateSelectedIndex]) {
                             const state = filteredStates[editStateSelectedIndex]
                             setEditForm({ ...editForm, stateId: state.id })
-                            setEditStateFilter(`${state.stateName} - ${state.stateCode}`)
+                            setEditStateFilter("")
                             setShowEditStateDropdown(false)
                             setEditStateSelectedIndex(-1)
                           }
@@ -812,7 +817,7 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
                                 }}
                                 onClick={() => {
                                   setEditForm({ ...editForm, stateId: state.id })
-                                  setEditStateFilter(`${state.stateName} - ${state.stateCode}`)
+                                  setEditStateFilter("")
                                   setShowEditStateDropdown(false)
                                   setEditStateSelectedIndex(-1)
                                 }}
@@ -838,6 +843,11 @@ export default function SparePartShopsForm({ panelCornerClass = "" }: { panelCor
                     </div>
                   )}
                 </div>
+                {editForm.stateId ? (
+                  <div className="text-xs text-slate-500 mt-1">
+                    Selected: {getStateName(editForm.stateId)}
+                  </div>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-address-line-1">Address Line 1</Label>

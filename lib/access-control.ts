@@ -7,6 +7,7 @@ const accessMap: Record<UserRole, string[]> = {
   admin: [
     "dashboard",
     "new-job-card",
+    "breakdown",
     "update-job-card",
     "delivered",
     "maintenance-tracker",
@@ -24,6 +25,7 @@ const accessMap: Record<UserRole, string[]> = {
   manager: [
     "dashboard",
     "new-job-card",
+    "breakdown",
     "update-job-card",
     "delivered",
     "maintenance-tracker",
@@ -37,7 +39,9 @@ const accessMap: Record<UserRole, string[]> = {
   ],
   technician: [
     "dashboard",
+    "breakdown",
     "attendance-payroll",
+    "leave-request",
     "all-notifications",
   ],
   // Office roles — attendance only; the UI redirects them to /mobile-attendance

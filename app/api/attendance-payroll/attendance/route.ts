@@ -8,6 +8,7 @@ import {
   isAdminLikeDesignation,
   normalizeAttendanceCode,
 } from "@/lib/attendance"
+import { getOrCreateAttendancePolicy, isHolidayFromPolicy } from "@/lib/attendance-policy"
 
 const INDIA_TIMEZONE = "Asia/Kolkata"
 const INDIA_OFFSET_MINUTES = 5 * 60 + 30
@@ -48,6 +49,23 @@ const getIndiaDayRange = (attendanceDate: string) => {
   }
 
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+  return { start, end }
+}
+
+const getIndiaMonthRange = (year: number, month: number) => {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+    return null
+  }
+
+  const start = getIndiaDayStart(`${year}-${String(month).padStart(2, "0")}-01`)
+  const nextMonth = month === 12 ? 1 : month + 1
+  const nextMonthYear = month === 12 ? year + 1 : year
+  const end = getIndiaDayStart(`${nextMonthYear}-${String(nextMonth).padStart(2, "0")}-01`)
+
+  if (!start || !end) {
+    return null
+  }
+
   return { start, end }
 }
 
@@ -136,6 +154,7 @@ export async function GET(request: NextRequest) {
     const date = searchParams.get("date")
     const month = parseOptionalInt(searchParams.get("month"))
     const year = parseOptionalInt(searchParams.get("year"))
+    const history = searchParams.get("history")
     const requestedEmployeeId = parseOptionalInt(searchParams.get("employeeId"))
 
     const scoped = await getScopedEmployeeId(request, requestedEmployeeId)
@@ -145,17 +164,73 @@ export async function GET(request: NextRequest) {
 
     const scopedEmployeeId = scoped.employeeId
 
+    if ((history === "1" || history === "true") && Number.isInteger(scopedEmployeeId)) {
+      const employeeId = Number(scopedEmployeeId)
+
+      const records = await prisma.attendancePayroll.findMany({
+        where: { employeeId },
+        orderBy: [{ attendanceDate: "desc" }, { attendanceId: "desc" }],
+        include: {
+          employee: {
+            select: {
+              empName: true,
+              idNumber: true,
+              designation: true,
+              salaryPerday: true,
+              facePhotoUrl: true,
+            },
+          },
+        },
+      })
+
+      const normalized = records.map((record) => {
+        const computedWorkedMinutes =
+          record.workedMinutes != null
+            ? record.workedMinutes
+            : record.checkInAt && record.checkOutAt
+              ? calculateWorkedMinutes(record.checkInAt, record.checkOutAt)
+              : null
+
+        return {
+          employeeId,
+          empName: record.employee?.empName || "",
+          idNumber: record.employee?.idNumber || "",
+          designation: record.employee?.designation || null,
+          salaryPerday: record.employee?.salaryPerday || 0,
+          facePhotoUrl: record.employee?.facePhotoUrl || null,
+          attendance: record.attendance || "",
+          attendanceDate: new Intl.DateTimeFormat("en-CA", { timeZone: INDIA_TIMEZONE }).format(record.attendanceDate),
+          attendanceId: record.attendanceId,
+          checkInAt: record.checkInAt || null,
+          checkOutAt: record.checkOutAt || null,
+          checkInStatus: record.checkInStatus || null,
+          checkOutStatus: record.checkOutStatus || null,
+          lateMinutes: record.lateMinutes ?? 0,
+          workedMinutes: computedWorkedMinutes,
+          workedDuration: formatWorkedDuration(computedWorkedMinutes),
+          attendanceMethod: record.attendanceMethod || null,
+          verificationStatus: record.verificationStatus || null,
+          isHoliday: false,
+          nextAction: deriveNextAttendanceAction(record),
+        }
+      })
+
+      return NextResponse.json(normalized)
+    }
+
     if (month != null && year != null && Number.isInteger(scopedEmployeeId)) {
       const employeeId = Number(scopedEmployeeId)
-      const monthStart = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0))
-      const monthEnd = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0))
+      const monthRange = getIndiaMonthRange(year, month)
+      if (!monthRange) {
+        return NextResponse.json({ error: "Invalid month/year" }, { status: 400 })
+      }
 
       const records = await prisma.attendancePayroll.findMany({
         where: {
           employeeId,
           attendanceDate: {
-            gte: monthStart,
-            lt: monthEnd,
+            gte: monthRange.start,
+            lt: monthRange.end,
           },
         },
         select: {
@@ -220,6 +295,7 @@ export async function GET(request: NextRequest) {
         },
         ...(Number.isInteger(scopedEmployeeId) ? { employeeId: Number(scopedEmployeeId) } : {}),
       },
+      orderBy: [{ attendanceDate: "desc" }, { attendanceId: "desc" }],
       include: {
         employee: {
           select: {
@@ -230,12 +306,19 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // Check if the requested date is a holiday
-    const holidayForDate = await prisma.holiday.findUnique({ where: { date } })
+    const attendancePolicy = await getOrCreateAttendancePolicy()
+
+    // Keep only the latest record per employee for the selected day.
+    const latestRecordByEmployee = new Map<number, (typeof attendanceRecords)[number]>()
+    attendanceRecords.forEach((record) => {
+      if (!latestRecordByEmployee.has(record.employeeId)) {
+        latestRecordByEmployee.set(record.employeeId, record)
+      }
+    })
 
     // Merge employees with their attendance
     const attendanceData = employees.map((emp) => {
-      const record = attendanceRecords.find((r) => r.employeeId === emp.employeeId)
+      const record = latestRecordByEmployee.get(emp.employeeId)
       const computedWorkedMinutes =
         record?.workedMinutes != null
           ? record.workedMinutes
@@ -243,7 +326,7 @@ export async function GET(request: NextRequest) {
             ? calculateWorkedMinutes(record.checkInAt, record.checkOutAt)
             : null
       const isMarkedAbsent = !record || record.attendance === "A"
-      const isHoliday = !!holidayForDate
+      const isHoliday = isHolidayFromPolicy(date, attendancePolicy)
 
       return {
         employeeId: emp.employeeId,
@@ -253,6 +336,7 @@ export async function GET(request: NextRequest) {
         salaryPerday: emp.salaryPerday,
         facePhotoUrl: emp.facePhotoUrl,
         attendance: isHoliday && isMarkedAbsent ? "Holiday" : record?.attendance || "",
+        attendanceDate: date,
         attendanceId: record?.attendanceId,
         checkInAt: record?.checkInAt || null,
         checkOutAt: record?.checkOutAt || null,
@@ -299,9 +383,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate attendance value
-    if (!["P", "H", "A"].includes(normalizedAttendance)) {
+    if (!["FD", "PD", "P", "H", "A", "CL", "SL", "AL", "ML", "MED", "HPL", "EL", "PL", "PLT", "CO", "LWP", "WO", "PH"].includes(normalizedAttendance)) {
       return NextResponse.json(
-        { error: "Attendance must be P, H, or A" },
+        { error: "Invalid attendance status" },
         { status: 400 }
       )
     }
@@ -379,7 +463,7 @@ export async function PUT(request: NextRequest) {
         continue
       }
 
-      if (!["P", "H", "A"].includes(normalizedAttendance)) {
+      if (!["FD", "PD", "P", "H", "A", "CL", "SL", "AL", "ML", "MED", "HPL", "EL", "PL", "PLT", "CO", "LWP", "WO", "PH"].includes(normalizedAttendance)) {
         continue
       }
 
@@ -468,9 +552,10 @@ export async function PATCH(request: NextRequest) {
 
     const updateData: any = {}
 
+    const VALID_ATTENDANCE_CODES = ["FD", "PD", "P", "H", "A", "L", "CL", "SL", "AL", "ML", "MED", "HPL", "EL", "PL", "PLT", "CO", "LWP", "WO", "PH"]
     if (status) {
-      if (!["P", "H", "A"].includes(status)) {
-        return NextResponse.json({ error: "Attendance must be one of P, H, A" }, { status: 400 })
+      if (!VALID_ATTENDANCE_CODES.includes(status)) {
+        return NextResponse.json({ error: `Attendance must be one of: ${VALID_ATTENDANCE_CODES.join(", ")}` }, { status: 400 })
       }
       updateData.attendance = status
     }

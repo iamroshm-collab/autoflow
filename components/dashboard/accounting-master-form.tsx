@@ -97,6 +97,7 @@ function SearchableSelect<T>({
   disabled,
 }: SearchableSelectProps<T>) {
   const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
 
   const selectedLabel = useMemo(() => {
     const selected = options.find((option) => getOptionValue(option) === selectedValue)
@@ -106,7 +107,15 @@ function SearchableSelect<T>({
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover
+        open={open}
+        onOpenChange={(nextOpen) => {
+          setOpen(nextOpen)
+          if (!nextOpen) {
+            setQuery("")
+          }
+        }}
+      >
         <PopoverTrigger asChild>
           <Button
             type="button"
@@ -122,7 +131,7 @@ function SearchableSelect<T>({
         </PopoverTrigger>
         <PopoverContent className="z-[100] w-[var(--radix-popover-trigger-width)] p-0 border-0 bg-transparent shadow-none" align="start">
           <Command>
-            <CommandInput />
+            <CommandInput value={query} onValueChange={setQuery} />
             <CommandList>
               <CommandEmpty>{emptyText}</CommandEmpty>
               <CommandGroup>
@@ -131,6 +140,7 @@ function SearchableSelect<T>({
                   value="none"
                   onSelect={() => {
                     onSelectValue("")
+                    setQuery("")
                     setOpen(false)
                   }}
                 >
@@ -146,6 +156,7 @@ function SearchableSelect<T>({
                       value={`${value} ${labelValue}`}
                       onSelect={() => {
                         onSelectValue(value)
+                        setQuery("")
                         setOpen(false)
                       }}
                     >
@@ -540,18 +551,18 @@ export function AccountingMasterForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-          <div className="space-y-2 w-full">
+      <div className="flex flex-wrap items-end gap-3 w-full">
+          <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
             <Label>Start Date</Label>
             <DatePickerInput value={filterStartDate} onChange={setFilterStartDate} className="w-full h-10 border border-slate-300 bg-white" />
           </div>
 
-          <div className="space-y-2 w-full">
+          <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
             <Label>End Date</Label>
             <DatePickerInput value={filterEndDate} onChange={setFilterEndDate} className="w-full h-10 border border-slate-300 bg-white" />
           </div>
 
-          <div className="space-y-2 w-full">
+          <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
             <Label>Transaction Type</Label>
             <Select value={filterTransactionType} onValueChange={setFilterTransactionType}>
               <SelectTrigger className="w-full h-10 border border-slate-300 bg-white">
@@ -565,7 +576,7 @@ export function AccountingMasterForm({
             </Select>
           </div>
 
-          <div className="space-y-2 w-full">
+          <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
             <Label>Employee</Label>
             <Select value={filterEmployeeId} onValueChange={setFilterEmployeeId}>
               <SelectTrigger className="w-full h-10 border border-slate-300 bg-white">
@@ -582,9 +593,9 @@ export function AccountingMasterForm({
             </Select>
           </div>
 
-          <div className="flex flex-col items-end gap-2 col-start-1 lg:col-start-5">
+          <div className="flex flex-col gap-1">
             <Label>Action</Label>
-            <Button type="button" variant="ghost" size="icon" onClick={clearFilters} className="text-red-600 hover:bg-red-50 hover:text-red-700" aria-label="Clear Filters">
+            <Button type="button" variant="ghost" size="icon" onClick={clearFilters} className="h-10 w-10 text-red-600 hover:bg-red-50 hover:text-red-700" aria-label="Clear Filters">
               <RotateCcw className="h-5 w-5" />
             </Button>
           </div>
@@ -732,12 +743,12 @@ export function AccountingMasterForm({
           }
         }}
       >
-        <DialogContent className="max-w-5xl rounded-3xl border bg-card p-5 md:p-6 max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="space-y-1">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
             <DialogTitle className="text-2xl font-semibold">Add New Ledger Entry</DialogTitle>
           </DialogHeader>
 
-          <div className="global-form-shell space-y-4">
+          <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label>Transaction Type</Label>
@@ -821,7 +832,7 @@ export function AccountingMasterForm({
             <Button type="button" variant="outline" onClick={resetForm} className="px-4 py-2 min-h-[40px]">
               Clear
             </Button>
-            <Button onClick={handleSave} disabled={isSaving} className="px-4 py-2 min-h-[40px] bg-blue-600 hover:bg-blue-700 text-white">
+            <Button onClick={handleSave} disabled={isSaving} style={{ backgroundColor: '#2563eb', color: 'white' }} className="px-4 py-2 min-h-[40px]">
               <Check className="h-4 w-4 mr-2" />
               {isSaving ? "Saving..." : "Save Transaction"}
             </Button>
@@ -839,14 +850,14 @@ export function AccountingMasterForm({
           }
         }}
       >
-        <DialogContent className="max-w-3xl rounded-3xl border bg-card p-5 md:p-6 max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="space-y-1">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
             <DialogTitle className="text-2xl font-semibold">
               {transactionModalMode === "edit" ? "Edit Transaction" : "Add New Ledger Entry"}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="global-form-shell space-y-4">
+          <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Transaction Type</Label>
@@ -939,7 +950,7 @@ export function AccountingMasterForm({
             >
               {transactionModalMode === "edit" ? "Cancel" : "Clear"}
             </Button>
-            <Button type="button" onClick={handleEditSave} disabled={isEditSaving} className="px-4 py-2 min-h-[40px]">
+            <Button type="button" onClick={handleEditSave} disabled={isEditSaving} style={{ backgroundColor: '#2563eb', color: 'white' }} className="px-4 py-2 min-h-[40px]">
               {isEditSaving
                 ? (transactionModalMode === "edit" ? "Updating..." : "Saving...")
                 : (transactionModalMode === "edit" ? "Update Transaction" : "Save Transaction")}

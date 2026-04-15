@@ -89,10 +89,11 @@ export const useAttendanceSearch = (activeItem: string) => {
   }, [])
 
   const openAttendanceDropdown = useCallback(() => {
+    if (isAttendanceSearchOpen) { setIsAttendanceSearchOpen(false); return }
     setIsAttendanceSearchOpen(true)
     attendanceDropdownNav.resetHighlight()
     loadEmployees()
-  }, [attendanceDropdownNav, loadEmployees])
+  }, [attendanceDropdownNav, isAttendanceSearchOpen, loadEmployees])
 
   return {
     attendancePayrollSearch,

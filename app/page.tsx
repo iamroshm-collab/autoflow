@@ -55,12 +55,15 @@ import {
   MessageCircle,
   SlidersHorizontal,
   Banknote,
+  RefreshCw,
   CreditCard,
   Calendar,
   Droplets,
   Filter,
   DollarSign,
   Bell,
+  AlertTriangle,
+  Plus,
 } from "lucide-react"
 
 export const dynamic = 'force-dynamic'
@@ -148,6 +151,16 @@ const AllNotificationsModule = dynamicImport(
   { loading: () => <div className="text-sm text-muted-foreground">Loading notifications...</div> }
 )
 
+const EmployeeLeaveRequestForm = dynamicImport(
+  () => import("@/components/dashboard/employee-leave-request-form").then((m) => m.EmployeeLeaveRequestForm),
+  { loading: () => <div className="text-sm text-muted-foreground">Loading leave request...</div> }
+)
+
+const BreakdownModule = dynamicImport(
+  () => import("@/components/dashboard/breakdown-module").then((m) => m.BreakdownModule),
+  { loading: () => <div className="text-sm text-muted-foreground">Loading breakdown module...</div> }
+)
+
 function WhatsAppNavIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
@@ -174,6 +187,8 @@ const iconMap: Record<string, React.ElementType> = {
   "whatsapp-messages": WhatsAppNavIcon,
   settings: Settings,
   "all-notifications": Bell,
+  "leave-request": Calendar,
+  "breakdown": AlertTriangle,
 }
 
 const labelMap: Record<string, string> = {
@@ -193,6 +208,8 @@ const labelMap: Record<string, string> = {
   "whatsapp-messages": "WhatsApp Messages",
   settings: "Settings",
   "all-notifications": "Notifications",
+  "leave-request": "Leave Request",
+  "breakdown": "Break Down",
 }
 
 interface JobCardNavigationItem {
@@ -233,7 +250,7 @@ function PosNotesSearch({
     <div className="flex items-center gap-2">
       {recordCount > 0 ? (
         <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-          {recordCount} of {recordCount}
+          {recordCount} records
         </span>
       ) : null}
       <div ref={containerRef} className="relative w-[17.5rem]">
@@ -292,6 +309,30 @@ interface SessionUser {
   pendingDeviceIp?: string | null
   deviceApprovalStatus?: string | null
   facePhotoUrl?: string | null
+  /** Employee department — populated for technician accounts. */
+  department?: string | null
+  /** Employee designation — populated for technician accounts. */
+  designation?: string | null
+}
+
+const FULL_HEIGHT_ITEMS = new Set([
+  "settings", "update-job-card", "delivered", "maintenance-tracker",
+  "employee", "inventory", "inventory-pos", "all-notifications",
+])
+
+const NO_PADDING_ITEMS = new Set([
+  "update-job-card", "delivered", "maintenance-tracker",
+  "employee", "inventory", "inventory-pos", "all-notifications",
+])
+
+function getMainWrapperClass(activeItem: string): string {
+  const base = "form-main-wrapper flex-1 min-h-0 overflow-hidden"
+  if (activeItem === "whatsapp-messages") return `${base} flex h-full min-h-0 flex-col !p-0`
+  const parts = [base]
+  if (FULL_HEIGHT_ITEMS.has(activeItem)) parts.push("flex h-full min-h-0 flex-col")
+  if (activeItem === "new-job-card") parts.push("h-full")
+  if (NO_PADDING_ITEMS.has(activeItem)) parts.push("!px-0")
+  return parts.join(" ")
 }
 
 function PageContent() {
@@ -373,9 +414,10 @@ function PageContent() {
     employeeDropdownNav,
   } = useEmployeeSearch(activeItem)
   const [sparePartsTab, setSparePartsTab] = useState<"all" | "returned" | "payments" | "shops">("all")
-  const [attendancePayrollTab, setAttendancePayrollTab] = useState<"attendance" | "adjustments" | "payroll">("attendance")
+  const [attendancePayrollTab, setAttendancePayrollTab] = useState<"attendance" | "adjustments" | "payroll" | "generate-payroll" | "leave-holidays">("attendance")
   const [attendanceDate, setAttendanceDate] = useState<string>(() => getTodayISODateInIndia())
   const [employeeRecordCount, setEmployeeRecordCount] = useState(0)
+  const [employeeFormActive, setEmployeeFormActive] = useState(false)
   const [inventoryTab, setInventoryTab] = useState<"suppliers" | "products">("suppliers")
   const {
     inventorySearch,
@@ -423,6 +465,7 @@ function PageContent() {
   } = useSparePartsSearch(activeItem)
   const [sparePartsRecordCount, setSparePartsRecordCount] = useState(0)
   const [settingsSearch, setSettingsSearch] = useState("")
+  const [breakdownSearch, setBreakdownSearch] = useState("")
   const [updateJobCardSubformTab, setUpdateJobCardSubformTab] = useState<JobCardSubformTab>("main-form")
   const [readyForDeliverySubformTab, setReadyForDeliverySubformTab] = useState<JobCardSubformTab>("main-form")
   const [settingsTab, setSettingsTab] = useState<"shop" | "gst-states">("shop")
@@ -439,6 +482,7 @@ function PageContent() {
     if (!currentUser || !canAccessMenu(currentUser.role, id)) {
       return
     }
+    if (id !== "employee") setEmployeeFormActive(false)
     setActiveItem(id)
     setSidebarOpen(false)
   }, [currentUser])
@@ -513,11 +557,7 @@ function PageContent() {
             if (userRole === "technician" && data.user.employeeRefId) {
               // show the Employee tab and auto-select their employee record
               setActiveItem("employee")
-              try {
-                setSelectedEmployeeRecordId(Number(data.user.employeeRefId))
-              } catch (e) {
-                // ignore
-              }
+              setSelectedEmployeeRecordId(Number(data.user.employeeRefId))
             }
           } else {
             setCurrentUser(data.user)
@@ -525,13 +565,8 @@ function PageContent() {
         }
       } catch (error) {
         console.error("[PAGE_SESSION_LOAD]", error)
-        // Only redirect on actual auth errors, not transient network/DB failures
-        const isAuthError = error instanceof Response
-          ? (error.status === 401 || error.status === 403)
-          : false
-        if (isAuthError) {
-          router.replace("/register")
-        }
+        // Transient network error — show a recoverable state, don't redirect
+        if (mounted) setAuthLoading(false)
       } finally {
         if (mounted) {
           setAuthLoading(false)
@@ -682,30 +717,29 @@ function PageContent() {
       fetchNavigationRecords()
       return
     }
-
-    if (activeItem === "delivered") {
-      fetchNavigationRecords({
-        jobcardStatus: "Completed",
-        registrationNumber: deliveredRegistrationFilter,
-        excludeVehicleStatus: "Delivered",
-      })
-      return
-    }
-
     setNavigationRecords([])
+  }, [activeItem, fetchNavigationRecords])
+
+  useEffect(() => {
+    if (activeItem !== "delivered") return
+    fetchNavigationRecords({
+      jobcardStatus: "Completed",
+      registrationNumber: deliveredRegistrationFilter,
+      excludeVehicleStatus: "Delivered",
+    })
   }, [activeItem, deliveredRegistrationFilter, fetchNavigationRecords])
 
-  const setSelectedJobCardId = (jobCardId: string) => {
+  const setSelectedJobCardId = useCallback((jobCardId: string) => {
     const params = new URLSearchParams(searchParams.toString())
     params.set("jobCardId", jobCardId)
     router.replace(`?${params.toString()}`, { scroll: false })
-  }
+  }, [router, searchParams])
 
-  const clearSelectedJobCardId = () => {
+  const clearSelectedJobCardId = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString())
     params.delete("jobCardId")
-    router.replace(params.toString() ? `?${params.toString()}` : "?", { scroll: false })
-  }
+    router.replace(params.toString() ? `?${params.toString()}` : "/", { scroll: false })
+  }, [router, searchParams])
 
   const handleNavigatePrevious = useCallback(() => {
     const currentIndex = navigationRecords.findIndex((r) => r.id === selectedJobCardId)
@@ -714,7 +748,7 @@ function PageContent() {
       setActiveItem("update-job-card")
       setSelectedJobCardId(previousRecord.id)
     }
-  }, [navigationRecords, selectedJobCardId])
+  }, [navigationRecords, selectedJobCardId, setSelectedJobCardId])
 
   const handleNavigateNext = useCallback(() => {
     const currentIndex = navigationRecords.findIndex((r) => r.id === selectedJobCardId)
@@ -723,7 +757,7 @@ function PageContent() {
       setActiveItem("update-job-card")
       setSelectedJobCardId(nextRecord.id)
     }
-  }, [navigationRecords, selectedJobCardId])
+  }, [navigationRecords, selectedJobCardId, setSelectedJobCardId])
 
   const handleNotificationNavigate = useCallback((targetForm: string) => {
     if (currentUser && canAccessMenu(currentUser.role, targetForm)) {
@@ -758,7 +792,17 @@ function PageContent() {
   }
 
   if (!currentUser) {
-    return null
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background">
+        <p className="text-sm text-muted-foreground">Unable to load session. Please try again.</p>
+        <button
+          className="text-sm underline text-primary"
+          onClick={() => router.replace("/login")}
+        >
+          Go to login
+        </button>
+      </div>
+    )
   }
 
   const isEmployee = currentUser.role === "technician"
@@ -798,22 +842,19 @@ function PageContent() {
         <TopBar
           pageTitle={activeLabel}
           pageIcon={ActiveIcon}
-          pageSubtitle={activeItem === "whatsapp-messages" && whatsAppContactName ? whatsAppContactName : undefined}
           searchConfig={
             activeItem === "update-job-card" || activeItem === "delivered"
               ? {
                   placeholder: "Search Vehicle",
                   value: searchValue,
                   onChange: (v) => setSearchValue(v.toUpperCase()),
-                  suffix: (
+                  suffix: totalRecords > 0 ? (
                     <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                      {totalRecords === 0
-                        ? "1 of 1"
-                        : currentRecordIndex >= 0
-                          ? `${currentRecordIndex + 1} of ${totalRecords + 1}`
-                          : `${totalRecords + 1} of ${totalRecords + 1}`}
+                      {currentRecordIndex >= 0
+                        ? `${currentRecordIndex + 1} of ${totalRecords}`
+                        : `${totalRecords} records`}
                     </span>
-                  ),
+                  ) : undefined,
                 }
               : activeItem === "customers"
               ? undefined
@@ -827,6 +868,12 @@ function PageContent() {
               ? undefined
               : activeItem === "attendance-payroll"
               ? undefined
+              : activeItem === "breakdown"
+              ? {
+                  placeholder: "Search vehicle, customer…",
+                  value: breakdownSearch,
+                  onChange: setBreakdownSearch,
+                }
               : activeItem === "inventory"
               ? undefined
               : activeItem === "inventory-pos"
@@ -847,82 +894,15 @@ function PageContent() {
                   onChange: setInventoryPosSearch,
                   suffix: inventoryPosRecordCount > 0 ? (
                     <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                      {inventoryPosRecordCount} of {inventoryPosRecordCount}
+                      {inventoryPosRecordCount} records
                     </span>
                   ) : undefined,
                 }
               : undefined
           }
           customSearch={
-            activeItem === "attendance-payroll" ? (
-              <div className="flex items-center gap-2">
-                {attendancePayrollRecordCount > 0 ? (
-                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                    {attendancePayrollRecordCount} of {attendancePayrollRecordCount}
-                  </span>
-                ) : null}
-                <div ref={attendanceSearchContainerRef} className="relative w-[17.5rem]">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
-                  <Input
-                    ref={attendanceSearchInputRef}
-                    value={attendancePayrollSearch}
-                    onChange={(e) => {
-                      setAttendancePayrollSearch(e.target.value)
-                      if (!isAttendanceSearchOpen) setIsAttendanceSearchOpen(true)
-                      attendanceDropdownNav.resetHighlight()
-                    }}
-                    onClick={openAttendanceDropdown}
-                    onFocus={openAttendanceDropdown}
-                    onKeyDown={(e) => {
-                      if (!isAttendanceSearchOpen && (e.key === "ArrowDown" || e.key === "Enter")) {
-                        e.preventDefault()
-                        openAttendanceDropdown()
-                        return
-                      }
-                      if (isAttendanceSearchOpen) attendanceDropdownNav.handleKeyDown(e)
-                    }}
-                    placeholder="Search employee..."
-                    className="global-topbar-search pl-8"
-                    autoComplete="off"
-                    aria-label="Search Employee"
-                    aria-autocomplete="list"
-                    aria-expanded={isAttendanceSearchOpen}
-                    aria-controls="attendance-search-dropdown"
-                  />
-                  {isAttendanceSearchOpen && (
-                    <div className="dropdown-container">
-                      <div id="attendance-search-dropdown" className="dropdown-scroll" role="listbox">
-                        {attendanceFilteredEmployees.length > 0 ? (
-                          attendanceFilteredEmployees.map((emp, index) => (
-                            <button
-                              key={emp.employeeId}
-                              type="button"
-                              role="option"
-                              aria-selected={index === attendanceDropdownNav.highlightedIndex}
-                              {...attendanceDropdownNav.getItemProps(index)}
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => {
-                                setAttendancePayrollSearch(emp.empName)
-                                setIsAttendanceSearchOpen(false)
-                              }}
-                              className={`dropdown-item ${index === attendanceDropdownNav.highlightedIndex ? "selected" : ""}`}
-                            >
-                              <div className="font-medium">{emp.empName}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {emp.idNumber}
-                                {emp.designation ? ` · ${emp.designation}` : ""}
-                              </div>
-                            </button>
-                          ))
-                        ) : (
-                          <div className="dropdown-empty-state">No employees found.</div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : activeItem === "maintenance-tracker" ? (
+            activeItem === "attendance-payroll" ? null
+            : activeItem === "maintenance-tracker" ? (
               <div ref={maintenanceSearchContainerRef} className="relative w-[17.5rem]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
                 <Input
@@ -985,7 +965,7 @@ function PageContent() {
               <div className="flex items-center gap-2">
                 {employeeRecordCount > 0 ? (
                   <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                    {employeeRecordCount} of {employeeRecordCount}
+                    {employeeRecordCount} records
                   </span>
                 ) : null}
                 <div ref={employeeSearchContainerRef} className="relative w-[17.5rem]">
@@ -999,7 +979,6 @@ function PageContent() {
                       employeeDropdownNav.resetHighlight()
                     }}
                     onClick={openEmployeeSearchDropdown}
-                    onFocus={openEmployeeSearchDropdown}
                     onKeyDown={(e) => {
                       if (!isEmployeeSearchOpen && (e.key === "ArrowDown" || e.key === "Enter")) {
                         e.preventDefault()
@@ -1091,11 +1070,13 @@ function PageContent() {
                         >
                           All Suppliers
                         </button>
-                        {inventoryPosSupplierOptions
-                          .filter((supplierName) =>
-                            supplierName.toLowerCase().includes(inventoryPosSupplierSearch.trim().toLowerCase())
+                        {(() => {
+                          const filteredSupplierOpts = inventoryPosSupplierOptions.filter((s) =>
+                            s.toLowerCase().includes(inventoryPosSupplierSearch.trim().toLowerCase())
                           )
-                          .map((supplierName) => (
+                          return filteredSupplierOpts.length === 0 ? (
+                            <div className="dropdown-empty-state">No suppliers found.</div>
+                          ) : filteredSupplierOpts.map((supplierName) => (
                             <button
                               key={supplierName}
                               type="button"
@@ -1110,12 +1091,8 @@ function PageContent() {
                             >
                               {supplierName}
                             </button>
-                          ))}
-                        {inventoryPosSupplierOptions.filter((supplierName) =>
-                          supplierName.toLowerCase().includes(inventoryPosSupplierSearch.trim().toLowerCase())
-                        ).length === 0 ? (
-                          <div className="dropdown-empty-state">No suppliers found.</div>
-                        ) : null}
+                          ))
+                        })()}
                       </div>
                     </div>
                   )}
@@ -1125,7 +1102,7 @@ function PageContent() {
               <div className="flex items-center gap-2">
                 {customerRecordCount > 0 ? (
                   <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                    {customerRecordCount} of {customerRecordCount}
+                    {customerRecordCount} records
                   </span>
                 ) : null}
                 <div ref={customerSearchContainerRef} className="relative w-[17.5rem]">
@@ -1192,7 +1169,7 @@ function PageContent() {
               <div className="flex items-center gap-2">
                 {incomeExpenseRecordCount > 0 ? (
                   <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                    {incomeExpenseRecordCount} of {incomeExpenseRecordCount}
+                    {incomeExpenseRecordCount} records
                   </span>
                 ) : null}
                 <div ref={incomeExpenseSearchContainerRef} className="relative w-[17.5rem]">
@@ -1256,7 +1233,7 @@ function PageContent() {
               <div className="flex items-center gap-2">
                 {sparePartsRecordCount > 0 ? (
                   <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                    {sparePartsRecordCount} of {sparePartsRecordCount}
+                    {sparePartsRecordCount} records
                   </span>
                 ) : null}
                 <div ref={sparePartsSearchContainerRef} className="relative w-[17.5rem]">
@@ -1326,7 +1303,7 @@ function PageContent() {
               <div className="flex items-center gap-2">
                 {inventoryRecordCount > 0 ? (
                   <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                    {inventoryRecordCount} of {inventoryRecordCount}
+                    {inventoryRecordCount} records
                   </span>
                 ) : null}
                 <div ref={supplierSearchContainerRef} className="relative w-[17.5rem]">
@@ -1406,6 +1383,7 @@ function PageContent() {
           onWhatsApp={() => handleSelect("whatsapp-messages")}
           onSettings={() => handleSelect("settings")}
           onAttendance={isEmployee ? () => handleSelect("attendance-payroll") : undefined}
+          onLeaveRequest={isEmployee ? () => handleSelect("leave-request") : undefined}
           onNavigateDashboard={isEmployee ? () => handleSelect("dashboard") : undefined}
           onOpenAssignedJob={(jobId) => setEmployeeJobPanelJobId(jobId === "all" ? "" : jobId)}
           onLogout={handleLogout}
@@ -1425,9 +1403,7 @@ function PageContent() {
 
         <main className="mt-[1mm] flex flex-1 min-h-0 flex-col gap-[1mm]">
           <div className="flex flex-1 min-h-0 flex-col overflow-hidden rounded-2xl bg-slate-100">
-            <div
-              className={`form-main-wrapper flex-1 min-h-0 overflow-hidden ${activeItem === "whatsapp-messages" ? "flex h-full min-h-0 flex-col !p-0" : `${(activeItem === "settings" || activeItem === "update-job-card" || activeItem === "delivered" || activeItem === "maintenance-tracker" || activeItem === "employee" || activeItem === "inventory" || activeItem === "inventory-pos" || activeItem === "all-notifications") ? "flex h-full min-h-0 flex-col" : ""} ${activeItem === "new-job-card" ? "h-full" : ""}`} ${(activeItem === "update-job-card" || activeItem === "delivered" || activeItem === "maintenance-tracker" || activeItem === "employee" || activeItem === "inventory" || activeItem === "inventory-pos" || activeItem === "all-notifications") ? "!px-0" : ""}`}
-            >
+            <div className={getMainWrapperClass(activeItem)}>
             {deviceStatusBadge ? (
               <div
                 className={`mb-4 rounded-lg border px-3 py-2 text-sm ${
@@ -1461,7 +1437,7 @@ function PageContent() {
                 <Tabs
                   value={attendancePayrollTab}
                   onValueChange={(value) =>
-                    setAttendancePayrollTab(value as "attendance" | "adjustments" | "payroll")
+                    setAttendancePayrollTab(value as "attendance" | "adjustments" | "payroll" | "generate-payroll" | "leave-holidays")
                   }
                 >
                   <div className="flex w-full flex-wrap items-center gap-3">
@@ -1478,6 +1454,18 @@ function PageContent() {
                         <Banknote className="h-4 w-4 text-slate-600" />
                         <span>{currentUser.role === "technician" ? "My Payroll" : "Payroll"}</span>
                       </TabsTrigger>
+                      {currentUser.role !== "technician" && (
+                        <TabsTrigger value="generate-payroll" className="settings-tabs-trigger">
+                          <RefreshCw className="h-4 w-4 text-slate-600" />
+                          <span>Generate Payroll</span>
+                        </TabsTrigger>
+                      )}
+                      {currentUser.role !== "technician" && (
+                        <TabsTrigger value="leave-holidays" className="settings-tabs-trigger">
+                          <Calendar className="h-4 w-4 text-slate-600" />
+                          <span>Attendance Policy</span>
+                        </TabsTrigger>
+                      )}
                     </TabsList>
 
                   </div>
@@ -1761,6 +1749,8 @@ function PageContent() {
                   selectedEmployeeId={selectedEmployeeRecordId}
                   onSelectedEmployeeHandled={() => setSelectedEmployeeRecordId(null)}
                   onRecordsCountChange={setEmployeeRecordCount}
+                  onFormActiveChange={setEmployeeFormActive}
+                  initialViewMode="form"
                 />
               </div>
             ) : activeItem === "attendance-payroll" ? (
@@ -1856,6 +1846,24 @@ function PageContent() {
                 <AllNotificationsModule
                   onNavigate={handleNotificationNavigate}
                   currentEmployeeId={currentUser.role === "technician" ? (currentUser.employeeRefId ?? null) : null}
+                  currentUserId={currentUser.id}
+                  currentUserDepartment={currentUser.department ?? null}
+                />
+              </div>
+            ) : activeItem === "leave-request" ? (
+              <div className="global-form-shell fill-height">
+                <EmployeeLeaveRequestForm employeeId={currentUser.employeeRefId ?? null} />
+              </div>
+            ) : activeItem === "breakdown" ? (
+              <div className="global-form-shell fill-height">
+                <BreakdownModule
+                  userRole={currentUser.role}
+                  userId={String(currentUser.id)}
+                  userName={(currentUser as any).name}
+                  userDepartment={currentUser.department ?? null}
+                  userDesignation={currentUser.designation ?? null}
+                  initialBreakdownId={searchParams.get("breakdownId") ?? undefined}
+                  externalSearch={breakdownSearch}
                 />
               </div>
             ) : (
@@ -1900,6 +1908,40 @@ function PageContent() {
                     <Save className="h-4 w-4" />
                     Save Settings
                   </Button>
+                </div>
+              )}
+              {activeItem === "employee" && (
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9 px-4 text-sm bg-blue-600 text-white hover:bg-blue-700"
+                    onClick={() => window.dispatchEvent(new CustomEvent("employee:addNew"))}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add New Employee
+                  </Button>
+                  {employeeFormActive && (
+                    <>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-9 px-4 text-sm bg-green-600 text-white hover:bg-green-700"
+                        onClick={() => window.dispatchEvent(new CustomEvent("employee:save"))}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="h-9 px-4 text-sm"
+                        onClick={() => window.dispatchEvent(new CustomEvent("employee:archive"))}
+                      >
+                        Archive Employee
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
               {activeItem === "update-job-card" && (

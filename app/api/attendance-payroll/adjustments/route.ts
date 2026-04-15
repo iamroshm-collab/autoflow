@@ -98,20 +98,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate adjustment type
-    const validTypes = ["Allowance", "Advance", "Incentive", "Deduction"]
+    const validTypes = ["Allowance", "Advance", "Incentive", "Deduction", "PF", "ESI", "Tax"]
     if (!validTypes.includes(adjustmentType)) {
       return NextResponse.json(
-        { error: "adjustmentType must be Allowance, Advance, Incentive, or Deduction" },
+        { error: "adjustmentType must be Allowance, Advance, Incentive, Deduction, PF, ESI, or Tax" },
         { status: 400 }
       )
     }
+
+    const adjDate = new Date(adjustmentDate)
 
     const adjustment = await prisma.adjustment.create({
       data: {
         employeeId: parseInt(employeeId),
         adjustmentType,
         amount: parseFloat(amount),
-        adjustmentDate: new Date(adjustmentDate),
+        adjustmentDate: adjDate,
         remarks: remarks || null,
       },
       include: {
@@ -123,6 +125,23 @@ export async function POST(request: NextRequest) {
         },
       },
     })
+
+    // Auto-create ledger expense entry for Allowance, Advance, Incentive
+    if (["Allowance", "Advance", "Incentive"].includes(adjustmentType)) {
+      const monthName = adjDate.toLocaleString("en-IN", { month: "long" })
+      const year = adjDate.getFullYear()
+      const description = `${adjustment.employee.empName} ${adjustmentType} for the month of ${monthName} ${year}`
+      await (prisma as any).financialTransaction.create({
+        data: {
+          transactionType: "Expense",
+          transactionDate: adjDate,
+          description,
+          employeeId: parseInt(employeeId),
+          paymentType: "Cash",
+          transactionAmount: parseFloat(amount),
+        },
+      })
+    }
 
     return NextResponse.json(adjustment)
   } catch (error) {

@@ -1388,7 +1388,7 @@
     /* PIXEL PERFECT MATH FOR 9 ROWS */
     --row-height: 45px;
     --header-height: 44px;
-    --visible-rows: 8;
+    --visible-rows: 9;
     --master-gap: 1.5rem;
 
     --visible-form-rows: 5;
@@ -1532,11 +1532,27 @@
   }
 
   .attendance-payroll-table-wrapper {
-    max-height: calc((8 * var(--row-height)) + var(--header-height)) !important;
+    max-height: calc((10 * var(--row-height)) + var(--header-height)) !important;
   }
 
   .mobile-attendance-table-wrapper {
     max-height: calc((10 * var(--row-height)) + var(--header-height)) !important;
+  }
+
+  .attendance-payroll-adjustments-table-wrapper {
+    max-height: calc((9 * var(--row-height)) + var(--header-height)) !important;
+  }
+
+  .payroll-table-wrapper {
+    max-height: calc((9 * var(--row-height)) + var(--header-height)) !important;
+  }
+
+  .generate-payroll-table-wrapper {
+    max-height: calc((9 * var(--row-height)) + var(--header-height)) !important;
+  }
+
+  .supplier-product-table-wrapper {
+    max-height: calc((9 * var(--row-height)) + var(--header-height)) !important;
   }
 
   .inventory-pos-table-wrapper {
@@ -1552,7 +1568,15 @@
   }
 
   .inventory-pos-purchase-table-wrapper {
+    height: auto !important;
+    min-height: 0 !important;
     max-height: calc((7 * var(--row-height)) + var(--header-height)) !important;
+  }
+
+  .inventory-pos-note-table-wrapper {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: calc((9 * var(--row-height)) + var(--header-height)) !important;
   }
 
   .inventory-pos-sales-table-wrapper {
@@ -1560,6 +1584,8 @@
   }
 
   .inventory-pos-inventory-table-wrapper {
+    height: calc((6 * var(--row-height)) + var(--header-height)) !important;
+    min-height: calc((6 * var(--row-height)) + var(--header-height)) !important;
     max-height: calc((6 * var(--row-height)) + var(--header-height)) !important;
   }
 
@@ -1802,4 +1828,11 @@ html, body, * {
   0%   { transform: scale(1);    opacity: 0.6; }
   70%  { transform: scale(1.06); opacity: 0;   }
   100% { transform: scale(1.06); opacity: 0;   }
+}
+@keyframes face-scan {
+  0%   { top: 8%;  opacity: 0;   }
+  8%   { opacity: 1;             }
+  50%  { top: 84%; opacity: 0.9; }
+  92%  { opacity: 1;             }
+  100% { top: 8%;  opacity: 0;   }
 }

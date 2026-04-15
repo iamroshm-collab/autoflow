@@ -157,7 +157,17 @@ export async function PATCH(
     const updateData: any = {}
 
     if (body.stateId !== undefined) {
-      updateData.stateId = String(body.stateId || "").trim() || null
+      const stateIdVal = String(body.stateId || "").trim() || null
+      updateData.stateId = stateIdVal
+      if (stateIdVal && body.state === undefined) {
+        const stateRecord = await prismaClient.state.findUnique({
+          where: { stateId: stateIdVal },
+          select: { stateName: true },
+        })
+        if (stateRecord) {
+          updateData.state = stateRecord.stateName
+        }
+      }
     }
     if (body.state !== undefined) {
       updateData.state = String(body.state || "").trim() || null

@@ -3,7 +3,7 @@
 // ── Config (toggle here for QA / staging) ─────────────────────────────────────
 const TOTAL_FRAMES = 3                    // frames sampled per verification
 const REQUIRED_VOTES = 2                  // minimum matching frames (2 of 3)
-const FRAME_INTERVAL_MS = 300             // gap between snapshot fetches (IP cam)
+const FRAME_INTERVAL_MS = 300             // gap between sampled frames
 const STABLE_FRAMES = 6                   // consecutive stable detections required
 const STABILITY_TIMEOUT_MS = 12_000       // max wait for stability gate
 const MOVEMENT_THRESHOLD = 0.06           // normalised face-centre movement limit
@@ -12,10 +12,11 @@ const FACE_CENTER_THRESHOLD = 0.22        // max allowed distance from frame cen
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { notify } from "@/components/ui/notify"
-import { Check, Loader2, Camera, RefreshCw, AlertTriangle, ShieldX, Users } from "lucide-react"
+import { Check, Loader2, Camera, RefreshCw, AlertTriangle, ShieldX, Users, SwitchCamera } from "lucide-react"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -43,7 +44,7 @@ interface AttendanceDetails {
 // Unified state machine for both camera modes
 type FlowState =
   | "idle"        // waiting to start
-  | "camera"      // camera stream opening (selfie only)
+  | "camera"      // camera stream opening (mobile phone)
   | "stabilizing" // stability gate running — face not yet still
   | "capturing"   // fetching/capturing frames for verification
   | "verifying"   // face-api.js running majority vote
@@ -69,11 +70,17 @@ type FaceHint =
   | "stable"     // face stable, counting up
   | null
 
+type CameraFacingMode = "user" | "environment"
+
 // ── Browser helpers ───────────────────────────────────────────────────────────
 
-async function startCamera(videoEl: HTMLVideoElement): Promise<MediaStream> {
+async function startCamera(videoEl: HTMLVideoElement, facingMode: CameraFacingMode): Promise<MediaStream> {
   const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+    video: {
+      facingMode: { ideal: facingMode },
+      width: { ideal: 640 },
+      height: { ideal: 480 },
+    },
     audio: false,
   })
   videoEl.srcObject = stream
@@ -113,6 +120,19 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+async function waitForVideoElement(
+  videoRef: React.RefObject<HTMLVideoElement>,
+  abortRef: React.RefObject<boolean>,
+  timeoutMs = 1500
+): Promise<HTMLVideoElement | null> {
+  const start = Date.now()
+  while (!abortRef.current && Date.now() - start < timeoutMs) {
+    if (videoRef.current) return videoRef.current
+    await sleep(30)
+  }
+  return videoRef.current ?? null
+}
 
 // ── face-api.js — lazy singleton load ────────────────────────────────────────
 
@@ -384,6 +404,7 @@ async function fetchSnapshot(): Promise<{ blobUrl: string; dataUrl: string } | n
 // ── Page component ────────────────────────────────────────────────────────────
 
 export default function MobileAttendancePage() {
+  const searchParams = useSearchParams()
   const [details, setDetails] = useState<AttendanceDetails | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [deviceId, setDeviceId] = useState<string | null>(null)
@@ -393,6 +414,7 @@ export default function MobileAttendancePage() {
   const [stabilityProgress, setStabilityProgress] = useState(0)
   const [capturedDataUrl, setCapturedDataUrl] = useState<string | null>(null)
   const [capturedBlobUrl, setCapturedBlobUrl] = useState<string | null>(null)
+  const [cameraFacingMode, setCameraFacingMode] = useState<CameraFacingMode>("user")
 
   const [faceHint, setFaceHint] = useState<FaceHint>(null)
 
@@ -404,6 +426,7 @@ export default function MobileAttendancePage() {
   const verifyScoreRef = useRef<number | null>(null)
   // Preload face-api models as soon as page mounts — so they're ready by the time user taps
   const faceapiPreloadRef = useRef<ReturnType<typeof getFaceAPI> | null>(null)
+  const autoStartConsumedRef = useRef(false)
 
   // ── Preload face-api models immediately on mount ───────────────────────
 
@@ -499,7 +522,7 @@ export default function MobileAttendancePage() {
 
   // ── Selfie auto-flow ───────────────────────────────────────────────────
 
-  const startSelfieFlow = useCallback(async () => {
+  const startSelfieFlow = useCallback(async (facingOverride?: CameraFacingMode) => {
     if (!details || !deviceId) return
     abortRef.current = false
     verifyScoreRef.current = null
@@ -511,9 +534,17 @@ export default function MobileAttendancePage() {
 
     // 1. Open camera + finish loading models concurrently
     setFlowState("camera")
-    if (!videoRef.current) return
 
-    const cameraPromise = startCamera(videoRef.current).catch((err) => {
+    const videoEl = await waitForVideoElement(videoRef, abortRef)
+    if (!videoEl) {
+      setErrorMessage("Camera UI not ready. Please try again.")
+      setFlowState("failed")
+      return
+    }
+
+    const facingMode = facingOverride ?? cameraFacingMode
+
+    const cameraPromise = startCamera(videoEl, facingMode).catch((err) => {
       throw Object.assign(err, { _cameraError: true })
     })
     const modelPromise = faceapiPreloadRef.current ?? getFaceAPI()
@@ -540,7 +571,7 @@ export default function MobileAttendancePage() {
 
     const stable = await runStabilityGate(
       faceapi,
-      videoRef.current!,
+      videoEl,
       abortRef,
       (n, hint) => { setStabilityProgress(n); setFaceHint(hint) }
     )
@@ -555,7 +586,7 @@ export default function MobileAttendancePage() {
 
     // 3. Multi-frame capture
     setFlowState("capturing")
-    const result = await runSelfieVerification(faceapi, videoRef.current!, details.employee.facePhotoUrl, abortRef)
+    const result = await runSelfieVerification(faceapi, videoEl, details.employee.facePhotoUrl, abortRef)
     if (abortRef.current) { stopStream(streamRef.current); return }
 
     stopStream(streamRef.current)
@@ -570,7 +601,34 @@ export default function MobileAttendancePage() {
       setVerifyStatus(result.status)
       setFlowState("failed")
     }
-  }, [details, deviceId, submitAttendance])
+  }, [details, deviceId, submitAttendance, cameraFacingMode])
+
+  useEffect(() => {
+    const autoStart = searchParams.get("autostart") === "1"
+    if (!autoStart || autoStartConsumedRef.current) return
+    if (isLoading || !details || !deviceId) return
+    if (flowState !== "idle") return
+
+    autoStartConsumedRef.current = true
+    void startSelfieFlow()
+  }, [searchParams, isLoading, details, deviceId, flowState, startSelfieFlow])
+
+  const switchCamera = useCallback(() => {
+    const nextMode: CameraFacingMode = cameraFacingMode === "user" ? "environment" : "user"
+    setCameraFacingMode(nextMode)
+
+    if (flowState !== "idle" && flowState !== "success") {
+      abortRef.current = true
+      stopStream(streamRef.current)
+      streamRef.current = null
+      setFlowState("idle")
+      setVerifyStatus(null)
+      setErrorMessage(null)
+      setStabilityProgress(0)
+      setFaceHint(null)
+      window.setTimeout(() => { void startSelfieFlow(nextMode) }, 120)
+    }
+  }, [cameraFacingMode, flowState, startSelfieFlow])
 
   // ── IP cam auto-flow ───────────────────────────────────────────────────
 
@@ -670,9 +728,7 @@ export default function MobileAttendancePage() {
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Attendance</h1>
           <p className="text-sm text-slate-600 mt-1">
-            {cameraMode === "ip"
-              ? "Stand in front of the camera to mark your attendance."
-              : "Look at the camera to mark your attendance."}
+            Use your mobile phone camera and complete active liveness to mark attendance.
           </p>
         </div>
 
@@ -746,75 +802,73 @@ export default function MobileAttendancePage() {
               <div className="space-y-3">
 
                 {/* Idle: show "Mark IN/OUT" button — no camera yet */}
-                {flowState === "idle" && (
-                  <Button
-                    onClick={() => cameraMode === "ip" ? void startIPFlow() : void startSelfieFlow()}
-                    className="w-full gap-2 h-14 text-base font-semibold"
-                    size="lg"
-                  >
-                    <Camera className="h-5 w-5" />
-                    Mark {details.nextAction}
-                  </Button>
-                )}
+                {flowState === "idle" && (() => {
+                  const alreadyCheckedOut = !!details.todayRecord?.checkOutAt && details.nextAction === "IN"
+                  return alreadyCheckedOut ? (
+                    <Button
+                      className="w-full gap-2 h-14 text-base font-semibold opacity-60 cursor-not-allowed"
+                      size="lg"
+                      onClick={() => {
+                        notify.error("Attendance already completed for today. Contact admin to make changes.")
+                      }}
+                    >
+                      <ShieldX className="h-5 w-5" />
+                      Attendance Locked
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => void startSelfieFlow()}
+                      className="w-full gap-2 h-14 text-base font-semibold"
+                      size="lg"
+                    >
+                      <Camera className="h-5 w-5" />
+                      Mark {details.nextAction}
+                    </Button>
+                  )
+                })()}
 
                 {/* Camera viewport — shown once flow starts */}
-                {flowState !== "idle" && (
-                  <div className="relative rounded-xl overflow-hidden bg-black aspect-[4/3]">
+                {flowState !== "idle" && flowState !== "success" && (
+                  <div className="fixed inset-0 z-50 bg-black">
+                    {/* Mobile phone front camera via MediaDevices */}
+                    {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                    <video
+                      ref={videoRef}
+                      className="absolute inset-0 w-full h-full object-cover scale-x-[-1]"
+                      playsInline muted autoPlay
+                    />
 
-                    {/* Selfie: front camera via MediaDevices */}
-                    {cameraMode === "selfie" && (
-                      /* eslint-disable-next-line jsx-a11y/media-has-caption */
-                      <video
-                        ref={videoRef}
-                        className="w-full h-full object-cover scale-x-[-1]"
-                        playsInline muted autoPlay
-                      />
-                    )}
-
-                    {/* IP cam: MJPEG stream from server */}
-                    {cameraMode === "ip" && (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        ref={liveFeedRef}
-                        src="/api/camera/feed"
-                        alt="Live camera"
-                        className="w-full h-full object-cover"
-                        crossOrigin="anonymous"
-                      />
-                    )}
-
-                    {/* Face scanner overlay — always on top of video */}
+                    {/* Face scanner overlay — center cutout + messaging */}
                     <FaceScanOverlay
                       flowState={flowState}
                       stabilityProgress={stabilityProgress}
                       stableFrames={STABLE_FRAMES}
                       faceHint={faceHint}
+                      verifyStatus={verifyStatus}
+                      errorMessage={errorMessage}
                     />
-                  </div>
-                )}
 
-                {/* Failure state */}
-                {flowState === "failed" && (
-                  <FailureBanner status={verifyStatus} />
-                )}
+                    <div className="absolute top-4 left-0 right-0 px-4 flex items-center justify-between">
+                      <Button onClick={cancel} variant="outline" className="bg-white/90">
+                        Back
+                      </Button>
+                      <Button onClick={switchCamera} variant="outline" className="bg-white/90 gap-2">
+                        <SwitchCamera className="h-4 w-4" />
+                        {cameraFacingMode === "user" ? "Rear" : "Front"}
+                      </Button>
+                    </div>
 
-                {/* Controls — only visible while camera is open */}
-                {flowState !== "idle" && (
-                  <div className="flex gap-2">
                     {flowState === "failed" && (
-                      <Button
-                        onClick={() => cameraMode === "ip" ? void startIPFlow() : void startSelfieFlow()}
-                        className="flex-1 gap-2"
-                        size="lg"
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                        Try Again
-                      </Button>
-                    )}
-                    {isBusy && (
-                      <Button onClick={cancel} variant="outline" className="flex-1">
-                        Cancel
-                      </Button>
+                      <div className="absolute bottom-6 left-0 right-0 px-4">
+                        <Button
+                          onClick={() => void startSelfieFlow()}
+                          className="w-full gap-2 h-12 text-base font-semibold"
+                          size="lg"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Try Again
+                        </Button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -835,17 +889,55 @@ function FaceScanOverlay({
   stabilityProgress,
   stableFrames,
   faceHint,
+  verifyStatus,
+  errorMessage,
 }: {
   flowState: FlowState
   stabilityProgress: number
   stableFrames: number
   faceHint: FaceHint
+  verifyStatus: VerifyStatus | null
+  errorMessage: string | null
 }) {
-  // Oval dimensions (% of container)
-  const ovalW = 62   // % width
-  const ovalH = 78   // % height
-  const ovalCX = 50  // % from left
-  const ovalCY = 46  // % from top
+  const [viewport, setViewport] = useState({ w: 0, h: 0 })
+
+  useEffect(() => {
+    const updateViewport = () => setViewport({ w: window.innerWidth, h: window.innerHeight })
+    updateViewport()
+    window.addEventListener("resize", updateViewport)
+    return () => window.removeEventListener("resize", updateViewport)
+  }, [])
+
+  const aspectRatio = viewport.w > 0 ? viewport.h / viewport.w : 0
+  const isPortrait = aspectRatio > 1
+  const isTallPhone = aspectRatio >= 1.85
+  const isSmallPhone = viewport.w > 0 && viewport.w <= 390
+
+  // Responsive oval dimensions for better face alignment across phone sizes.
+  let ovalW = 62
+  let ovalH = 78
+  const ovalCX = 50
+  let ovalCY = 46
+
+  if (isPortrait) {
+    ovalW = 64
+    ovalH = 58
+    ovalCY = 38
+  }
+
+  if (isTallPhone) {
+    ovalW = 66
+    ovalH = 54
+    ovalCY = 36
+  }
+
+  if (isSmallPhone) {
+    ovalW += 4
+    ovalH += 2
+    ovalCY += 1
+  }
+
+  const statusTop = Math.min(ovalCY + ovalH / 2 + (isPortrait ? 14 : 16), 84)
 
   // Arc around oval — approximated as a circle for the progress ring
   const arcR = 120   // px radius of the SVG arc (SVG viewport is 300×300)
@@ -893,14 +985,35 @@ function FaceScanOverlay({
     flowState === "camera"
       ? "Starting camera…"
     : flowState === "stabilizing"
-      ? (faceHint ? hintText[faceHint] : "Position your face in the oval")
+      ? (faceHint ? hintText[faceHint] : "Active liveness check: position your face in the oval")
     : flowState === "capturing"
       ? "Capturing…"
     : flowState === "verifying"
       ? "Verifying identity…"
     : flowState === "submitting"
       ? "Recording attendance…"
+    : flowState === "failed"
+      ? (errorMessage || {
+          fail_no_face: "No face detected. Look directly at the camera.",
+          fail_multiple: "Multiple faces detected. Please stand alone.",
+          fail_mismatch: "Face verification failed. Try with better lighting.",
+          fail_unstable: "Could not stabilize. Hold still and keep your face centered.",
+          error: "Something went wrong. Please try again.",
+        }[verifyStatus || "error"])
     : "Position your face in the oval"
+
+  const statusTone: "green" | "orange" | "red" =
+    flowState === "failed"
+      ? "red"
+      : isActive || faceHint === "stable"
+        ? "green"
+        : "orange"
+
+  const toneStyles = {
+    green: "bg-emerald-500/20 border-emerald-300 text-emerald-200",
+    orange: "bg-amber-500/20 border-amber-300 text-amber-200",
+    red: "bg-rose-500/20 border-rose-300 text-rose-200",
+  }
 
   const bracketColor = isActive ? "#22c55e" : isWarning ? "#fbbf24" : "rgba(255,255,255,0.7)"
   const bracketLen = 22
@@ -908,7 +1021,7 @@ function FaceScanOverlay({
 
   return (
     <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 10 }}>
-      {/* Oval face guide */}
+      {/* Oval face guide with dark mask so only center cutout shows face */}
       <div
         style={{
           position: "absolute",
@@ -918,7 +1031,9 @@ function FaceScanOverlay({
           height: `${ovalH}%`,
           borderRadius: "50%",
           border: `3px solid ${ovalStroke}`,
-          boxShadow: isActive ? `0 0 0 4px rgba(34,197,94,0.25)` : "none",
+          boxShadow: isActive
+            ? "0 0 0 4px rgba(34,197,94,0.25), 0 0 0 9999px rgba(0,0,0,0.72)"
+            : "0 0 0 9999px rgba(0,0,0,0.72)",
           transition: "border-color 0.3s ease, box-shadow 0.3s ease",
         }}
       />
@@ -1023,36 +1138,18 @@ function FaceScanOverlay({
         />
       )}
 
-      {/* Status label at bottom of video */}
+      {/* Status label below cutout */}
       <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          padding: "10px 12px",
-          background: "linear-gradient(to top, rgba(0,0,0,0.72), transparent)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-        }}
+        className={`absolute left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg border text-sm font-medium text-center w-[86%] max-w-lg flex items-center justify-center gap-2 ${toneStyles[statusTone]}`}
+        style={{ top: `${statusTop}%` }}
       >
-        {(isStabilizing || isActive) && (
+        {(isStabilizing || isActive) && statusTone !== "red" && (
           <Loader2
             className="h-3.5 w-3.5 animate-spin"
-            style={{ color: isActive ? "#86efac" : "rgba(255,255,255,0.7)", flexShrink: 0 }}
+            style={{ color: isActive ? "#86efac" : "#fcd34d", flexShrink: 0 }}
           />
         )}
-        <span style={{
-          color: isActive ? "#86efac" : isWarning ? "#fde68a" : "rgba(255,255,255,0.9)",
-          fontSize: 13,
-          fontWeight: 500,
-          letterSpacing: "0.01em",
-          textShadow: "0 1px 3px rgba(0,0,0,0.5)",
-        }}>
-          {statusText}
-        </span>
+        <span>{statusText}</span>
       </div>
 
     </div>

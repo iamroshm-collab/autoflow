@@ -91,10 +91,11 @@ export const useInventorySupplierSearch = (activeItem: string, activeTab: string
   }, [])
 
   const openSupplierDropdown = useCallback(() => {
+    if (isSupplierSearchOpen) { setIsSupplierSearchOpen(false); return }
     setIsSupplierSearchOpen(true)
     supplierDropdownNav.resetHighlight()
     loadSuppliers()
-  }, [supplierDropdownNav, loadSuppliers])
+  }, [isSupplierSearchOpen, supplierDropdownNav, loadSuppliers])
 
   return {
     inventorySearch,

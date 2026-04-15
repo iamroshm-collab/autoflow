@@ -93,10 +93,11 @@ export const useCustomerSearch = (activeItem: string) => {
   }, [])
 
   const openCustomerDropdown = useCallback(() => {
+    if (isCustomerSearchOpen) { setIsCustomerSearchOpen(false); return }
     setIsCustomerSearchOpen(true)
     customerDropdownNav.resetHighlight()
     fetchCustomers(customerSearch)
-  }, [customerDropdownNav, customerSearch, fetchCustomers])
+  }, [customerDropdownNav, customerSearch, fetchCustomers, isCustomerSearchOpen])
 
   return {
     customerSearch,

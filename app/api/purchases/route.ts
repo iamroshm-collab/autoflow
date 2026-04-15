@@ -191,25 +191,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Pre-check duplicates (outside transaction) to return a clear 409 response
-    const topLevelRefCheck = body.billNumber ? String(body.billNumber).trim() : (body.refDocument ? String(body.refDocument).trim() : '')
-    if (topLevelRefCheck) {
-      for (const item of details) {
-        const productIdCheck = Number(item.productId)
-        if (!Number.isInteger(productIdCheck)) continue
-        const existingDetail = await prismaClient.purchaseDetail.findFirst({
-          where: {
-            productId: productIdCheck,
-            purchase: { refDocument: topLevelRefCheck },
-          },
-          select: { purchaseDetailsId: true },
-        })
-        if (existingDetail) {
-          return NextResponse.json({ error: `Duplicate purchase: product ${productIdCheck} already exists for bill ${topLevelRefCheck}` }, { status: 409 })
-        }
-      }
-    }
-
     const created = await prismaClient.$transaction(async (tx: any) => {
       const supplier = await tx.supplier.findUnique({ where: { supplierId } })
       if (!supplier) {

@@ -117,7 +117,7 @@ const SelectContent = React.forwardRef<
         className={cn(
           // Use globals.css dropdown-scroll for consistent border/bg/shadow/radius
           'thin-scrollbar',
-          'relative z-50 min-w-[8rem]',
+          'relative z-50 min-w-[8rem] overflow-hidden rounded-md border border-slate-200 bg-white text-slate-700 shadow-lg',
           'data-[state=open]:animate-in data-[state=closed]:animate-out',
           'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
           'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',

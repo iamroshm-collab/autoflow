@@ -109,7 +109,6 @@ export default function ShopSettingsForm({ panelCornerClass = "" }: ShopSettings
       const foundState = availableStates.find(s => s.stateCode === formData.stateId)
       if (foundState) {
         setSelectedStateId(foundState.id)
-        setStateFilter(foundState.stateName)
       }
     }
   }, [formData.stateId, availableStates])
@@ -318,7 +317,7 @@ export default function ShopSettingsForm({ panelCornerClass = "" }: ShopSettings
         state: String(selectedState.stateName || ""),
         stateId: String(selectedState.stateCode || "") // Store state code
       }))
-      setStateFilter(selectedState.stateName)
+      setStateFilter("")
       setShowStateDropdown(false)
       setStateSelectedIndex(-1)
     }
@@ -595,6 +594,11 @@ export default function ShopSettingsForm({ panelCornerClass = "" }: ShopSettings
               </div>
             )}
           </div>
+          {formData.state ? (
+            <div className="text-xs text-slate-500 mt-1">
+              Selected: {formData.state} ({formData.stateId || "-"})
+            </div>
+          ) : null}
         </div>
 
         {/* State Code */}

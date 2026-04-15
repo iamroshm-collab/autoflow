@@ -11,10 +11,20 @@ export async function POST(
   const user = await getCurrentUserFromRequest(request)
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  const role = String((user as any).role || "").toLowerCase()
+  // Admins must not accept on behalf of a technician
+  if (role === "admin" || role === "manager") {
+    return NextResponse.json(
+      { error: "Admins cannot accept a job allocation. Only the assigned technician can." },
+      { status: 403 }
+    )
+  }
+
   const employeeRefId = (user as any).employeeRefId
   if (!employeeRefId) return NextResponse.json({ error: "No employee record linked." }, { status: 403 })
 
   const { id } = await params
+  // Scope to current employee — prevents one technician from accepting another's allocation
   const allocation = await prismaClient.technicianAllocation.findFirst({
     where: { jobId: id, employeeId: Number(employeeRefId) },
   })

@@ -2,8 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Bell, Trash2, CheckCheck, ExternalLink, ArrowLeft, ClipboardList } from "lucide-react"
+import {
+  Bell, Trash2, CheckCheck, ExternalLink, ArrowLeft, ClipboardList, CalendarClock,
+  Plus, UserPlus, CheckCircle2, Play, Flag, Truck, Package, Clock,
+} from "lucide-react"
 import { ApprovalsModule } from "@/components/dashboard/approvals-module"
+import { AdminLeaveRequestsPanel } from "@/components/dashboard/admin-leave-requests-panel"
+import { BreakdownTechPanel } from "@/components/dashboard/breakdown-module"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,6 +101,10 @@ type LeftItem =
 interface AllNotificationsModuleProps {
   onNavigate?: (targetForm: string) => void
   currentEmployeeId?: number | null
+  /** AppUser.id of the current user — forwarded to BreakdownTechPanel for ownership checks. */
+  currentUserId?: string | null
+  /** Employee department (e.g. "Mechanical") — forwarded to BreakdownTechPanel. */
+  currentUserDepartment?: string | null
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -155,6 +164,26 @@ function normalizeStatus(value?: string | null) {
   return (value || "").trim().toLowerCase()
 }
 
+const SECTION_ICON: Record<string, React.ElementType> = {
+  created:   Plus,
+  assigned:  UserPlus,
+  accepted:  CheckCircle2,
+  started:   Play,
+  completed: Flag,
+  ready:     Truck,
+  delivered: Package,
+}
+
+const SECTION_COLOR: Record<string, string> = {
+  created:   "bg-slate-500",
+  assigned:  "bg-sky-600",
+  accepted:  "bg-indigo-500",
+  started:   "bg-violet-500",
+  completed: "bg-emerald-500",
+  ready:     "bg-cyan-500",
+  delivered: "bg-green-600",
+}
+
 function getCurrentJobCardStage(group: GroupedJobCard) {
   const vehicleStatus = normalizeStatus(group.vehicleStatus)
   const jobCardStatus = normalizeStatus(group.jobCardStatus)
@@ -174,6 +203,14 @@ function isApprovalNotification(n: AppNotification) {
     n.type === "device_approval_request" ||
     n.url === "/approvals"
   )
+}
+
+function isLeaveNotification(n: AppNotification) {
+  return n.refType === "leave_request"
+}
+
+function isBreakdownNotification(n: AppNotification) {
+  return n.refType === "breakdown" && !!n.refId
 }
 
 function formatApprovalDateTime(value: string) {
@@ -212,6 +249,8 @@ function parseApprovalInfo(
 export function AllNotificationsModule({
   onNavigate,
   currentEmployeeId = null,
+  currentUserId,
+  currentUserDepartment,
 }: AllNotificationsModuleProps) {
   const canTakeActions = Number.isInteger(currentEmployeeId)
 
@@ -811,6 +850,7 @@ export function AllNotificationsModule({
             const approvalInfo = isApprovalNotification(item)
               ? parseApprovalInfo(item, approvalNameMap)
               : null
+            const isLeave = isLeaveNotification(item)
 
             const displayTitle = approvalInfo ? "Access Request" : item.title
             const displayBody = approvalInfo
@@ -836,9 +876,12 @@ export function AllNotificationsModule({
               >
                 {/* Avatar circle */}
                 <div className={`shrink-0 w-11 h-11 rounded-full flex items-center justify-center
-                  ${approvalInfo ? "bg-amber-100" : item.isRead ? "bg-slate-100" : "bg-blue-100"}`}
+                  ${approvalInfo ? "bg-amber-100" : isLeave ? "bg-emerald-100" : item.isRead ? "bg-slate-100" : "bg-blue-100"}`}
                 >
-                  <Bell className={`w-5 h-5 ${approvalInfo ? "text-amber-600" : item.isRead ? "text-slate-400" : "text-blue-600"}`} />
+                  {isLeave
+                    ? <CalendarClock className={`w-5 h-5 ${item.isRead ? "text-emerald-400" : "text-emerald-600"}`} />
+                    : <Bell className={`w-5 h-5 ${approvalInfo ? "text-amber-600" : item.isRead ? "text-slate-400" : "text-blue-600"}`} />
+                  }
                 </div>
                 {/* Content */}
                 <div className="min-w-0 flex-1">
@@ -877,148 +920,207 @@ export function AllNotificationsModule({
         </button>
 
         <div className="min-h-0 flex-1">
-        {/* Job card milestone view */}
-        {selectedJobCard ? (
-          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-            <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-xs text-slate-400 mb-0.5">{selectedJobCard.vehicleNumber} · {selectedJobCard.customerName}</p>
-                <h3 className="text-sm font-semibold text-slate-900">Milestones</h3>
-                <p className="text-xs text-slate-500">
-                  Section-wise technician and delivery progress for the selected vehicle.
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <span
-                  className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium ${statusBadgeClass(
-                    normalizeStatus(selectedJobCard.vehicleStatus) === "delivered"
-                      ? "delivered"
-                      : normalizeStatus(selectedJobCard.vehicleStatus) === "ready"
-                        ? "ready"
-                        : normalizeStatus(selectedJobCard.jobCardStatus) === "completed"
-                          ? "completed"
-                          : selectedJobCard.allocations.some((r) => r.status === "in_progress")
-                            ? "in_progress"
-                            : selectedJobCard.allocations.some((r) => r.status === "accepted")
-                              ? "accepted"
-                              : "assigned"
-                  )}`}
-                >
-                  {getCurrentJobCardStage(selectedJobCard)}
+        {/* Job card detail view */}
+        {selectedJobCard ? (() => {
+          const allDone = selectedJobCard.allocations.every((r) => r.status === "completed")
+          const pendingAllocations = selectedJobCard.allocations.filter(
+            (r) => r.status !== "completed"
+          )
+          const uniqueTasks = [...new Set(
+            selectedJobCard.allocations.map((r) => r.taskAssigned).filter(Boolean)
+          )]
+          const currentStageKey = normalizeStatus(selectedJobCard.vehicleStatus) === "delivered"
+            ? "delivered"
+            : normalizeStatus(selectedJobCard.vehicleStatus) === "ready"
+              ? "ready"
+              : normalizeStatus(selectedJobCard.jobCardStatus) === "completed"
+                ? "completed"
+                : selectedJobCard.allocations.some((r) => r.status === "in_progress")
+                  ? "in_progress"
+                  : selectedJobCard.allocations.some((r) => r.status === "accepted")
+                    ? "accepted"
+                    : "assigned"
+
+          return (
+            <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-emerald-200 bg-white">
+              {/* ① Green header — same py-3 height as breakdown, with Dismiss */}
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-emerald-100 bg-emerald-50 shrink-0">
+                <ClipboardList className="w-4 h-4 text-emerald-600" />
+                <span className="text-sm font-semibold text-emerald-900">Job Card</span>
+                <span className="ml-auto">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                    onClick={() => {
+                      setSelectedItem(null)
+                      setMobileView("list")
+                    }}
+                  >
+                    Dismiss
+                  </Button>
                 </span>
               </div>
-            </div>
 
-            {actionError ? (
-              <p className="mb-3 text-sm text-red-600">{actionError}</p>
-            ) : null}
-            {actionSuccess ? (
-              <p className="mb-3 text-sm text-emerald-700">{actionSuccess}</p>
-            ) : null}
+              {/* Scrollable body */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
 
-            <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-              <div className="grid gap-3">
-                {timelineSections.map((section, index) => (
-                  <div key={section.key} className="relative pl-10">
-                    {index < timelineSections.length - 1 ? (
-                      <div className="absolute left-[11px] top-8 bottom-[-16px] w-px bg-slate-200" />
-                    ) : null}
-                    <div className="absolute left-0 top-1 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-sky-600 text-[11px] font-semibold text-white">
-                      {index + 1}
+                {/* ③ Job card info card — vehicle, customer, departments, ④ status */}
+                <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-800">
+                        {selectedJobCard.vehicleMake} {selectedJobCard.vehicleModel} — {selectedJobCard.vehicleNumber}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">{selectedJobCard.customerName}</p>
+                      <p className="text-xs text-slate-400 font-mono mt-0.5">{selectedJobCard.jobCardNumber}</p>
                     </div>
-                    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-3">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <h4 className="text-sm font-semibold text-slate-900">
-                            {section.title}
-                          </h4>
-                          <p className="text-xs text-slate-500">{section.description}</p>
-                        </div>
-                        <span className="text-xs font-medium text-slate-400">
-                          {section.items.length}{" "}
-                          {section.items.length === 1 ? "entry" : "entries"}
-                        </span>
-                      </div>
-
-                      {section.items.length > 0 ? (
-                        <div className="mt-3 space-y-2">
-                          {section.items.map((item) => {
-                            const actionLabel =
-                              item.action === "accept"
-                                ? "Accept"
-                                : item.action === "start"
-                                  ? "Start"
-                                  : item.action === "complete"
-                                    ? "Complete"
-                                    : null
-
-                            return (
-                              <div
-                                key={item.id}
-                                className="rounded-xl border border-slate-200 bg-slate-50 p-3"
-                              >
-                                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                                  <div className="min-w-0">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <p className="text-sm font-semibold text-slate-900">
-                                        {item.title}
-                                      </p>
-                                      {item.status ? (
-                                        <span
-                                          className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${statusBadgeClass(item.status)}`}
-                                        >
-                                          {formatStatusLabel(item.status)}
-                                        </span>
-                                      ) : null}
-                                    </div>
-                                    <p className="mt-1 text-sm text-slate-600">
-                                      {item.caption}
-                                    </p>
-                                    {item.metadata?.map((meta, metaIndex) => (
-                                      <p
-                                        key={`${item.id}-meta-${metaIndex}`}
-                                        className="mt-1 text-xs text-slate-500"
-                                      >
-                                        {meta}
-                                      </p>
-                                    ))}
-                                  </div>
-                                  <div className="flex flex-col items-start gap-2 lg:items-end">
-                                    <span className="text-xs font-medium text-slate-500">
-                                      {item.time
-                                        ? formatDateTime(item.time)
-                                        : "Time not recorded separately"}
-                                    </span>
-                                    {item.row && item.action && actionLabel ? (
-                                      <Button
-                                        size="sm"
-                                        onClick={() =>
-                                          runTaskAction(
-                                            item.row as TechnicianTaskRow,
-                                            item.action as "accept" | "start" | "complete"
-                                          )
-                                        }
-                                        disabled={actionLoadingId === item.row.id}
-                                        className="min-h-[38px] px-4"
-                                      >
-                                        {actionLoadingId === item.row.id
-                                          ? "Please wait..."
-                                          : actionLabel}
-                                      </Button>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        <p className="mt-4 text-sm text-slate-500">{section.emptyState}</p>
-                      )}
-                    </div>
+                    {/* ④ Current status badge */}
+                    <span className={`shrink-0 inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium ${statusBadgeClass(currentStageKey)}`}>
+                      {getCurrentJobCardStage(selectedJobCard)}
+                    </span>
                   </div>
-                ))}
+
+                  {/* Departments / tasks attended */}
+                  {uniqueTasks.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-200">
+                      <span className="text-[10px] text-slate-400 self-center mr-0.5">Tasks:</span>
+                      {uniqueTasks.map((task) => (
+                        <span key={task} className="text-[10px] font-medium bg-white border border-slate-200 text-slate-600 rounded-full px-2 py-0.5">
+                          {task}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* ⑤ Actions section — visible to everyone including admin */}
+                {allDone ? (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                    <CheckCircle2 className="w-7 h-7 text-emerald-500 mx-auto mb-1" />
+                    <p className="text-sm font-medium text-emerald-800">All tasks completed</p>
+                    <p className="text-xs text-emerald-600 mt-0.5">Admin will update job card status</p>
+                  </div>
+                ) : pendingAllocations.length > 0 ? (
+                  <div>
+                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Actions</h3>
+                    <div className="space-y-2">
+                      {pendingAllocations.map((row) => {
+                        const nextAction =
+                          row.status === "assigned" ? "accept"
+                          : row.status === "accepted" ? "start"
+                          : row.status === "in_progress" ? "complete"
+                          : null
+                        const actionLabel =
+                          nextAction === "accept" ? "Accept"
+                          : nextAction === "start" ? "Start Work"
+                          : nextAction === "complete" ? "Mark Complete"
+                          : null
+                        const actionClass =
+                          nextAction === "accept" ? "bg-blue-600 hover:bg-blue-700 text-white"
+                          : nextAction === "start" ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+                          : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                        // Only the assigned employee can trigger actions
+                        const isAssignedEmployee = currentEmployeeId !== null && row.employeeId === currentEmployeeId
+                        return (
+                          <div key={row.id} className="rounded-xl bg-slate-50 border border-slate-100 p-3 flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-slate-800 truncate">{row.technicianName}</p>
+                              {row.taskAssigned && (
+                                <p className="text-xs text-slate-500 truncate">{row.taskAssigned}</p>
+                              )}
+                              <span className={`inline-flex mt-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${statusBadgeClass(row.status)}`}>
+                                {formatStatusLabel(row.status)}
+                              </span>
+                            </div>
+                            {nextAction && actionLabel && (
+                              <Button
+                                size="sm"
+                                onClick={() => runTaskAction(row, nextAction)}
+                                disabled={!isAssignedEmployee || actionLoadingId === row.id}
+                                title={!isAssignedEmployee ? "Only the assigned technician can take this action" : undefined}
+                                className={`shrink-0 h-8 px-3 text-xs ${actionClass}`}
+                              >
+                                {actionLoadingId === row.id ? "Please wait…" : actionLabel}
+                              </Button>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                    {actionError && <p className="mt-2 text-sm text-red-600">{actionError}</p>}
+                    {actionSuccess && <p className="mt-2 text-sm text-emerald-700">{actionSuccess}</p>}
+                  </div>
+                ) : null}
+
+                {/* Timeline */}
+                <div>
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Timeline</h3>
+                  <div className="space-y-0">
+                    {timelineSections.map((section, idx) => {
+                      const isLast = idx === timelineSections.length - 1
+                      const Icon = SECTION_ICON[section.key] || Clock
+                      const dotColor = SECTION_COLOR[section.key] || "bg-slate-400"
+                      return (
+                        <div key={section.key} className="flex gap-3">
+                          <div className="flex flex-col items-center">
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${dotColor}`}>
+                              <Icon className="w-3.5 h-3.5 text-white" />
+                            </div>
+                            {!isLast && <div className="w-0.5 flex-1 bg-slate-200 my-1" />}
+                          </div>
+                          <div className={`flex-1 min-w-0 ${isLast ? "pb-2" : "pb-5"}`}>
+                            <p className="text-sm font-semibold text-slate-800 mt-1">{section.title}</p>
+                            {section.items.length === 0 ? (
+                              <p className="text-xs text-slate-400 mt-1 italic">{section.emptyState}</p>
+                            ) : (
+                              <div className="mt-2 space-y-2">
+                                {section.items.map((item) => (
+                                  <div key={item.id} className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                          <p className="text-sm font-medium text-slate-900">{item.title}</p>
+                                          {item.status && (
+                                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${statusBadgeClass(item.status)}`}>
+                                              {formatStatusLabel(item.status)}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-xs text-slate-500 mt-0.5">{item.caption}</p>
+                                        {item.metadata?.map((meta, i) => (
+                                          <p key={`${item.id}-meta-${i}`} className="text-xs text-slate-400 mt-0.5">{meta}</p>
+                                        ))}
+                                      </div>
+                                      <span className="text-xs text-slate-400 shrink-0">
+                                        {item.time ? formatDateTime(item.time) : "—"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
               </div>
+            </div>
+          )
+        })() : null}
+
+        {/* Notification detail view — leave request */}
+        {selectedNotification && isLeaveNotification(selectedNotification) ? (
+          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-emerald-200 bg-white">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-emerald-100 bg-emerald-50">
+              <CalendarClock className="w-4 h-4 text-emerald-600" />
+              <span className="text-sm font-semibold text-emerald-900">Leave Request</span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <AdminLeaveRequestsPanel />
             </div>
           </div>
         ) : null}
@@ -1033,12 +1135,41 @@ export function AllNotificationsModule({
               key={selectedNotification.id}
               filterUserId={userId ?? undefined}
               filterMobile={!userId && mobileNorm ? mobileNorm : undefined}
+              hideLeavePanel
             />
           )
         })() : null}
 
+        {/* Notification detail view — breakdown (technician stepper) */}
+        {selectedNotification && isBreakdownNotification(selectedNotification) ? (
+          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-orange-200 bg-white">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-orange-100 bg-orange-50 shrink-0">
+              <span className="text-base">⚠️</span>
+              <span className="text-sm font-semibold text-orange-900">Breakdown</span>
+              <span className="ml-auto">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-xs text-rose-500 hover:text-rose-700 hover:bg-rose-50"
+                  onClick={() => void deleteNotification(selectedNotification.id)}
+                >
+                  Dismiss
+                </Button>
+              </span>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <BreakdownTechPanel
+                key={selectedNotification.refId!}
+                breakdownId={selectedNotification.refId!}
+                userId={currentUserId ?? undefined}
+                userDepartment={currentUserDepartment ?? undefined}
+              />
+            </div>
+          </div>
+        ) : null}
+
         {/* Notification detail view — generic */}
-        {selectedNotification && !isApprovalNotification(selectedNotification) ? (
+        {selectedNotification && !isApprovalNotification(selectedNotification) && !isLeaveNotification(selectedNotification) && !isBreakdownNotification(selectedNotification) ? (
           <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/70 p-6">
             <div className="mb-6 flex flex-col gap-1">
               <div className="flex items-start justify-between gap-3">

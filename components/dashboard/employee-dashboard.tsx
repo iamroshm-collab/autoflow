@@ -227,6 +227,7 @@ export const EmployeeDashboard = memo(function EmployeeDashboard({ employeeId }:
           </ResponsiveContainer>
         </div>
       </div>
+
     </div>
   )
 })

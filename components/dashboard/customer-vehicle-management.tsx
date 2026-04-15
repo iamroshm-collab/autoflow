@@ -642,7 +642,7 @@ export function CustomerVehicleManagement({
           }
         }}
       >
-        <DialogContent className="max-w-3xl lg:max-w-5xl max-h-[98vh] overflow-hidden">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-semibold">
               {selectedCustomerId ? "Edit Customer" : "Add New Customer"}
@@ -652,7 +652,7 @@ export function CustomerVehicleManagement({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="border border-slate-200 rounded-lg bg-white p-4 space-y-3 overflow-y-auto max-h-[75vh]">
+          <div className="border border-slate-200 rounded-lg bg-white p-4 space-y-3">
             {isLoadingModalData ? (
               <div className="text-sm text-muted-foreground">Loading customer details...</div>
             ) : (
@@ -784,13 +784,15 @@ export function CustomerVehicleManagement({
                 </div>
               </div>
             )}
+          </div>
 
-            <DialogFooter className="sticky-form-actions flex justify-end gap-2">
+          <DialogFooter className="flex gap-5 justify-end pt-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsCustomerModalOpen(false)}
                 disabled={isSavingCustomer}
+                className="px-4 py-2 min-h-[40px] bg-white hover:bg-gray-100"
               >
                 Cancel
               </Button>
@@ -798,12 +800,12 @@ export function CustomerVehicleManagement({
                 type="button"
                 onClick={handleSaveCustomer}
                 disabled={isSavingCustomer || isLoadingModalData}
-                className="bg-blue-600 text-white hover:bg-blue-700"
+                className="px-4 py-2 min-h-[40px] flex items-center gap-2"
+                style={{ backgroundColor: '#2563eb', color: 'white' }}
               >
                 {isSavingCustomer ? "Saving..." : selectedCustomerId ? "Update" : "Save"}
               </Button>
             </DialogFooter>
-          </div>
         </DialogContent>
       </Dialog>
 

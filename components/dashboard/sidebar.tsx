@@ -20,10 +20,10 @@ import {
   Cog,
   ChevronDown,
   ChevronRight,
-  Settings,
   ChevronsLeft,
   ChevronsRight,
   LogOut,
+  AlertTriangle,
 } from "lucide-react"
 
 export type MenuItem = {
@@ -38,6 +38,7 @@ export const menuItems: MenuItem[] = [
   { id: "update-job-card", label: "Under Service", icon: Wrench },
   { id: "delivered", label: "Ready for Delivery", icon: Truck },
   { id: "maintenance-tracker", label: "Maintenance Tracker", icon: Package },
+  { id: "breakdown", label: "Break Down", icon: AlertTriangle },
   { id: "employee", label: "Employee", icon: User },
   { id: "attendance-payroll", label: "Attendance & Payroll", icon: CalendarCheck },
   { id: "inventory", label: "Suppliers & Products", icon: Users },
@@ -45,7 +46,6 @@ export const menuItems: MenuItem[] = [
   { id: "customers", label: "Customers", icon: UserCircle },
   { id: "income-expense", label: "Income - Expense", icon: TrendingUpDown },
   { id: "spare-parts", label: "Spare Parts", icon: Cog },
-  { id: "settings", label: "Settings", icon: Settings },
 ]
 
 interface SidebarProps {
@@ -121,6 +121,27 @@ export function Sidebar({ activeItem, onSelect, role, userName, onLogout }: Side
           >
             <ChevronsLeft className="w-4 h-4" />
           </button>
+        )}
+      </div>
+
+      {/* Mobile profile summary below logo */}
+      <div className={cn("lg:hidden border-b border-slate-100", collapsed ? "px-2 py-2" : "px-3 py-2.5")}> 
+        {collapsed ? (
+          <div className="flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+              <UserCircle className="w-5 h-5 text-slate-400" />
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+              <UserCircle className="w-5 h-5 text-slate-400" />
+            </div>
+            <div className="min-w-0 leading-tight">
+              <p className="text-sm font-semibold text-slate-700 truncate">{userName || "User"}</p>
+              <p className="text-xs text-slate-500 capitalize">{role}</p>
+            </div>
+          </div>
         )}
       </div>
 

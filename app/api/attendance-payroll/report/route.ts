@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { deriveAttendanceCode, normalizeAttendanceCode } from "@/lib/attendance"
+import { normalizeAttendanceCode } from "@/lib/attendance"
+import {
+  deriveAttendancePercentageFromPolicy,
+  deriveAttendanceStatusFromPolicy,
+  getOrCreateAttendancePolicy,
+  getSalaryMultiplierFromPolicy,
+} from "@/lib/attendance-policy"
 
 export async function GET(request: NextRequest) {
   try {
+    const policy = await getOrCreateAttendancePolicy()
     const employeeId = Number(request.nextUrl.searchParams.get("employeeId"))
     const month = Number(request.nextUrl.searchParams.get("month"))
     const year = Number(request.nextUrl.searchParams.get("year"))
@@ -37,12 +44,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Employee not found" }, { status: 404 })
     }
 
-    const presentDays = attendanceRows.filter(
-      (row) =>
-        (row.workedMinutes != null
-          ? deriveAttendanceCode(row.workedMinutes)
-          : normalizeAttendanceCode(row.attendance)) === "P"
-    ).length
+    let presentDays = 0
+    let payableDays = 0
+
+    attendanceRows.forEach((row) => {
+      if (row.workedMinutes != null) {
+        const percentage = deriveAttendancePercentageFromPolicy(row.workedMinutes, policy)
+        const code = deriveAttendanceStatusFromPolicy(row.workedMinutes, policy)
+        if (code === "P") {
+          presentDays += 1
+        }
+        payableDays += Math.max(0, Math.min(1, percentage / 100))
+      } else {
+        const normalizedCode = normalizeAttendanceCode(row.attendance)
+        if (normalizedCode === "P") {
+          presentDays += 1
+        }
+        payableDays += getSalaryMultiplierFromPolicy(row.attendance, policy)
+      }
+    })
 
     const attendanceIncentive = attendanceRows.reduce((sum, row) => sum + Number(row.incentive || 0), 0)
     const allowances = attendanceRows.reduce((sum, row) => sum + Number(row.allowance || 0), 0)
@@ -66,9 +86,9 @@ export async function GET(request: NextRequest) {
     })
 
     const jobCardIncentive = Number(jobCardIncentiveAggregate._sum.amount || 0)
-    const grossFromPresentDays = presentDays * Number(employee.salaryPerday || 0)
+    const grossFromPayableDays = payableDays * Number(employee.salaryPerday || 0)
     const totalIncentives = attendanceIncentive + jobCardIncentive
-    const netSalary = grossFromPresentDays + totalIncentives + allowances - salaryAdvance
+    const netSalary = grossFromPayableDays + totalIncentives + allowances - salaryAdvance
 
     return NextResponse.json({
       employee: {
@@ -84,7 +104,9 @@ export async function GET(request: NextRequest) {
       },
       summary: {
         presentDays,
-        grossFromPresentDays,
+        payableDays,
+        grossFromPayableDays,
+        grossFromPresentDays: grossFromPayableDays,
         attendanceIncentive,
         jobCardIncentive,
         totalIncentives,

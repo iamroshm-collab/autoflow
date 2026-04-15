@@ -327,7 +327,7 @@ export default function PurchaseEntryForm() {
 
   const handleSelectNewSupplier = (supplier: Supplier) => {
     setNewSupplierId(String(supplier.supplierId))
-    setNewSupplierQuery(supplier.supplierName)
+    setNewSupplierQuery("")
     setIsNewSupplierDropdownOpen(false)
   }
 
@@ -625,7 +625,7 @@ export default function PurchaseEntryForm() {
       </Card>
 
       <Dialog open={isNewPurchaseModalOpen} onOpenChange={setIsNewPurchaseModalOpen}>
-        <DialogContent className="max-w-[46.2rem]">
+        <DialogContent className="max-w-[46.2rem] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-semibold">Add New Purchase</DialogTitle>
             <DialogDescription>Choose supplier, bill number, and date before adding products.</DialogDescription>
@@ -694,25 +694,26 @@ export default function PurchaseEntryForm() {
               </div>
             </div>
 
-            <DialogFooter className="sticky-form-actions flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsNewPurchaseModalOpen(false)}
-                className="px-4 py-2 min-h-[40px]"
-              >
-                Cancel
-              </Button>
-              <Button type="button" onClick={handleCreatePurchaseHeader} className="px-4 py-2 min-h-[40px]">
-                Save Header
-              </Button>
-            </DialogFooter>
           </div>
+
+          <DialogFooter className="flex gap-5 justify-end pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsNewPurchaseModalOpen(false)}
+              className="px-4 py-2 min-h-[40px] bg-white hover:bg-gray-100"
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleCreatePurchaseHeader} className="px-4 py-2 min-h-[40px] flex items-center gap-2" style={{ backgroundColor: '#2563eb', color: 'white' }}>
+              Save Header
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isSearchModalOpen} onOpenChange={setIsSearchModalOpen}>
-        <DialogContent className="max-w-5xl max-h-[95vh] overflow-hidden">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-semibold">Search Purchase Bill</DialogTitle>
             <DialogDescription>Find by bill number and load/edit the purchase.</DialogDescription>
@@ -776,13 +777,13 @@ export default function PurchaseEntryForm() {
       </Dialog>
 
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-[79.2rem] max-h-[95vh] overflow-hidden">
+        <DialogContent className="max-w-[79.2rem] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-semibold">Edit Purchase</DialogTitle>
             <DialogDescription>Update supplier, bill details, and products.</DialogDescription>
           </DialogHeader>
 
-          <div className="border border-slate-200 rounded-lg bg-white p-4 space-y-3 overflow-y-auto max-h-[75vh]">
+          <div className="border border-slate-200 rounded-lg bg-white p-4 space-y-3 overflow-y-auto max-h-[60vh]">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="edit-purchase-supplier">Supplier</Label>
@@ -882,32 +883,34 @@ export default function PurchaseEntryForm() {
               </table>
             </div>
 
-            <DialogFooter className="sticky-form-actions flex flex-col items-stretch gap-2">
+          </div>
+
+          <div className="flex items-center justify-between pt-4">
+            <Button
+              type="button"
+              onClick={addProductRow}
+              variant="ghost"
+              className="global-bottom-btn-add"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Product
+            </Button>
+            <DialogFooter className="flex gap-5 justify-end">
+              <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 min-h-[40px] bg-white hover:bg-gray-100">
+                Cancel
+              </Button>
               <Button
                 type="button"
-                onClick={addProductRow}
-                variant="ghost"
-                className="global-bottom-btn-add"
+                onClick={async () => {
+                  const ok = await savePurchase()
+                  if (ok) setIsEditModalOpen(false)
+                }}
+                disabled={isSaving}
+                className="px-4 py-2 min-h-[40px] flex items-center gap-2"
+                style={{ backgroundColor: '#2563eb', color: 'white' }}
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Product
+                {isSaving ? "Saving..." : "Save"}
               </Button>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 min-h-[40px]">
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  onClick={async () => {
-                    const ok = await savePurchase()
-                    if (ok) setIsEditModalOpen(false)
-                  }}
-                  disabled={isSaving}
-                  className="px-4 py-2 min-h-[40px]"
-                >
-                  {isSaving ? "Saving..." : "Save"}
-                </Button>
-              </div>
             </DialogFooter>
           </div>
         </DialogContent>
@@ -931,11 +934,11 @@ export default function PurchaseEntryForm() {
             />
           </div>
 
-          <DialogFooter className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setIsPriceModalOpen(false)} className="px-4 py-2 min-h-[40px]">
+          <DialogFooter className="flex gap-5 justify-end pt-4">
+            <Button type="button" variant="outline" onClick={() => setIsPriceModalOpen(false)} className="px-4 py-2 min-h-[40px] bg-white hover:bg-gray-100">
               Cancel
             </Button>
-            <Button type="button" onClick={() => void submitPriceChange()} className="px-4 py-2 min-h-[40px]">
+            <Button type="button" onClick={() => void submitPriceChange()} className="px-4 py-2 min-h-[40px] flex items-center gap-2" style={{ backgroundColor: '#2563eb', color: 'white' }}>
               Save Price
             </Button>
           </DialogFooter>

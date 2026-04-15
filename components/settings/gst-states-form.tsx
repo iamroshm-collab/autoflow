@@ -188,11 +188,11 @@ export default function GSTStatesForm({ panelCornerClass = "" }: { panelCornerCl
         }}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Add New State</DialogTitle>
+              <DialogTitle className="text-2xl font-semibold">Add New State</DialogTitle>
               <DialogDescription>Enter the state details to create a new state record.</DialogDescription>
             </DialogHeader>
 
-            <div className="global-form-shell space-y-4 overflow-visible">
+            <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 items-start">
               <div className="space-y-2">
                 <Label htmlFor="add-stateName">State Name *</Label>
@@ -218,7 +218,7 @@ export default function GSTStatesForm({ panelCornerClass = "" }: { panelCornerCl
               </div>
             </div>
 
-            <DialogFooter className="flex gap-4 justify-end mt-4">
+            <DialogFooter className="flex gap-5 justify-end pt-4">
               <Button onClick={cancelAdd} disabled={isLoading} variant="outline" className="px-4 py-2 min-h-[40px] bg-white hover:bg-gray-100">
                 <X className="h-4 w-4" />
                 Cancel

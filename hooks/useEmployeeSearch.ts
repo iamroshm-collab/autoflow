@@ -42,7 +42,7 @@ export const useEmployeeSearch = (activeItem: string) => {
   }, [])
 
   const handleSelectEmployeeSearchResult = useCallback((employee: EmployeeSearchOption) => {
-    setEmployeeSearch(employee.empName)
+    setEmployeeSearch("")
     setSelectedEmployeeRecordId(employee.employeeId)
     setIsEmployeeSearchOpen(false)
     setEmployeeSearchResults([])
@@ -65,27 +65,8 @@ export const useEmployeeSearch = (activeItem: string) => {
       setIsEmployeeSearchOpen(false)
       setEmployeeSearchResults([])
       setSelectedEmployeeRecordId(null)
-      return
     }
-
-    if (!isEmployeeSearchOpen) {
-      return
-    }
-
-    if (employeeSearchDebounceRef.current) {
-      window.clearTimeout(employeeSearchDebounceRef.current)
-    }
-
-    employeeSearchDebounceRef.current = window.setTimeout(() => {
-      loadEmployeeSearchResults(employeeSearch.trim())
-    }, 180)
-
-    return () => {
-      if (employeeSearchDebounceRef.current) {
-        window.clearTimeout(employeeSearchDebounceRef.current)
-      }
-    }
-  }, [activeItem, employeeSearch, isEmployeeSearchOpen, loadEmployeeSearchResults])
+  }, [activeItem])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -99,12 +80,23 @@ export const useEmployeeSearch = (activeItem: string) => {
   }, [])
 
   const openEmployeeSearchDropdown = useCallback(() => {
-    if (!isEmployeeSearchOpen) {
-      setIsEmployeeSearchOpen(true)
-      employeeDropdownNav.resetHighlight()
-      void loadEmployeeSearchResults(employeeSearch.trim())
+    if (isEmployeeSearchOpen) { setIsEmployeeSearchOpen(false); return }
+    setIsEmployeeSearchOpen(true)
+    employeeDropdownNav.resetHighlight()
+  }, [employeeDropdownNav, isEmployeeSearchOpen])
+
+  // Load immediately when dropdown opens, debounced for typing
+  useEffect(() => {
+    if (activeItem !== "employee" || !isEmployeeSearchOpen) return
+    if (employeeSearchDebounceRef.current) window.clearTimeout(employeeSearchDebounceRef.current)
+    employeeSearchDebounceRef.current = window.setTimeout(
+      () => loadEmployeeSearchResults(employeeSearch.trim()),
+      employeeSearch ? 180 : 0
+    )
+    return () => {
+      if (employeeSearchDebounceRef.current) window.clearTimeout(employeeSearchDebounceRef.current)
     }
-  }, [employeeDropdownNav, employeeSearch, isEmployeeSearchOpen, loadEmployeeSearchResults])
+  }, [activeItem, employeeSearch, isEmployeeSearchOpen, loadEmployeeSearchResults])
 
   return {
     employeeSearch,

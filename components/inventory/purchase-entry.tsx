@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -50,28 +50,71 @@ interface Product {
   balanceStock: number
 }
 
+interface SupplierOption {
+  supplierId: number
+  supplierName: string
+}
+
+const initialNewRow: Partial<PurchaseLineItem> = {
+  product: "",
+  qnty: 1,
+  purchasePrice: 0,
+  sgstRate: 0,
+  cgstRate: 0,
+}
+
 export function PurchaseEntryForm() {
-  // supplier search removed; keep only supplierName manual input
+  const [suppliers, setSuppliers] = useState<SupplierOption[]>([])
+  const [supplierId, setSupplierId] = useState<number | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [supplierName, setSupplierName] = useState<string>("")
+  const [supplierQuery, setSupplierQuery] = useState<string>("")
+  const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false)
   const [purchaseDate, setPurchaseDate] = useState(formatDateDDMMYY(new Date()))
   const [lineItems, setLineItems] = useState<PurchaseLineItem[]>([])
-  const [newRow, setNewRow] = useState<Partial<PurchaseLineItem>>({
-    product: "",
-    qnty: 1,
-    purchasePrice: 0,
-    sgstRate: 0,
-    cgstRate: 0,
-  })
+  const [newRow, setNewRow] = useState<Partial<PurchaseLineItem>>(initialNewRow)
   const [showSupplierDialog, setShowSupplierDialog] = useState(false)
   const [showProductDialog, setShowProductDialog] = useState(false)
   const [productSearch, setProductSearch] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [unsavedChanges, setUnsavedChanges] = useState(false)
 
-  // Fetch suppliers
-  // Fetch products (optionally by supplierId)
-  
+  const supplierDropdownRef = useRef<HTMLDivElement | null>(null)
+
+  const filteredSuppliers = useMemo(() => {
+    const q = supplierQuery.trim().toLowerCase()
+    if (!q) return suppliers
+    return suppliers.filter((s) => s.supplierName.toLowerCase().includes(q))
+  }, [supplierQuery, suppliers])
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch('/api/inventory/suppliers', { cache: 'force-cache' })
+        const data = await res.json()
+        setSuppliers(Array.isArray(data) ? data : [])
+      } catch {
+        setSuppliers([])
+      }
+    })()
+  }, [])
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (!supplierDropdownRef.current?.contains(e.target as Node)) {
+        setIsSupplierDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [])
+
+  const handleSelectSupplier = (s: SupplierOption) => {
+    setSupplierId(s.supplierId)
+    setSupplierName(s.supplierName)
+    setSupplierQuery("")
+    setIsSupplierDropdownOpen(false)
+  }
 
   // Fetch products (optional supplierId)
   const fetchProducts = async (supplierId?: number) => {
@@ -213,22 +256,28 @@ export function PurchaseEntryForm() {
 
   // Save purchase
   const handleSave = async () => {
-    if (!supplierName.trim() || lineItems.length === 0) {
+    if (!supplierId || !supplierName.trim() || lineItems.length === 0) {
       toast({
         title: 'Validation Error',
-        description: 'Please enter supplier name and add at least one product',
+        description: 'Please select a supplier and add at least one product',
         variant: 'destructive',
       })
       return
     }
 
+    const isoDate = parseDDMMYYToISO(purchaseDate)
+    if (!isoDate) {
+      toast({ title: 'Validation Error', description: 'Enter purchase date in dd-mm-yy format', variant: 'destructive' })
+      return
+    }
+
     setIsLoading(true)
     try {
-      const isoDate = parseDDMMYYToISO(purchaseDate)
       const response = await fetch('/api/purchases', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          supplierId,
           supplier: supplierName.trim(),
           purchaseDate: isoDate,
           address: null,
@@ -254,9 +303,13 @@ export function PurchaseEntryForm() {
           title: 'Success',
           description: 'Purchase saved successfully',
         })
-        // Reset form
+        // Reset all form state
+        setSupplierId(null)
         setSupplierName("")
+        setSupplierQuery("")
+        setPurchaseDate(formatDateDDMMYY(new Date()))
         setLineItems([])
+        setNewRow(initialNewRow)
         setUnsavedChanges(false)
       } else {
         const data = await response.json()
@@ -300,20 +353,40 @@ export function PurchaseEntryForm() {
           {/* Header Form - Sticky */}
           <div className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pb-4 -mx-6 px-6 pt-2 border-b">
             <div className="grid gap-4 md:grid-cols-3">
-              {/* Supplier Selection (manual) */}
+              {/* Supplier Selection (autocomplete) */}
               <div className="space-y-2">
                 <Label>Supplier</Label>
                 <div className="flex gap-2">
-                  <div className="flex-1">
+                  <div className="flex-1 relative" ref={supplierDropdownRef}>
                     <Input
-                      placeholder="Supplier name"
-                      value={supplierName}
+                      placeholder="Search supplier..."
+                      value={supplierQuery}
                       onChange={(e) => {
-                        setSupplierName(e.target.value)
+                        setSupplierQuery(e.target.value)
+                        setSupplierId(null)
+                        setIsSupplierDropdownOpen(true)
                         setUnsavedChanges(true)
                       }}
+                      onFocus={() => setIsSupplierDropdownOpen(true)}
                       className="h-8"
+                      autoComplete="off"
                     />
+                    {isSupplierDropdownOpen && filteredSuppliers.length > 0 && (
+                      <div className="dropdown-container">
+                        <div className="dropdown-scroll dropdown-scroll-modal">
+                          {filteredSuppliers.map((s) => (
+                            <button
+                              key={s.supplierId}
+                              type="button"
+                              onClick={() => handleSelectSupplier(s)}
+                              className={`dropdown-item${supplierId === s.supplierId ? ' selected' : ''}`}
+                            >
+                              {s.supplierName}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <Dialog open={showSupplierDialog} onOpenChange={setShowSupplierDialog}>
                     <DialogTrigger asChild>
@@ -325,7 +398,14 @@ export function PurchaseEntryForm() {
                       <DialogHeader>
                         <DialogTitle>Add New Supplier</DialogTitle>
                       </DialogHeader>
-                      <AddSupplierForm onSuccess={() => setShowSupplierDialog(false)} />
+                      <AddSupplierForm onSuccess={async () => {
+                        setShowSupplierDialog(false)
+                        try {
+                          const res = await fetch('/api/inventory/suppliers')
+                          const data = await res.json()
+                          setSuppliers(Array.isArray(data) ? data : [])
+                        } catch {}
+                      }} />
                     </DialogContent>
                   </Dialog>
                 </div>

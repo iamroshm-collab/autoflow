@@ -25,6 +25,7 @@ import {
   isEligibleForMobileAttendance,
   recordAttendance,
   getAttendanceSummary,
+  getTodayAttendanceRecord,
 } from "@/lib/attendance-db"
 import { deriveNextAttendanceAction } from "@/lib/attendance"
 
@@ -105,6 +106,17 @@ export async function POST(request: NextRequest) {
         { success: false, message: "Employee is not eligible for attendance" },
         { status: 404 }
       )
+    }
+
+    // 4b. Block re-check-in if employee already checked out today
+    if (attendanceType === "IN") {
+      const todayRecord = await getTodayAttendanceRecord(employeeId)
+      if (todayRecord?.checkOutAt) {
+        return NextResponse.json(
+          { success: false, message: "Attendance already completed for today. Contact admin to make changes." },
+          { status: 400 }
+        )
+      }
     }
 
     // 5. Verify device is authorized

@@ -1,6 +1,7 @@
 "use client"
 
 import { memo } from "react"
+import type React from "react"
 
 import {
   XAxis,
@@ -17,25 +18,30 @@ const fallbackData: Array<{ month: string; services: number }> = []
 
 interface ServiceOverviewChartProps {
   data?: Array<{ month: string; services: number }>
+  title?: string
+  valueLabel?: string
+  headerSlot?: React.ReactNode
 }
 
-export const ServiceOverviewChart = memo(function ServiceOverviewChart({ data }: ServiceOverviewChartProps) {
+export const ServiceOverviewChart = memo(function ServiceOverviewChart({ data, title, valueLabel, headerSlot }: ServiceOverviewChartProps) {
   const chartData = data && data.length > 0 ? data : fallbackData
 
   return (
     <div className="dashboard-card flex h-full flex-col">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-heading font-semibold text-card-foreground">
-          Service Overview
+          {title ?? "Service Overview"}
         </h3>
-        <div className="flex items-center gap-2">
-          <button className="p-1.5 rounded-lg hover:bg-muted transition-colors" aria-label="Favorite">
-            <Star className="w-4 h-4 text-muted-foreground" />
-          </button>
-          <button className="p-1.5 rounded-lg hover:bg-muted transition-colors" aria-label="More options">
-            <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-          </button>
-        </div>
+        {headerSlot ?? (
+          <div className="flex items-center gap-2">
+            <button className="p-1.5 rounded-lg hover:bg-muted transition-colors" aria-label="Favorite">
+              <Star className="w-4 h-4 text-muted-foreground" />
+            </button>
+            <button className="p-1.5 rounded-lg hover:bg-muted transition-colors" aria-label="More options">
+              <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </div>
+        )}
       </div>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">

@@ -347,3 +347,81 @@ export async function sendMetaWhatsappServiceReview(params: {
     console.error("[META_WHATSAPP_REVIEW] Failed to send notification", err)
   }
 }
+
+/**
+ * Notify a technician about a new breakdown pickup assignment.
+ * Message format:
+ *   Hi {technicianName},
+ *   New Pick-up Assignment
+ *   A pick-up task has been assigned to the {department} department.
+ *   Task ID: {breakdownNumber}
+ *   Location: {location}
+ *   Please check your dashboard immediately to review the task details and accept the pick-up.
+ *
+ * Template body params (in order): technicianName, department, breakdownNumber, location.
+ */
+export async function sendMetaWhatsappBreakdownPickupNotification(params: {
+  mobile: string
+  technicianName: string
+  department: string
+  breakdownNumber: string
+  location: string
+}) {
+  const templateName = String(process.env.META_WHATSAPP_JOBCARD_COMPLETED || "").trim()
+  if (!templateName) {
+    console.info("[META_WHATSAPP_BREAKDOWN_PICKUP] Skipped — META_WHATSAPP_JOBCARD_COMPLETED not configured")
+    return
+  }
+  try {
+    return await sendMetaWhatsappTemplate({
+      to: params.mobile,
+      templateName,
+      languageCode: "en_US",
+      bodyParams: [
+        params.technicianName,
+        params.department,
+        params.breakdownNumber,
+        params.location,
+      ],
+    })
+  } catch (err) {
+    console.error("[META_WHATSAPP_BREAKDOWN_PICKUP] Failed to send notification", err)
+  }
+}
+
+/**
+ * Notify a technician about a new breakdown assignment.
+ * Template body params: technician name, breakdown number, type, vehicle reg, customer name, location.
+ */
+export async function sendMetaWhatsappBreakdownNotification(params: {
+  mobile: string
+  technicianName: string
+  breakdownNumber: string
+  breakdownType: string
+  vehicleReg: string
+  customerName: string
+  location: string
+}) {
+  const templateName = String(process.env.META_WHATSAPP_BREAKDOWN_TEMPLATE || "").trim()
+  if (!templateName) {
+    console.info("[META_WHATSAPP_BREAKDOWN] Skipped — META_WHATSAPP_BREAKDOWN_TEMPLATE not configured")
+    return
+  }
+  try {
+    return await sendMetaWhatsappTemplate({
+      to: params.mobile,
+      templateName,
+      languageCode: "en_US",
+      bodyParams: [
+        params.technicianName,
+        params.breakdownNumber,
+        params.breakdownType,
+        params.vehicleReg,
+        params.customerName,
+        params.location,
+      ],
+    })
+  } catch (err) {
+    console.error("[META_WHATSAPP_BREAKDOWN] Failed to send notification", err)
+  }
+}

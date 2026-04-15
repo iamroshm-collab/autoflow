@@ -46,9 +46,10 @@ export const useIncomeExpenseSearch = (activeItem: string) => {
   }, [])
 
   const openIncomeExpenseDropdown = useCallback(() => {
+    if (isIncomeExpenseSearchOpen) { setIsIncomeExpenseSearchOpen(false); return }
     setIsIncomeExpenseSearchOpen(true)
     incomeExpenseDropdownNav.resetHighlight()
-  }, [incomeExpenseDropdownNav])
+  }, [incomeExpenseDropdownNav, isIncomeExpenseSearchOpen])
 
   return {
     incomeExpenseSearch,

@@ -116,10 +116,11 @@ export const useMaintenanceSearch = (activeItem: string) => {
   }, [])
 
   const openMaintenanceDropdown = useCallback(() => {
+    if (isMaintenanceSearchOpen) { setIsMaintenanceSearchOpen(false); return }
     setIsMaintenanceSearchOpen(true)
     maintenanceDropdownNav.resetHighlight()
     loadOptions()
-  }, [maintenanceDropdownNav, loadOptions])
+  }, [isMaintenanceSearchOpen, maintenanceDropdownNav, loadOptions])
 
   return {
     maintenanceSearch,

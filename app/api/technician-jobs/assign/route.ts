@@ -5,6 +5,8 @@ import {
 } from '@/services/jobAllocationService';
 import { sendJobAssignmentNotifications } from '@/services/notificationService';
 import { sendMetaWhatsappJobCardAssigned } from '@/lib/meta-whatsapp';
+import { createUserNotification, createRoleNotifications } from '@/lib/app-notifications';
+import { prisma } from '@/lib/prisma';
 
 /**
  * POST /api/technician-jobs/assign
@@ -67,6 +69,46 @@ export async function POST(request: NextRequest) {
     } catch (notificationError) {
       console.error('Failed to send notifications:', notificationError);
       // Don't fail the request if notifications fail
+    }
+
+    // Save in-app notifications to the database so bell badge updates
+    try {
+      const vehicleNumber = result.jobCard.vehicle.registrationNumber;
+      const notifTitle = "New Job Assigned";
+      const notifBody = `Vehicle: ${vehicleNumber}`;
+      const notifUrl = `/job/${jobId}`;
+
+      // Notify each assigned technician via their user account
+      const techUsers = await (prisma as any).appUser.findMany({
+        where: { employeeRefId: { in: parsedTechnicianIds }, approvalStatus: "approved" },
+        select: { id: true },
+      });
+      await Promise.all(
+        techUsers.map((u: { id: string }) =>
+          createUserNotification(u.id, {
+            title: notifTitle,
+            body: notifBody,
+            url: notifUrl,
+            targetForm: "employee-job-panel",
+            type: "job_assignment",
+            refType: "jobcard",
+            refId: String(jobId),
+          })
+        )
+      );
+
+      // Notify admins/managers about the assignment
+      await createRoleNotifications(["admin", "manager"], {
+        title: "Technician Assigned",
+        body: `${result.allocations.map((a: any) => a.employee?.empName).filter(Boolean).join(", ")} assigned to ${vehicleNumber}`,
+        url: notifUrl,
+        targetForm: "technician-task-details",
+        type: "job_assignment",
+        refType: "jobcard",
+        refId: String(jobId),
+      });
+    } catch (dbNotifError) {
+      console.error('Failed to save in-app notifications:', dbNotifError);
     }
 
     // Send WhatsApp notification to each assigned technician

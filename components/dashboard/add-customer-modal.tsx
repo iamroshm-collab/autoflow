@@ -233,31 +233,33 @@ export function AddCustomerModal({
         </DialogHeader>
 
         <div className="border border-slate-200 rounded-lg bg-white p-6 space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="mobile" className="font-semibold">
-              Mobile Number
-            </Label>
-            <Input
-              id="mobile"
-              name="mobileNo"
-              value={formData.mobileNo}
-              disabled
-              className="bg-slate-100 cursor-not-allowed"
-              maxLength={10}
-            />
-          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="mobile" className="font-semibold">
+                Mobile Number
+              </Label>
+              <Input
+                id="mobile"
+                name="mobileNo"
+                value={formData.mobileNo}
+                disabled
+                className="bg-slate-100 cursor-not-allowed"
+                maxLength={10}
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="name" className="font-semibold">
-              Customer Name <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleInputChange}
-              disabled={isLoading}
-            />
+            <div className="space-y-2">
+              <Label htmlFor="name" className="font-semibold">
+                Customer Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                disabled={isLoading}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -274,30 +276,32 @@ export function AddCustomerModal({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="addressLine1" className="font-semibold">
-              Address Line 1 (Apartment, Suite, Unit, Building, Floor)
-            </Label>
-            <Input
-              id="addressLine1"
-              name="addressLine1"
-              value={formData.addressLine1}
-              onChange={handleInputChange}
-              disabled={isLoading}
-            />
-          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="addressLine1" className="font-semibold">
+                Address Line 1 (Apartment, Suite, Unit, Building, Floor)
+              </Label>
+              <Input
+                id="addressLine1"
+                name="addressLine1"
+                value={formData.addressLine1}
+                onChange={handleInputChange}
+                disabled={isLoading}
+              />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="addressLine2" className="font-semibold">
-              Address Line 2 (Street Address)
-            </Label>
-            <Input
-              id="addressLine2"
-              name="addressLine2"
-              value={formData.addressLine2}
-              onChange={handleInputChange}
-              disabled={isLoading}
-            />
+            <div className="space-y-2">
+              <Label htmlFor="addressLine2" className="font-semibold">
+                Address Line 2 (Street Address)
+              </Label>
+              <Input
+                id="addressLine2"
+                name="addressLine2"
+                value={formData.addressLine2}
+                onChange={handleInputChange}
+                disabled={isLoading}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">

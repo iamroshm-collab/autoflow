@@ -74,10 +74,11 @@ export const useTechnicianSearch = (activeItem: string) => {
   }, [])
 
   const openTechnicianSearchDropdown = useCallback(() => {
+    if (isTechnicianSearchOpen) { setIsTechnicianSearchOpen(false); return }
     setIsTechnicianSearchOpen(true)
     technicianDropdownNav.resetHighlight()
     loadTechnicianNames()
-  }, [technicianDropdownNav, loadTechnicianNames])
+  }, [isTechnicianSearchOpen, technicianDropdownNav, loadTechnicianNames])
 
   return {
     technicianSearch,

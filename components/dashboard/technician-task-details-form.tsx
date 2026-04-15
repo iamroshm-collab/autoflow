@@ -11,6 +11,17 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
+import {
+  Plus,
+  UserPlus,
+  CheckCircle2,
+  Play,
+  Flag,
+  Truck,
+  Package,
+  Clock,
+  ClipboardList,
+} from "lucide-react"
 
 type TaskStatus = "assigned" | "accepted" | "in_progress" | "completed" | "all"
 type TimelineSectionKey =
@@ -143,6 +154,26 @@ function formatStatusLabel(status?: string | null) {
 
 function normalizeStatus(value?: string | null) {
   return (value || "").trim().toLowerCase()
+}
+
+const SECTION_ICON: Record<string, React.ElementType> = {
+  created:   Plus,
+  assigned:  UserPlus,
+  accepted:  CheckCircle2,
+  started:   Play,
+  completed: Flag,
+  ready:     Truck,
+  delivered: Package,
+}
+
+const SECTION_COLOR: Record<string, string> = {
+  created:   "bg-slate-500",
+  assigned:  "bg-sky-600",
+  accepted:  "bg-indigo-500",
+  started:   "bg-violet-500",
+  completed: "bg-emerald-500",
+  ready:     "bg-cyan-500",
+  delivered: "bg-green-600",
 }
 
 function getCurrentJobCardStage(group: GroupedJobCard) {
@@ -740,125 +771,109 @@ export function TechnicianTaskDetailsForm({
 
           <div className="min-h-0">
             {selectedJobCard ? (
-              <>
-                <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-900">Milestones</h3>
-                      <p className="text-xs text-slate-500">Section-wise technician and delivery progress for the selected vehicle.</p>
-                    </div>
-                    <div className="flex w-full items-center gap-3 text-left sm:ml-auto sm:w-auto sm:shrink-0 sm:self-start">
-                      <p className="shrink-0 text-xs text-muted-foreground">Sort By</p>
-                      <div className="w-full sm:w-56">
-                        <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus)}>
-                          <SelectTrigger
-                            className="w-full text-xs py-0"
-                            style={{ height: "1.875rem", minHeight: "unset" }}
-                          >
-                            <SelectValue placeholder="Sort by" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all" className="text-xs">All Status</SelectItem>
-                            <SelectItem value="assigned">Assigned</SelectItem>
-                            <SelectItem value="accepted">Accepted</SelectItem>
-                            <SelectItem value="in_progress">In Progress</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
+              <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-emerald-200 bg-white">
+                {/* Green header bar — matches breakdown orange header pattern */}
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-emerald-100 bg-emerald-50 shrink-0">
+                  <ClipboardList className="w-4 h-4 text-emerald-600" />
+                  <span className="text-sm font-semibold text-emerald-900">Job Card</span>
+                  <span className="text-xs text-emerald-700 font-mono truncate">
+                    {selectedJobCard.vehicleNumber} · {selectedJobCard.customerName}
+                  </span>
+                  <span className="ml-auto flex items-center gap-2">
+                    <p className="text-xs text-emerald-700 shrink-0">Filter</p>
+                    <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus)}>
+                      <SelectTrigger
+                        className="w-36 text-xs py-0 border-emerald-200 bg-white"
+                        style={{ height: "1.75rem", minHeight: "unset" }}
+                      >
+                        <SelectValue placeholder="All Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all" className="text-xs">All Status</SelectItem>
+                        <SelectItem value="assigned">Assigned</SelectItem>
+                        <SelectItem value="accepted">Accepted</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </span>
+                </div>
 
-                  <div
-                    ref={milestoneScrollRef}
-                    className="flex-1 min-h-0 overflow-y-auto pr-1"
-                  >
-                    <div className="grid gap-3">
-                    {timelineSections.map((section, index) => (
-                      <div key={section.key} data-milestone-row className="relative pl-10">
-                        {index < timelineSections.length - 1 ? (
-                          <div className="absolute left-[11px] top-8 bottom-[-16px] w-px bg-slate-200" />
-                        ) : null}
-                        <div className="absolute left-0 top-1 flex h-[22px] w-[22px] items-center justify-center rounded-full bg-sky-600 text-[11px] font-semibold text-white">
-                          {index + 1}
-                        </div>
-                        <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-3">
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                              <h4 className="text-sm font-semibold text-slate-900">{section.title}</h4>
-                              <p className="text-xs text-slate-500">{section.description}</p>
+                {/* Timeline */}
+                <div ref={milestoneScrollRef} className="flex-1 min-h-0 overflow-y-auto p-5">
+                  <div className="space-y-0">
+                    {timelineSections.map((section, idx) => {
+                      const isLast = idx === timelineSections.length - 1
+                      const Icon = SECTION_ICON[section.key] || Clock
+                      const dotColor = SECTION_COLOR[section.key] || "bg-slate-400"
+                      return (
+                        <div key={section.key} className="flex gap-3">
+                          {/* Dot + connector line */}
+                          <div className="flex flex-col items-center">
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${dotColor}`}>
+                              <Icon className="w-3.5 h-3.5 text-white" />
                             </div>
-                            <span className="text-xs font-medium text-slate-400">
-                              {section.items.length} {section.items.length === 1 ? "entry" : "entries"}
-                            </span>
+                            {!isLast && <div className="w-0.5 flex-1 bg-slate-200 my-1" />}
                           </div>
 
-                          {section.items.length > 0 ? (
-                            <div className="mt-3 flex-1 min-h-0 space-y-2 overflow-y-auto pr-1">
-                              {section.items.map((item) => {
-                                const actionLabel =
-                                  item.action === "accept"
-                                    ? "Accept"
-                                    : item.action === "start"
-                                      ? "Start"
-                                      : item.action === "complete"
-                                        ? "Complete"
-                                        : null
-
-                                return (
-                                  <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                                      <div className="min-w-0">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                          <p className="text-sm font-semibold text-slate-900">{item.title}</p>
-                                          {item.status ? (
-                                            <span
-                                              className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${statusBadgeClass(
-                                                item.status
-                                              )}`}
-                                            >
-                                              {formatStatusLabel(item.status)}
-                                            </span>
-                                          ) : null}
+                          {/* Content */}
+                          <div className={`flex-1 min-w-0 ${isLast ? "pb-2" : "pb-5"}`}>
+                            <p className="text-sm font-semibold text-slate-800 mt-1">{section.title}</p>
+                            {section.items.length === 0 ? (
+                              <p className="text-xs text-slate-400 mt-1 italic">{section.emptyState}</p>
+                            ) : (
+                              <div className="mt-2 space-y-2">
+                                {section.items.map((item) => {
+                                  const actionLabel =
+                                    item.action === "accept" ? "Accept"
+                                    : item.action === "start" ? "Start"
+                                    : item.action === "complete" ? "Complete"
+                                    : null
+                                  return (
+                                    <div key={item.id} className="rounded-xl bg-slate-50 border border-slate-100 p-3">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex flex-wrap items-center gap-1.5">
+                                            <p className="text-sm font-medium text-slate-900">{item.title}</p>
+                                            {item.status && (
+                                              <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${statusBadgeClass(item.status)}`}>
+                                                {formatStatusLabel(item.status)}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <p className="text-xs text-slate-500 mt-0.5">{item.caption}</p>
+                                          {item.metadata?.map((meta, i) => (
+                                            <p key={`${item.id}-meta-${i}`} className="text-xs text-slate-400 mt-0.5">{meta}</p>
+                                          ))}
                                         </div>
-                                        <p className="mt-1 text-sm text-slate-600">{item.caption}</p>
-                                        {item.metadata?.map((meta, metaIndex) => (
-                                          <p key={`${item.id}-meta-${metaIndex}`} className="mt-1 text-xs text-slate-500">
-                                            {meta}
-                                          </p>
-                                        ))}
-                                      </div>
-
-                                      <div className="flex flex-col items-start gap-2 lg:items-end">
-                                        <span className="text-xs font-medium text-slate-500">
-                                          {item.time ? formatDateTime(item.time) : "Time not recorded separately"}
-                                        </span>
-                                        {item.row && item.action && actionLabel ? (
-                                          <Button
-                                            size="sm"
-                                            onClick={() => runTaskAction(item.row as TechnicianTaskRow, item.action as "accept" | "start" | "complete")}
-                                            disabled={actionLoadingId === item.row.id}
-                                            className="min-h-[38px] px-4"
-                                          >
-                                            {actionLoadingId === item.row.id ? "Please wait..." : actionLabel}
-                                          </Button>
-                                        ) : null}
+                                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                          <span className="text-xs text-slate-400">
+                                            {item.time ? formatDateTime(item.time) : "—"}
+                                          </span>
+                                          {item.row && item.action && actionLabel && (
+                                            <Button
+                                              size="sm"
+                                              onClick={() => runTaskAction(item.row as TechnicianTaskRow, item.action as "accept" | "start" | "complete")}
+                                              disabled={actionLoadingId === item.row.id}
+                                              className="h-7 px-3 text-xs"
+                                            >
+                                              {actionLoadingId === item.row.id ? "Please wait…" : actionLabel}
+                                            </Button>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          ) : (
-                            <p className="mt-4 text-sm text-slate-500">{section.emptyState}</p>
-                          )}
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                    </div>
+                      )
+                    })}
                   </div>
                 </div>
-              </>
+              </div>
             ) : null}
           </div>
         </div>

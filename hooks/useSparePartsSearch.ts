@@ -76,10 +76,11 @@ export const useSparePartsSearch = (activeItem: string) => {
   }, [])
 
   const openSparePartsDropdown = useCallback(() => {
+    if (isSparePartsSearchOpen) { setIsSparePartsSearchOpen(false); return }
     setIsSparePartsSearchOpen(true)
     sparePartsDropdownNav.resetHighlight()
     loadShopNames()
-  }, [sparePartsDropdownNav, loadShopNames])
+  }, [isSparePartsSearchOpen, sparePartsDropdownNav, loadShopNames])
 
   return {
     sparePartsSearch,

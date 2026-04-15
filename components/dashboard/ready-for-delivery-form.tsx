@@ -2056,7 +2056,7 @@ export function ReadyForDeliveryForm({
               value={formData.advance ?? 0}
               onChange={(e) => setFormData((prev) => ({ ...prev, advance: Number(e.target.value) || 0 }))}
               disabled={isLoading}
-              className="h-10 text-center"
+              className="h-10 text-left"
               placeholder="0.00"
             />
           </div>
@@ -2069,7 +2069,7 @@ export function ReadyForDeliveryForm({
               value={formData.paid ?? 0}
               onChange={(e) => setFormData((prev) => ({ ...prev, paid: Number(e.target.value) || 0 }))}
               disabled={isLoading}
-              className="h-10 text-center"
+              className="h-10 text-left"
               placeholder="0.00"
             />
           </div>
@@ -2087,7 +2087,7 @@ export function ReadyForDeliveryForm({
               value={formData.discount ?? 0}
               onChange={(e) => setFormData((prev) => ({ ...prev, discount: Number(e.target.value) || 0 }))}
               disabled={isLoading}
-              className="h-10 text-center"
+              className="h-10 text-left"
               placeholder="0.00"
             />
           </div>

@@ -1,11 +1,159 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { parseAddress } from "@/lib/address-utils"
 import { notify } from "@/components/ui/notify"
+import { GARAGE_DEPARTMENTS, getDesignationsForDepartment } from "@/lib/garage-departments"
+import { AdminLeaveRequestsPanel } from "@/components/dashboard/admin-leave-requests-panel"
+import { SwitchCamera, Camera } from "lucide-react"
+
+// ── Admin face capture overlay ────────────────────────────────────────────────
+
+function AdminFaceCaptureOverlay({
+  onCapture,
+  onCancel,
+}: {
+  onCapture: (blob: Blob) => void
+  onCancel: () => void
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const [facing, setFacing] = useState<"user" | "environment">("user")
+  const [ready, setReady] = useState(false)
+  const [error, setError] = useState("")
+  const [viewport, setViewport] = useState({ w: 0, h: 0 })
+
+  useEffect(() => {
+    const update = () => setViewport({ w: window.innerWidth, h: window.innerHeight })
+    update()
+    window.addEventListener("resize", update)
+    return () => window.removeEventListener("resize", update)
+  }, [])
+
+  const circleR  = viewport.w > 0 ? Math.min(Math.floor(viewport.w * 0.40), 155) : 140
+  const circleCX = viewport.w > 0 ? Math.round(viewport.w / 2) : 190
+  const circleCY = viewport.h > 0 ? Math.round(viewport.h * 0.40) : 300
+  const videoClip = viewport.w > 0 ? `circle(${circleR}px at ${circleCX}px ${circleCY}px)` : undefined
+
+  const startStream = useCallback(async (facingMode: "user" | "environment") => {
+    setReady(false)
+    setError("")
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: facingMode }, width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false,
+      })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+      }
+      setReady(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Camera access denied")
+    }
+  }, [])
+
+  useEffect(() => {
+    void startStream(facing)
+    return () => { streamRef.current?.getTracks().forEach((t) => t.stop()) }
+  }, [])
+
+  const handleSwitch = async () => {
+    const next = facing === "user" ? "environment" : "user"
+    setFacing(next)
+    await startStream(next)
+  }
+
+  const handleCapture = () => {
+    const video = videoRef.current
+    if (!video) return
+    const canvas = document.createElement("canvas")
+    canvas.width = video.videoWidth || 640
+    canvas.height = video.videoHeight || 480
+    const ctx = canvas.getContext("2d")!
+    // Mirror for front camera
+    if (facing === "user") {
+      ctx.translate(canvas.width, 0)
+      ctx.scale(-1, 1)
+    }
+    ctx.drawImage(video, 0, 0)
+    canvas.toBlob((blob) => {
+      if (blob) {
+        streamRef.current?.getTracks().forEach((t) => t.stop())
+        onCapture(blob)
+      }
+    }, "image/jpeg", 0.92)
+  }
+
+  const statusY = circleCY + circleR + 28
+
+  return (
+    <div className="fixed inset-0 z-[60]" style={{ background: "rgb(232,230,224)" }}>
+      {/* Camera feed clipped to circle */}
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+      <video
+        ref={videoRef}
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{
+          clipPath: videoClip,
+          transform: facing === "user" ? "scaleX(-1)" : "none",
+        }}
+        playsInline
+        muted
+        autoPlay
+      />
+
+      {/* Border ring + glow */}
+      {viewport.w > 0 && (
+        <svg
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "visible", pointerEvents: "none", zIndex: 10 }}
+        >
+          <circle cx={circleCX} cy={circleCY} r={circleR + 6} fill="none" stroke="rgba(34,197,94,0.20)" strokeWidth={14} />
+          <circle cx={circleCX} cy={circleCY} r={circleR} fill="none" stroke="#22c55e" strokeWidth={3.5} />
+        </svg>
+      )}
+
+      {/* Status / hint */}
+      {viewport.w > 0 && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-xl border bg-emerald-50 border-emerald-300 text-emerald-700 text-sm font-medium text-center w-[82%] max-w-sm"
+          style={{ top: statusY, zIndex: 20 }}
+        >
+          {error ? error : ready ? "Position face inside the circle and capture" : "Starting camera…"}
+        </div>
+      )}
+
+      {/* Top bar */}
+      <div className="absolute top-4 left-0 right-0 px-4 flex items-center justify-between z-20">
+        <Button variant="outline" className="bg-white border-slate-300 text-slate-700 shadow-sm" onClick={() => { streamRef.current?.getTracks().forEach((t) => t.stop()); onCancel() }}>
+          Cancel
+        </Button>
+        <Button variant="outline" className="bg-white border-slate-300 text-slate-700 shadow-sm gap-2" onClick={handleSwitch}>
+          <SwitchCamera className="h-4 w-4" />
+          {facing === "user" ? "Rear" : "Front"}
+        </Button>
+      </div>
+
+      {/* Capture button */}
+      {ready && (
+        <div className="absolute bottom-8 left-0 right-0 flex justify-center z-20">
+          <button
+            type="button"
+            onClick={handleCapture}
+            className="h-16 w-16 rounded-full bg-white border-4 border-emerald-500 shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+          >
+            <Camera className="h-7 w-7 text-emerald-600" />
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 type PendingUser = {
   id: string
@@ -35,6 +183,7 @@ type DeviceRequestUser = {
 type ApprovalProfile = {
   accessRole: "" | "technician" | "supervisor" | "manager" | "accountant" | "office-staff"
   mobile: string
+  department: string
   designation: string
   facePhotoUrl: string
   addressLine1: string
@@ -47,6 +196,7 @@ type ApprovalProfile = {
 const createEmptyProfile = (): ApprovalProfile => ({
   accessRole: "",
   mobile: "",
+  department: "",
   designation: "",
   facePhotoUrl: "",
   addressLine1: "",
@@ -59,61 +209,23 @@ const createEmptyProfile = (): ApprovalProfile => ({
 interface ApprovalsModuleProps {
   filterUserId?: string | null
   filterMobile?: string | null
+  hideLeavePanel?: boolean
 }
 
-export function ApprovalsModule({ filterUserId, filterMobile }: ApprovalsModuleProps = {}) {
+export function ApprovalsModule({ filterUserId, filterMobile, hideLeavePanel = false }: ApprovalsModuleProps = {}) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [requests, setRequests] = useState<PendingUser[]>([])
   const [deviceRequests, setDeviceRequests] = useState<DeviceRequestUser[]>([])
   const [activeDevices, setActiveDevices] = useState<DeviceRequestUser[]>([])
   const [profiles, setProfiles] = useState<Record<string, ApprovalProfile>>({})
-  const [cameraUserId, setCameraUserId] = useState<string | null>(null)
-  const [cameraError, setCameraError] = useState("")
-  const [cameraBusy, setCameraBusy] = useState(false)
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null)
-  const [cameraFacing, setCameraFacing] = useState<"environment" | "user">("environment")
-  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const [captureTarget, setCaptureTarget] = useState<{ userId: string; name: string } | null>(null)
 
   const updateProfile = (userId: string, patch: Partial<ApprovalProfile>) => {
     setProfiles((prev) => ({
       ...prev,
       [userId]: { ...(prev[userId] || createEmptyProfile()), ...patch },
     }))
-  }
-
-  const stopCamera = () => {
-    if (cameraStream) cameraStream.getTracks().forEach((t) => t.stop())
-    setCameraStream(null)
-    setCameraUserId(null)
-  }
-
-  const toggleCamera = async () => {
-    const newFacing = cameraFacing === "environment" ? "user" : "environment"
-    setCameraFacing(newFacing)
-    if (cameraUserId && cameraStream) {
-      cameraStream.getTracks().forEach((t) => t.stop())
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: newFacing }, audio: false })
-        setCameraStream(stream)
-      } catch (err) {
-        setCameraError(err instanceof Error ? err.message : "Unable to switch camera")
-      }
-    }
-  }
-
-  const startCamera = async (userId: string) => {
-    setCameraError("")
-    setCameraBusy(true)
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraFacing }, audio: false })
-      if (cameraStream) cameraStream.getTracks().forEach((t) => t.stop())
-      setCameraStream(stream); setCameraUserId(userId)
-    } catch (err) {
-      setCameraError(err instanceof Error ? err.message : "Unable to access camera")
-    } finally {
-      setCameraBusy(false)
-    }
   }
 
   const uploadEmployeePhoto = async (userId: string, employeeName: string, file: File) => {
@@ -127,44 +239,17 @@ export function ApprovalsModule({ filterUserId, filterMobile }: ApprovalsModuleP
     notify.success("Employee photo saved")
   }
 
-  const captureLivePhoto = async (userId: string, employeeName: string) => {
-    if (!videoRef.current) { notify.error("Camera preview is not ready"); return }
-    const video = videoRef.current
-    const canvas = document.createElement("canvas")
-    canvas.width = video.videoWidth || 640
-    canvas.height = video.videoHeight || 480
-    const ctx = canvas.getContext("2d")
-    if (!ctx) { notify.error("Unable to capture photo"); return }
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", 0.92))
-    if (!blob) { notify.error("Unable to capture photo"); return }
-    const file = new File([blob], `${employeeName || "employee"}-${Date.now()}.jpg`, { type: "image/jpeg" })
+  const handleCapturePhoto = async (blob: Blob) => {
+    if (!captureTarget) return
+    const { userId, name } = captureTarget
+    setCaptureTarget(null)
+    const file = new File([blob], `${name || "employee"}-${Date.now()}.jpg`, { type: "image/jpeg" })
     try {
-      setCameraBusy(true)
-      await uploadEmployeePhoto(userId, employeeName, file)
-      stopCamera()
+      await uploadEmployeePhoto(userId, name, file)
     } catch (err) {
       notify.error(err instanceof Error ? err.message : "Failed to save captured photo")
-    } finally {
-      setCameraBusy(false)
     }
   }
-
-  useEffect(() => {
-    if (cameraUserId && cameraStream && videoRef.current) {
-      videoRef.current.srcObject = cameraStream
-      void videoRef.current.play().catch(() => {
-        setCameraError("Unable to start camera preview")
-      })
-    }
-  }, [cameraUserId, cameraStream])
-
-  // Stop camera tracks when stream changes or component unmounts
-  useEffect(() => {
-    return () => {
-      if (cameraStream) cameraStream.getTracks().forEach((t) => t.stop())
-    }
-  }, [cameraStream])
 
   const loadRequests = async (fId?: string | null, fm?: string | null) => {
     setLoading(true)
@@ -208,6 +293,7 @@ export function ApprovalsModule({ filterUserId, filterMobile }: ApprovalsModuleP
           next[item.id] = {
             accessRole: "",
             mobile: String(item.mobile || ""),
+            department: "",
             designation: "",
             facePhotoUrl: "",
             addressLine1: String(parsed.line1 || ""),
@@ -233,6 +319,7 @@ export function ApprovalsModule({ filterUserId, filterMobile }: ApprovalsModuleP
     const profile = profiles[userId] || createEmptyProfile()
     if (action === "approve") {
       if (!profile.accessRole) { notify.error("Please select a role before approval."); return }
+      if (!profile.department) { notify.error("Please select a department before approval."); return }
       if (!profile.designation) { notify.error("Please select a designation before approval."); return }
       if (!profile.facePhotoUrl) { notify.error("Please capture an employee photo before approval."); return }
     }
@@ -270,6 +357,13 @@ export function ApprovalsModule({ filterUserId, filterMobile }: ApprovalsModuleP
   if (loading) return <p className="text-sm text-slate-500">Loading requests...</p>
 
   return (
+    <>
+    {captureTarget && (
+      <AdminFaceCaptureOverlay
+        onCapture={handleCapturePhoto}
+        onCancel={() => setCaptureTarget(null)}
+      />
+    )}
     <div className="flex h-full min-h-0 flex-col overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50/70 p-4 pb-4">
       {error ? <p className="text-sm text-rose-600">{error}</p> : null}
 
@@ -309,8 +403,9 @@ export function ApprovalsModule({ filterUserId, filterMobile }: ApprovalsModuleP
                     <h3 className="text-sm font-semibold text-slate-800">Employee Details</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 
+                      {/* Role */}
                       <div className="space-y-1">
-                        <Label htmlFor={`access-role-${item.id}`} className="text-xs">Role</Label>
+                        <Label htmlFor={`access-role-${item.id}`} className="text-xs">Role <span className="text-red-500">*</span></Label>
                         <select
                           id={`access-role-${item.id}`}
                           value={profile.accessRole}
@@ -326,37 +421,45 @@ export function ApprovalsModule({ filterUserId, filterMobile }: ApprovalsModuleP
                         </select>
                       </div>
 
+                      {/* Department */}
                       <div className="space-y-1">
-                        <Label htmlFor={`designation-${item.id}`} className="text-xs">Designation</Label>
+                        <Label htmlFor={`department-${item.id}`} className="text-xs">Department <span className="text-red-500">*</span></Label>
+                        <select
+                          id={`department-${item.id}`}
+                          value={profile.department}
+                          onChange={(e) => updateProfile(item.id, { department: e.target.value, designation: "" })}
+                          className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                          <option value="">Select Department</option>
+                          {GARAGE_DEPARTMENTS.map((dept) => (
+                            <option key={dept} value={dept}>{dept}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Designation — filtered by department */}
+                      <div className="space-y-1 md:col-span-2">
+                        <Label htmlFor={`designation-${item.id}`} className="text-xs">Designation <span className="text-red-500">*</span></Label>
                         <select
                           id={`designation-${item.id}`}
                           value={profile.designation}
                           onChange={(e) => updateProfile(item.id, { designation: e.target.value })}
                           className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                         >
-                          <option value="">Select Designation</option>
-                          <option value="Mechanic">Mechanic</option>
-                          <option value="Electrician">Electrician</option>
-                          <option value="Accountant">Accountant</option>
-                          <option value="Supervisor">Supervisor</option>
-                          <option value="Manager">Manager</option>
-                          <option value="AC Technician">AC Technician</option>
-                          <option value="Denter">Denter</option>
-                          <option value="Painter">Painter</option>
-                          <option value="Patch Worker">Patch Worker</option>
-                          <option value="Welder">Welder</option>
-                          <option value="Helper">Helper</option>
-                          <option value="Driver">Driver</option>
-                          <option value="Office Boy">Office Boy</option>
-                          <option value="Receptionist">Receptionist</option>
+                          <option value="">
+                            {profile.department ? "Select Designation" : "Select a department first"}
+                          </option>
+                          {getDesignationsForDepartment(profile.department).map((d) => (
+                            <option key={d} value={d}>{d}</option>
+                          ))}
                         </select>
                       </div>
 
                       {/* Photo capture */}
                       <div className="space-y-2 md:col-span-2">
                         <Label className="text-xs">Employee Photo (Mandatory — Live Capture Only)</Label>
-                        <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
-                          <div className="h-40 w-32 overflow-hidden rounded border border-slate-200 bg-slate-100 relative">
+                        <div className="flex items-center gap-4 rounded-md border border-slate-200 bg-slate-50 p-3">
+                          <div className="h-24 w-20 shrink-0 overflow-hidden rounded border border-slate-200 bg-slate-100 relative">
                             <Image
                               src={profile.facePhotoUrl || "/dummy-profile.svg"}
                               alt={`${item.name} photo preview`}
@@ -364,28 +467,16 @@ export function ApprovalsModule({ filterUserId, filterMobile }: ApprovalsModuleP
                               className={profile.facePhotoUrl ? "object-cover" : "object-contain p-3"}
                             />
                           </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Button type="button" size="sm" variant="outline" onClick={() => startCamera(item.id)} disabled={cameraBusy}>
-                              Take Live Picture
-                            </Button>
-                          </div>
-                          {cameraUserId === item.id && (
-                            <div className="space-y-2 rounded-md border border-slate-200 bg-white p-2">
-                              <video ref={videoRef} className="h-56 w-full rounded bg-black object-cover" autoPlay muted playsInline />
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Button type="button" size="sm" onClick={() => captureLivePhoto(item.id, item.name)} disabled={cameraBusy}>
-                                  Capture Photo
-                                </Button>
-                                <Button type="button" size="sm" variant="outline" onClick={toggleCamera} disabled={cameraBusy}>
-                                  Switch ({cameraFacing === "environment" ? "Back" : "Front"})
-                                </Button>
-                                <Button type="button" size="sm" variant="outline" onClick={stopCamera} disabled={cameraBusy}>
-                                  Close
-                                </Button>
-                              </div>
-                              {cameraError ? <p className="text-xs text-rose-600">{cameraError}</p> : null}
-                            </div>
-                          )}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() => setCaptureTarget({ userId: item.id, name: item.name })}
+                          >
+                            <Camera className="h-4 w-4" />
+                            {profile.facePhotoUrl ? "Retake Photo" : "Take Live Photo"}
+                          </Button>
                         </div>
                       </div>
 
@@ -396,7 +487,7 @@ export function ApprovalsModule({ filterUserId, filterMobile }: ApprovalsModuleP
                         size="sm"
                         className="bg-green-600 text-white hover:bg-green-700"
                         onClick={() => handleAction(item.id, "approve")}
-                        disabled={!profile.accessRole || !profile.designation || !profile.facePhotoUrl}
+                        disabled={!profile.accessRole || !profile.department || !profile.designation || !profile.facePhotoUrl}
                       >
                         Approve
                       </Button>
@@ -480,6 +571,17 @@ export function ApprovalsModule({ filterUserId, filterMobile }: ApprovalsModuleP
           </div>
         </div>
       )}
+
+      {!hideLeavePanel && (
+        <div className="space-y-3 border-t border-slate-200 pt-4">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Leave Management</h2>
+            <p className="text-xs text-slate-500">Approve or reject leave requests submitted by employees.</p>
+          </div>
+          <AdminLeaveRequestsPanel />
+        </div>
+      )}
     </div>
+    </>
   )
 }

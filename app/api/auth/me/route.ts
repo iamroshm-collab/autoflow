@@ -12,13 +12,17 @@ export async function GET(request: NextRequest) {
     }
 
     let facePhotoUrl: string | null = null
+    let department: string | null = null
+    let designation: string | null = null
     const employeeRefId = (user as any).employeeRefId
     if (employeeRefId && Number.isInteger(Number(employeeRefId))) {
       const emp = await prismaClient.employee.findUnique({
         where: { employeeId: Number(employeeRefId) },
-        select: { facePhotoUrl: true },
+        select: { facePhotoUrl: true, department: true, designation: true },
       })
       facePhotoUrl = emp?.facePhotoUrl ?? null
+      department = emp?.department ?? null
+      designation = emp?.designation ?? null
     }
 
     return NextResponse.json({
@@ -36,6 +40,8 @@ export async function GET(request: NextRequest) {
         deviceApprovalStatus: (user as any).deviceApprovalStatus ?? "none",
         profileIncomplete: false,
         facePhotoUrl,
+        department,
+        designation,
       },
     })
   } catch (error) {
